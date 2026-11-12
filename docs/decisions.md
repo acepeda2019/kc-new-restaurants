@@ -2,6 +2,26 @@
 
 Newest first. One entry per decision: context, decision, consequences.
 
+## 2026-11-12 — KC: current dataset only in milestone 1; legacy deferred
+- **Context:** profiling found the legacy dataset (`f29f-zza5`) is private (HTTP 403) and not in the catalog. The current dataset starts January 2021, which is enough history to tell a genuine first inspection from an older business.
+- **Decision:** milestone 1 uses only the current dataset. Request the legacy export from Public Health – Seattle & King County for the milestone 6 survival analysis.
+- **Consequences:** no legacy union or dedupe in v1; the 2021–2025 overlap problem disappears. If the export never arrives, the survival analysis covers 2021 onward only.
+
+## 2026-11-12 — KC: daily full pull instead of incremental
+- **Context:** Socrata `:updated_at` holds one value for all 111,644 rows, so it cannot drive incremental pulls. The dataset is about 3 pages.
+- **Decision:** the KC extractor pulls the full dataset every run; dbt dedupes on key.
+- **Consequences:** corrections and deletions are always captured; S3 grows by one full copy (a few MB compressed) per day, managed by lifecycle rules. Supersedes the `:updated_at` incremental default for KC.
+
+## 2026-11-12 — Map coordinates from the US Census Geocoder
+- **Context:** the current KC dataset has no lat/long, but the v1 app has a map.
+- **Decision:** a geocode step in the Step Functions workflow sends only not-yet-geocoded addresses to the free Census batch geocoder and lands results in S3 raw; `int_address_geocodes` joins them in.
+- **Consequences:** new source card and staging model; unmatched addresses and food trucks get no pin. Output is public domain, so storing it is fine.
+
+## 2026-11-12 — Exclude stadium, arena and airport-terminal vendors
+- **Context:** profiling found large multi-tenant venue addresses (e.g. about 60 units at Lumen Field, SeaTac airport) that diners cannot simply walk into.
+- **Decision:** exclude them via `seeds/venue_exclusions.csv` (by address). Food halls and malls stay in as `food_hall_stall`.
+- **Consequences:** one more seed to maintain; fewer false "openings" from seasonal concession permits.
+
 ## 2026-11-12 — Area filter instead of ZIP filter
 - **Context:** a few hundred openings across about 100 King County ZIPs leaves many ZIPs with 0–2 places per list.
 - **Decision:** filter by about 15–25 areas (neighborhoods or city groups) from `seeds/zip_to_area.csv` via `dim_zip`. `rank_in_area` replaces `rank_in_zip`. ZIP still shows on cards.
