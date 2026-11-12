@@ -1,0 +1,3 @@
+# Lambda build output (ingestion/build.sh)
+dist/
+.venv/
