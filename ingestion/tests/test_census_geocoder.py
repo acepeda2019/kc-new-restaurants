@@ -11,7 +11,15 @@ import responses
 from sources import census_geocoder as geo
 from sources.common import STATUS_SUCCEEDED, ExtractError
 from sources.geocode_key import KEY_RULE_VERSION
-from tests.conftest import BUCKET, all_keys, fixture_bytes, fixture_jsonl, gz_jsonl, object_body
+from tests.conftest import (
+    BUCKET,
+    all_keys,
+    fixture_bytes,
+    fixture_jsonl,
+    gz_jsonl,
+    object_body,
+    seed,
+)
 
 RUN_DATE = "2026-11-12"
 RUN_ID = "20261112T150000Z-aaaaaaaa"
@@ -50,7 +58,7 @@ def recorded_geocoder(http: responses.RequestsMock, *, reverse: bool = False) ->
 
 
 def put_kc(s3: Any, rows: list[dict[str, Any]] | None = None, key: str = KC_KEY) -> None:
-    s3.put_object(Bucket=BUCKET, Key=key, Body=gz_jsonl(KC_ROWS if rows is None else rows))
+    seed(s3, key, gz_jsonl(KC_ROWS if rows is None else rows))
 
 
 def run(s3: Any, sleeps: list[float], **kw: Any) -> dict[str, Any]:
@@ -183,29 +191,25 @@ def test_load_prior_status_latest_request_wins(s3) -> None:
     key = "0aa4330a7e6f24482df24a0f816ed1d0"
     old = "raw/census_geocoder/dt=2026-01-02/r1/response_0001.csv"
     new = "raw/census_geocoder/dt=2026-05-01/r2/response_0001.csv"
-    s3.put_object(Bucket=BUCKET, Key=old, Body=f'"{key}","90 YESLER WAY","No_Match"\n'.encode())
+    seed(s3, old, f'"{key}","90 YESLER WAY","No_Match"\n'.encode())
     match_line = RESPONSE_LINES["c1141ced6aa3226fa962aad160e83d7e"].replace(
         "c1141ced6aa3226fa962aad160e83d7e", key
     )
-    s3.put_object(Bucket=BUCKET, Key=new, Body=(match_line + "\n").encode())
-    manifest = {"chunks": [{"response_key": new, "requested_at": "2026-05-01T18:30:00Z"}]}
-    s3.put_object(
-        Bucket=BUCKET,
-        Key="raw/census_geocoder/dt=2026-05-01/r2/manifest.json",
-        Body=json.dumps(manifest).encode(),
-    )
+    seed(s3, new, (match_line + "\n").encode())
+    record = {"response_key": new, "requested_at": "2026-05-01T18:30:00Z"}
+    seed(s3, "raw/census_geocoder/dt=2026-05-01/r2/chunk_0001.json", json.dumps(record).encode())
 
     prior = geo.load_prior_status(s3, BUCKET)
 
     assert prior[key].match == "Match"
-    assert prior[key].requested_at == "2026-05-01T18:30:00Z"  # from the manifest
+    assert prior[key].requested_at == "2026-05-01T18:30:00Z"  # from the chunk record
     assert prior[key].response_key == new
 
 
 def test_load_prior_status_falls_back_to_partition_date(s3) -> None:
     key = "raw/census_geocoder/dt=2026-03-04/r1/response_0001.csv"
-    s3.put_object(Bucket=BUCKET, Key=key, Body=b'"k1","x","Tie"\n')
-    s3.put_object(Bucket=BUCKET, Key=key.replace("response", "request"), Body=b'k1,"x","",WA,\n')
+    seed(s3, key, b'"k1","x","Tie"\n')
+    seed(s3, key.replace("response", "request"), b'k1,"x","",WA,\n')
     prior = geo.load_prior_status(s3, BUCKET)
     assert prior == {"k1": geo.PriorStatus("Tie", "2026-03-04T00:00:00Z", key)}
 
@@ -213,7 +217,11 @@ def test_load_prior_status_falls_back_to_partition_date(s3) -> None:
 # --------------------------------------------------------------------------- end to end
 
 
-def test_first_run_lands_request_response_and_manifest(s3, http, no_sleep) -> None:
+def raw_puts(s3: Any) -> list[dict[str, Any]]:
+    return [p for p in s3.test_puts if p["Key"].startswith("raw/census_geocoder/")]
+
+
+def test_first_run_lands_request_response_record_and_manifest(s3, http, no_sleep) -> None:
     put_kc(s3)
     recorded_geocoder(http)
 
@@ -226,7 +234,8 @@ def test_first_run_lands_request_response_and_manifest(s3, http, no_sleep) -> No
     assert result["s3_keys"] == [
         f"{prefix}request_0001.csv",
         f"{prefix}response_0001.csv",
-        f"{prefix}manifest.json",
+        f"{prefix}chunk_0001.json",
+        f"{prefix}manifest_0001.json",
     ]
     assert object_body(s3, f"{prefix}request_0001.csv") == REQUEST
     # response landed byte-for-byte as received
@@ -235,13 +244,28 @@ def test_first_run_lands_request_response_and_manifest(s3, http, no_sleep) -> No
     posted = http.calls[0].request
     assert b'name="benchmark"\r\n\r\nPublic_AR_Current' in posted.body
 
-    manifest = json.loads(object_body(s3, f"{prefix}manifest.json"))
+    record = json.loads(object_body(s3, f"{prefix}chunk_0001.json"))
+    assert record["rows_sent"] == record["rows_received"] == 8
+    assert record["requested_at"].endswith("Z")
+    assert record["response_already_landed"] is False
+    manifest = json.loads(object_body(s3, f"{prefix}manifest_0001.json"))
     assert manifest["benchmark"] == "Public_AR_Current"
     assert manifest["key_rule_version"] == KEY_RULE_VERSION
-    assert manifest["chunks"][0]["rows_sent"] == manifest["chunks"][0]["rows_received"] == 8
-    assert manifest["chunks"][0]["requested_at"].endswith("Z")
-    assert manifest["invocations"][0]["status"] == STATUS_SUCCEEDED
-    assert manifest["invocations"][0]["kc_input_keys"] == [KC_KEY]
+    assert manifest["status"] == STATUS_SUCCEEDED
+    assert manifest["attempt"] == 1
+    assert manifest["kc_input_keys"] == [KC_KEY]
+    assert manifest["chunks"] == [record]
+
+
+def test_every_raw_write_is_create_only_and_written_once(s3, http, no_sleep) -> None:
+    put_kc(s3)
+    recorded_geocoder(http)
+    run(s3, no_sleep, chunk_size=3)
+
+    puts = raw_puts(s3)
+    assert puts and all(p["IfNoneMatch"] == "*" for p in puts)
+    keys = [p["Key"] for p in puts]
+    assert len(keys) == len(set(keys))  # no key is written twice
 
 
 def test_rerun_same_date_sends_nothing(s3, http, no_sleep) -> None:
@@ -256,8 +280,21 @@ def test_rerun_same_date_sends_nothing(s3, http, no_sleep) -> None:
     assert again["counts"]["skipped_matched"] == 5
     assert again["counts"]["skipped_recent_unmatched"] == 3
     assert again["s3_keys"] == [
-        f"raw/census_geocoder/dt={RUN_DATE}/20261112T170000Z-bbbbbbbb/manifest.json"
+        f"raw/census_geocoder/dt={RUN_DATE}/20261112T170000Z-bbbbbbbb/manifest_0001.json"
     ]
+
+
+def test_rerun_same_run_id_adds_a_manifest_and_overwrites_nothing(s3, http, no_sleep) -> None:
+    put_kc(s3)
+    recorded_geocoder(http)
+    first = run(s3, no_sleep)
+    again = run(s3, no_sleep)
+
+    prefix = f"raw/census_geocoder/dt={RUN_DATE}/{RUN_ID}/"
+    assert again["s3_keys"] == [f"{prefix}manifest_0002.json"]
+    assert set(first["s3_keys"]) < set(all_keys(s3, prefix))
+    keys = [p["Key"] for p in raw_puts(s3)]
+    assert len(keys) == len(set(keys))
 
 
 def test_unmatched_are_retried_after_90_days(s3, http, no_sleep) -> None:
@@ -295,12 +332,13 @@ def test_invalid_response_is_retried_then_fails(s3, http, no_sleep) -> None:
         run(s3, no_sleep)
 
     prefix = f"raw/census_geocoder/dt={RUN_DATE}/{RUN_ID}/"
-    assert all_keys(s3, prefix) == [f"{prefix}manifest.json", f"{prefix}request_0001.csv"]
-    manifest = json.loads(object_body(s3, f"{prefix}manifest.json"))
-    assert manifest["invocations"][0]["status"] == "failed"
+    assert all_keys(s3, prefix) == [f"{prefix}manifest_0001.json", f"{prefix}request_0001.csv"]
+    manifest = json.loads(object_body(s3, f"{prefix}manifest_0001.json"))
+    assert manifest["status"] == "failed"
+    assert manifest["written_keys"] == [f"{prefix}request_0001.csv"]
 
 
-def test_retry_of_same_run_continues_without_overwriting(s3, http, no_sleep) -> None:
+def test_resume_after_partial_run_without_overwrites(s3, http, no_sleep) -> None:
     put_kc(s3)
     # chunk 1 (3 rows) OK, chunk 2 fails with HTTP 500 on every attempt
     calls = {"n": 0}
@@ -316,7 +354,14 @@ def test_retry_of_same_run_continues_without_overwriting(s3, http, no_sleep) -> 
     with pytest.raises(ExtractError):
         run(s3, no_sleep, chunk_size=3)
     prefix = f"raw/census_geocoder/dt={RUN_DATE}/{RUN_ID}/"
-    first_request_2 = object_body(s3, f"{prefix}request_0002.csv")
+    before = {k: object_body(s3, k) for k in all_keys(s3, prefix)}
+    assert sorted(before) == [
+        f"{prefix}chunk_0001.json",
+        f"{prefix}manifest_0001.json",
+        f"{prefix}request_0001.csv",
+        f"{prefix}request_0002.csv",
+        f"{prefix}response_0001.csv",
+    ]
 
     http.remove(responses.POST, geo.BATCH_URL)
     recorded_geocoder(http)
@@ -324,10 +369,41 @@ def test_retry_of_same_run_continues_without_overwriting(s3, http, no_sleep) -> 
 
     assert result["counts"]["new"] == 5  # the 3 rows of chunk 1 are not re-sent
     assert result["s3_keys"][0] == f"{prefix}request_0003.csv"
-    assert object_body(s3, f"{prefix}request_0002.csv") == first_request_2  # not overwritten
-    manifest = json.loads(object_body(s3, f"{prefix}manifest.json"))
-    assert [c["chunk"] for c in manifest["chunks"]] == [1, 3, 4]
-    assert [i["status"] for i in manifest["invocations"]] == ["failed", STATUS_SUCCEEDED]
+    assert result["s3_keys"][-1] == f"{prefix}manifest_0002.json"
+    assert {k: object_body(s3, k) for k in before} == before  # nothing overwritten
+    failed = json.loads(object_body(s3, f"{prefix}manifest_0001.json"))
+    resumed = json.loads(object_body(s3, f"{prefix}manifest_0002.json"))
+    assert failed["status"] == "failed"
+    assert [c["chunk"] for c in failed["chunks"]] == [1]
+    assert resumed["status"] == STATUS_SUCCEEDED
+    assert [c["chunk"] for c in resumed["chunks"]] == [3, 4]
+    keys = [p["Key"] for p in raw_puts(s3)]
+    assert len(keys) == len(set(keys))
+
+
+def test_412_on_request_name_moves_to_next_number(s3) -> None:
+    prefix = f"raw/census_geocoder/dt={RUN_DATE}/{RUN_ID}/"
+    seed(s3, f"{prefix}request_0001.csv", b"other attempt")
+    chunk_no, key = geo._claim_request(s3, BUCKET, prefix, 1, b"mine")
+    assert (chunk_no, key) == (2, f"{prefix}request_0002.csv")
+    assert object_body(s3, f"{prefix}request_0001.csv") == b"other attempt"
+
+
+def test_412_on_response_is_treated_as_already_landed(s3, http, no_sleep, monkeypatch) -> None:
+    """A concurrent attempt landed response_0001 between our listing and our write."""
+    put_kc(s3)
+    recorded_geocoder(http)
+    prefix = f"raw/census_geocoder/dt={RUN_DATE}/{RUN_ID}/"
+    other = b""  # the other attempt's object; empty so it does not mark keys as geocoded
+    seed(s3, f"{prefix}response_0001.csv", other)
+    monkeypatch.setattr(geo, "_used_numbers", lambda *_a: (0, 0))  # listing missed it
+
+    result = run(s3, no_sleep)
+
+    assert result["status"] == STATUS_SUCCEEDED
+    assert object_body(s3, f"{prefix}response_0001.csv") == other  # untouched
+    record = json.loads(object_body(s3, f"{prefix}chunk_0001.json"))
+    assert record["response_already_landed"] is True
 
 
 def test_find_kc_keys_prefers_run_id_then_latest(s3) -> None:

@@ -29,7 +29,7 @@ GEO = {
     "s3_keys": [
         "raw/census_geocoder/dt=2026-11-12/20261112T150000Z-aaaaaaaa/request_0001.csv",
         "raw/census_geocoder/dt=2026-11-12/20261112T150000Z-aaaaaaaa/response_0001.csv",
-        "raw/census_geocoder/dt=2026-11-12/20261112T150000Z-aaaaaaaa/manifest.json",
+        "raw/census_geocoder/dt=2026-11-12/20261112T150000Z-aaaaaaaa/manifest_0001.json",
     ],
 }
 

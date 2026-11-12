@@ -11,12 +11,13 @@ Flow for one run:
      at least 90 days old (TIGER updates add streets); anything else is new;
   4. send the rest to ``/geocoder/locations/addressbatch`` in chunks of at most 5,000 rows, one
      call at a time with a pause between calls;
-  5. land, per chunk, the request CSV we sent and the response CSV byte-for-byte as received,
-     plus one manifest JSON per run:
+  5. land, per chunk, the request CSV we sent, the response CSV byte-for-byte as received and a
+     small chunk record (requested_at, counts), plus one manifest per attempt at the end:
 
      raw/census_geocoder/dt=YYYY-MM-DD/<run_id>/request_0001.csv
      raw/census_geocoder/dt=YYYY-MM-DD/<run_id>/response_0001.csv
-     raw/census_geocoder/dt=YYYY-MM-DD/<run_id>/manifest.json
+     raw/census_geocoder/dt=YYYY-MM-DD/<run_id>/chunk_0001.json
+     raw/census_geocoder/dt=YYYY-MM-DD/<run_id>/manifest_0001.json
 
 Request CSV (no header): ``geocode_key,"STREET_CLEAN","CITY",WA,zip5``.
 Response CSV (no header, ragged): 8 fields on ``Match``, 3 on ``No_Match``/``Tie``; output order
@@ -24,10 +25,15 @@ differs from input order; coordinates are one field ``"lon,lat"``. The response 
 only to validate it (same id set as the request) and to drive the skip logic; it is landed
 unchanged and dbt does the real parsing.
 
-Idempotency: re-running a date (or retrying the same run) sends only keys that have no response
-yet, so nothing is geocoded twice. Request/response objects are never overwritten: a retry of the
-same ``run_id`` continues the chunk numbering recorded in the manifest. The manifest is the only
-object rewritten, and only by invocations of its own ``run_id``.
+Write-once: every object is written exactly once with ``If-None-Match: *`` (required by the raw
+bucket policy); nothing under ``raw/`` is ever rewritten. HTTP 412 means "already landed": for a
+response or chunk record that is accepted as is; for a new request or manifest name it means the
+number is taken, so the next free number is used.
+
+Idempotency and resume: re-running a date (or retrying the same run) sends only keys that have no
+response yet, so nothing is geocoded twice. A retry of the same ``run_id`` continues after the
+highest request/response/chunk/manifest number already in the folder, so a failed attempt's files
+stay as they are and each attempt adds its own ``manifest_NNNN.json`` (status succeeded/failed).
 """
 
 from __future__ import annotations
@@ -53,6 +59,7 @@ from sources.common import (
     list_keys,
     log,
     new_session,
+    put_once,
     raw_partition,
     request_with_retries,
     utc_now_iso,
@@ -251,16 +258,18 @@ def _read_json(s3: Any, bucket: str, key: str) -> dict[str, Any]:
 def load_prior_status(s3: Any, bucket: str) -> dict[str, PriorStatus]:
     """Latest geocode status per key from every response file under ``raw/census_geocoder/``.
 
-    ``requested_at`` comes from the run manifest; a response without a manifest entry (a crash
-    between the two writes) falls back to midnight UTC of its ``dt=`` partition.
+    ``requested_at`` comes from the write-once chunk record ``chunk_NNNN.json`` next to the
+    response; a response without one (a crash between the two writes) falls back to midnight UTC
+    of its ``dt=`` partition.
     """
     keys = list_keys(s3, bucket, f"raw/{SOURCE}/")
     requested_at: dict[str, str] = {}
     for key in keys:
-        if key.endswith("/manifest.json"):
-            for chunk in _read_json(s3, bucket, key).get("chunks", []):
-                if chunk.get("response_key") and chunk.get("requested_at"):
-                    requested_at[chunk["response_key"]] = chunk["requested_at"]
+        name = key.rsplit("/", 1)[-1]
+        if name.startswith("chunk_") and name.endswith(".json"):
+            record = _read_json(s3, bucket, key)
+            if record.get("response_key") and record.get("requested_at"):
+                requested_at[record["response_key"]] = record["requested_at"]
     prior: dict[str, PriorStatus] = {}
     for key in sorted(keys):
         name = key.rsplit("/", 1)[-1]
@@ -376,43 +385,31 @@ def submit_validated(
 
 # --------------------------------------------------------------------------- run
 
+MAX_NAME_ATTEMPTS = 20  # how often to move to the next free number after a 412 on a new name
+_NUMBERED_RE = re.compile(r"/(request|response|chunk|manifest)_(\d{4,})\.(?:csv|json)$")
+
 
 def run_prefix(run_date: str, run_id: str) -> str:
     return f"{raw_partition(SOURCE, run_date)}{run_id}/"
 
 
-def _load_manifest(s3: Any, bucket: str, key: str) -> dict[str, Any] | None:
-    from botocore.exceptions import ClientError
-
-    try:
-        return _read_json(s3, bucket, key)
-    except ClientError as exc:
-        if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "404"}:
-            return None
-        raise
-
-
-_CHUNK_FILE_RE = re.compile(r"/(?:request|response)_(\d{4,})\.csv$")
-
-
-def _next_chunk_no(s3: Any, bucket: str, prefix: str, manifest: Mapping[str, Any]) -> int:
-    """First unused chunk number in this run's folder, so a retry never overwrites a file
-    (counts files landed by a failed attempt that never reached the manifest)."""
-    used = [int(c["chunk"]) for c in manifest.get("chunks", [])]
+def _used_numbers(s3: Any, bucket: str, prefix: str) -> tuple[int, int]:
+    """Highest chunk number and highest manifest number already present in a run folder."""
+    chunk_max = manifest_max = 0
     for key in list_keys(s3, bucket, prefix):
-        found = _CHUNK_FILE_RE.search(key)
-        if found:
-            used.append(int(found.group(1)))
-    return max(used, default=0) + 1
+        found = _NUMBERED_RE.search(key)
+        if not found:
+            continue
+        number = int(found.group(2))
+        if found.group(1) == "manifest":
+            manifest_max = max(manifest_max, number)
+        else:
+            chunk_max = max(chunk_max, number)
+    return chunk_max, manifest_max
 
 
-def _put_manifest(s3: Any, bucket: str, key: str, manifest: dict[str, Any]) -> None:
-    s3.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8"),
-        ContentType="application/json",
-    )
+def _json_bytes(data: Mapping[str, Any]) -> bytes:
+    return json.dumps(data, indent=2, sort_keys=True).encode("utf-8")
 
 
 def find_kc_keys(s3: Any, bucket: str, run_date: str, run_id: str | None = None) -> list[str]:
@@ -431,6 +428,23 @@ def find_kc_keys(s3: Any, bucket: str, run_date: str, run_id: str | None = None)
     return [keys[-1]]
 
 
+def _claim_request(
+    s3: Any, bucket: str, prefix: str, chunk_no: int, request_csv: bytes
+) -> tuple[int, str]:
+    """Write the request file under the first free chunk number (write-once).
+
+    A 412 means the name was taken (e.g. by a concurrent attempt): move to the next number
+    rather than overwrite.
+    """
+    for _ in range(MAX_NAME_ATTEMPTS):
+        key = f"{prefix}request_{chunk_no:04d}.csv"
+        if put_once(s3, bucket, key, request_csv, ContentType="text/csv"):
+            return chunk_no, key
+        log(logger, "object_already_landed", logging.WARNING, source=SOURCE, s3_key=key)
+        chunk_no += 1
+    raise ExtractError(f"no free chunk number in {prefix} after {MAX_NAME_ATTEMPTS} tries")
+
+
 def _geocode_chunks(
     *,
     s3: Any,
@@ -440,25 +454,29 @@ def _geocode_chunks(
     chunk_size: int,
     first_chunk_no: int,
     prefix: str,
-    manifest: dict[str, Any],
-    manifest_key: str,
     benchmark: str,
     sleep: Callable[[float], None],
     chunk_pause_s: float,
     written: list[str],
+    chunk_records: list[dict[str, Any]],
     match_counts: Counter[str],
 ) -> int:
-    """Submit chunks one at a time; land request, response and manifest after each chunk."""
+    """Submit chunks one at a time; after each, land request, response and a chunk record.
+
+    Every object is write-once. ``chunk_NNNN.json`` holds ``requested_at`` and counts for that
+    chunk, so a crash later in the run loses nothing that resume or dbt needs.
+    """
     rows_received = 0
+    next_no = first_chunk_no
     for index, chunk in enumerate(chunked(pending, chunk_size)):
         if index:
             sleep(chunk_pause_s)
-        chunk_no = first_chunk_no + index
-        request_key = f"{prefix}request_{chunk_no:04d}.csv"
-        response_key = f"{prefix}response_{chunk_no:04d}.csv"
         request_csv = build_request_csv(chunk)
-        s3.put_object(Bucket=bucket, Key=request_key, Body=request_csv, ContentType="text/csv")
+        chunk_no, request_key = _claim_request(s3, bucket, prefix, next_no, request_csv)
+        next_no = chunk_no + 1
         written.append(request_key)
+        response_key = f"{prefix}response_{chunk_no:04d}.csv"
+        record_key = f"{prefix}chunk_{chunk_no:04d}.json"
 
         requested_at = utc_now_iso()
         t0 = time.monotonic()
@@ -466,18 +484,26 @@ def _geocode_chunks(
             session, chunk, request_csv, benchmark=benchmark, sleep=sleep
         )
         elapsed = round(time.monotonic() - t0, 2)
-        s3.put_object(
-            Bucket=bucket, Key=response_key, Body=response.content, ContentType="text/csv"
+        response_created = put_once(
+            s3, bucket, response_key, response.content, ContentType="text/csv"
         )
+        if not response_created:
+            log(
+                logger, "object_already_landed", logging.WARNING, source=SOURCE, s3_key=response_key
+            )
         written.append(response_key)
 
         chunk_matches = Counter(row.match for row in parsed)
         match_counts.update(chunk_matches)
         rows_received += len(parsed)
-        chunk_entry = {
+        record = {
+            "source": SOURCE,
             "chunk": chunk_no,
             "request_key": request_key,
             "response_key": response_key,
+            "response_already_landed": not response_created,
+            "benchmark": benchmark,
+            "key_rule_version": KEY_RULE_VERSION,
             "rows_sent": len(chunk),
             "rows_received": len(parsed),
             "request_bytes": len(request_csv),
@@ -488,10 +514,28 @@ def _geocode_chunks(
             "elapsed_s": elapsed,
             "match_counts": dict(sorted(chunk_matches.items())),
         }
-        manifest["chunks"].append(chunk_entry)
-        _put_manifest(s3, bucket, manifest_key, manifest)
-        log(logger, "chunk_geocoded", source=SOURCE, **chunk_entry)
+        if not put_once(
+            s3, bucket, record_key, _json_bytes(record), ContentType="application/json"
+        ):
+            log(logger, "object_already_landed", logging.WARNING, source=SOURCE, s3_key=record_key)
+        written.append(record_key)
+        chunk_records.append(record)
+        log(logger, "chunk_geocoded", **record)
     return rows_received
+
+
+def _write_manifest(
+    s3: Any, bucket: str, prefix: str, first_no: int, manifest: dict[str, Any]
+) -> str:
+    """Write this attempt's manifest once, as ``manifest_NNNN.json`` (first free number)."""
+    number = first_no
+    for _ in range(MAX_NAME_ATTEMPTS):
+        key = f"{prefix}manifest_{number:04d}.json"
+        manifest["attempt"] = number
+        if put_once(s3, bucket, key, _json_bytes(manifest), ContentType="application/json"):
+            return key
+        number += 1
+    raise ExtractError(f"no free manifest number in {prefix} after {MAX_NAME_ATTEMPTS} tries")
 
 
 def extract(
@@ -546,29 +590,20 @@ def extract(
     )
 
     prefix = run_prefix(run_date, run_id)
-    manifest_key = f"{prefix}manifest.json"
-    manifest = _load_manifest(s3, bucket, manifest_key) or {
+    chunk_max, manifest_max = _used_numbers(s3, bucket, prefix)
+    manifest: dict[str, Any] = {
         "source": SOURCE,
         "run_date": run_date,
         "run_id": run_id,
         "endpoint": BATCH_URL,
         "benchmark": benchmark,
         "key_rule_version": KEY_RULE_VERSION,
-        "chunks": [],
-        "invocations": [],
-    }
-    invocation: dict[str, Any] = {
         "started_at": started_at,
         "kc_input_keys": kc_keys,
         "counts": counts,
-        "status": "running",
     }
-    manifest["invocations"].append(invocation)
-    next_chunk_no = _next_chunk_no(s3, bucket, prefix, manifest)
-    _put_manifest(s3, bucket, manifest_key, manifest)
-
     written: list[str] = []
-    rows_received = 0
+    chunk_records: list[dict[str, Any]] = []
     match_counts: Counter[str] = Counter()
     session = session or new_session()
     try:
@@ -578,33 +613,43 @@ def extract(
             session=session,
             pending=selection.pending,
             chunk_size=chunk_size,
-            first_chunk_no=next_chunk_no,
+            first_chunk_no=chunk_max + 1,
             prefix=prefix,
-            manifest=manifest,
-            manifest_key=manifest_key,
             benchmark=benchmark,
             sleep=sleep,
             chunk_pause_s=chunk_pause_s,
             written=written,
+            chunk_records=chunk_records,
             match_counts=match_counts,
         )
     except Exception as exc:
-        invocation.update({"status": "failed", "failed_at": utc_now_iso(), "error": str(exc)[:500]})
-        invocation["written_keys"] = written
-        _put_manifest(s3, bucket, manifest_key, manifest)
+        manifest.update(
+            {
+                "status": "failed",
+                "failed_at": utc_now_iso(),
+                "error": str(exc)[:500],
+                "chunks": chunk_records,
+                "written_keys": written,
+            }
+        )
+        try:
+            _write_manifest(s3, bucket, prefix, manifest_max + 1, manifest)
+        except Exception as manifest_exc:  # keep the original error
+            log(logger, "manifest_write_failed", logging.ERROR, error=str(manifest_exc))
         log(logger, "extract_failed", logging.ERROR, source=SOURCE, run_id=run_id, error=str(exc))
         raise
 
-    invocation.update(
+    manifest.update(
         {
             "status": STATUS_SUCCEEDED,
             "completed_at": utc_now_iso(),
             "rows_received": rows_received,
             "match_counts": dict(sorted(match_counts.items())),
+            "chunks": chunk_records,
             "written_keys": written,
         }
     )
-    _put_manifest(s3, bucket, manifest_key, manifest)
+    manifest_key = _write_manifest(s3, bucket, prefix, manifest_max + 1, manifest)
 
     result = {
         "source": SOURCE,
@@ -612,7 +657,7 @@ def extract(
         "run_date": run_date,
         "run_id": run_id,
         "rows": rows_received,
-        "chunks": len(written) // 2,
+        "chunks": len(chunk_records),
         "match_counts": dict(sorted(match_counts.items())),
         "counts": counts,
         "s3_keys": [*written, manifest_key],
