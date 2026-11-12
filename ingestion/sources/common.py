@@ -223,6 +223,29 @@ def list_keys(s3: Any, bucket: str, prefix: str) -> list[str]:
     return keys
 
 
+def put_once(s3: Any, bucket: str, key: str, body: bytes, **extra: Any) -> bool:
+    """Write-once PutObject: sends ``If-None-Match: *`` (required by the raw bucket policy).
+
+    Returns True if this call created the object, False if it already existed (HTTP 412
+    PreconditionFailed), which callers treat as "already landed". Other errors raise.
+    """
+    from botocore.exceptions import ClientError
+
+    try:
+        s3.put_object(Bucket=bucket, Key=key, Body=body, IfNoneMatch="*", **extra)
+    except ClientError as exc:
+        error = exc.response.get("Error", {})
+        status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        if error.get("Code") == "PreconditionFailed" or status == 412:
+            return False
+        raise
+    return True
+
+
+def read_object(s3: Any, bucket: str, key: str) -> bytes:
+    return s3.get_object(Bucket=bucket, Key=key)["Body"].read()
+
+
 def object_exists(s3: Any, bucket: str, key: str) -> bool:
     from botocore.exceptions import ClientError
 

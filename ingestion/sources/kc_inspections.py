@@ -15,6 +15,10 @@ Idempotency: if a file already exists in the run date's partition, the extractor
 again and returns that file (status ``skipped_existing``), unless ``force=True``. Objects are
 never overwritten; a forced re-pull lands a new ``<run_id>`` file next to the old one.
 
+Write-once: the file is sent with one ``PutObject`` carrying ``If-None-Match: *`` (the raw bucket
+policy denies raw writes without it; the gzip is a few MB, so no multipart upload). HTTP 412
+means the object for this ``run_id`` already exists, which is treated as already landed.
+
 Consistency: the row count is read before paging and must equal the rows landed, and the
 ``X-SODA2-Truth-Last-Modified`` header must not change during the pull (a republish mid-pull
 would mix two versions). Either failure raises, so Step Functions can retry.
@@ -41,6 +45,7 @@ from sources.common import (
     list_keys,
     log,
     new_session,
+    put_once,
     raw_partition,
     request_with_retries,
     utc_now_iso,
@@ -226,27 +231,32 @@ def extract(
         if rows_total != expected_rows:
             raise ExtractError(f"row count mismatch: landed {rows_total}, expected {expected_rows}")
 
-        gz_bytes = os.path.getsize(tmp_path)
-        s3.upload_file(
-            tmp_path,
+        with open(tmp_path, "rb") as fh:
+            body = fh.read()
+        gz_bytes = len(body)
+        created = put_once(
+            s3,
             bucket,
             key,
-            ExtraArgs={
-                "ContentType": "application/gzip",
-                "Metadata": {
-                    "source": SOURCE,
-                    "dataset-id": DATASET_ID,
-                    "run-id": run_id,
-                    "run-date": run_date,
-                    "rows": str(rows_total),
-                    "pages": str(pages),
-                    "extracted-at": utc_now_iso(),
-                    "source-last-modified": version_after or "",
-                },
+            body,
+            ContentType="application/gzip",
+            Metadata={
+                "source": SOURCE,
+                "dataset-id": DATASET_ID,
+                "run-id": run_id,
+                "run-date": run_date,
+                "rows": str(rows_total),
+                "pages": str(pages),
+                "extracted-at": utc_now_iso(),
+                "source-last-modified": version_after or "",
             },
         )
     finally:
         os.remove(tmp_path)
+
+    if not created:
+        log(logger, "object_already_landed", logging.WARNING, source=SOURCE, s3_key=key)
+        return _skipped_result(s3, bucket, run_date, key)
 
     result = {
         "source": SOURCE,

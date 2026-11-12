@@ -25,6 +25,9 @@ RESPONSE = fixture_bytes("geocoder_response.csv")
 def env(monkeypatch: pytest.MonkeyPatch, s3: Any) -> Any:
     monkeypatch.setenv("RAW_BUCKET", BUCKET)
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    # Handlers use the client that enforces the raw bucket policy (create-only writes).
+    monkeypatch.setattr(kc_handler, "s3_client", lambda: s3)
+    monkeypatch.setattr(geo_handler, "s3_client", lambda: s3)
     # Single-page / single-chunk fixtures: no polite pause or retry sleep is reached here.
     return s3
 

@@ -64,3 +64,13 @@ def test_live_network_is_blocked_in_tests() -> None:
 
     with pytest.raises(Exception, match="live network access attempted"):
         requests.get("https://data.kingcounty.gov/resource/r878-4sxa.json", timeout=5)
+
+
+def test_put_once_sends_if_none_match_and_reports_412(s3) -> None:
+    from sources.common import put_once
+    from tests.conftest import BUCKET
+
+    assert put_once(s3, BUCKET, "raw/x/a.csv", b"first") is True
+    assert put_once(s3, BUCKET, "raw/x/a.csv", b"second") is False  # 412 -> already landed
+    assert s3.get_object(Bucket=BUCKET, Key="raw/x/a.csv")["Body"].read() == b"first"
+    assert [p["IfNoneMatch"] for p in s3.test_puts] == ["*", "*"]

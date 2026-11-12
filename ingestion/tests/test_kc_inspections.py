@@ -11,7 +11,15 @@ from responses import matchers
 
 from sources import kc_inspections as kc
 from sources.common import STATUS_SKIPPED_EXISTING, STATUS_SUCCEEDED, ExtractError
-from tests.conftest import BUCKET, TRUTH_LAST_MODIFIED, all_keys, fixture_json, object_body
+from tests.conftest import (
+    BUCKET,
+    TRUTH_LAST_MODIFIED,
+    RawPolicyDenied,
+    all_keys,
+    fixture_json,
+    object_body,
+    seed,
+)
 
 RUN_DATE = "2026-11-12"
 PAGES = {
@@ -204,6 +212,43 @@ def test_force_lands_a_new_file_and_keeps_the_old_one(s3, http, no_sleep):
     assert all_keys(s3) == sorted(first["s3_keys"] + second["s3_keys"])
     # deterministic gzip: identical content gives identical bytes
     assert object_body(s3, first["s3_keys"][0]) == object_body(s3, second["s3_keys"][0])
+
+
+def add_full_dataset(http: responses.RequestsMock) -> None:
+    add_count(http, 7)
+    for offset, rows in PAGES.items():
+        add_page(http, offset, rows)
+
+
+def test_file_is_written_once_with_if_none_match(s3, http, no_sleep):
+    add_full_dataset(http)
+
+    result = run(s3, no_sleep)
+
+    raw_puts = [p for p in s3.test_puts if p["Key"].startswith("raw/")]
+    assert [p["Key"] for p in raw_puts] == result["s3_keys"]  # one single PutObject, no multipart
+    assert raw_puts[0]["IfNoneMatch"] == "*"
+
+
+def test_test_client_enforces_the_bucket_policy(s3):
+    """Guard for the guard: a raw write without If-None-Match is denied, as in production."""
+    with pytest.raises(RawPolicyDenied):
+        s3.put_object(Bucket=BUCKET, Key="raw/kc_inspections/x", Body=b"x")
+    with pytest.raises(RawPolicyDenied):
+        s3.create_multipart_upload(Bucket=BUCKET, Key="raw/kc_inspections/x")
+
+
+def test_412_means_already_landed(s3, http, no_sleep):
+    """The object for this run_id appeared after the existence check (e.g. a parallel retry)."""
+    key = kc.object_key(RUN_DATE, "20261112T150000Z-aaaaaaaa")
+    seed(s3, key, b"landed by the other attempt")
+    add_full_dataset(http)
+
+    result = run(s3, no_sleep, force=True)  # force skips the pre-check, so the PUT gets a 412
+
+    assert result["status"] == STATUS_SKIPPED_EXISTING
+    assert result["s3_keys"] == [key]
+    assert object_body(s3, key) == b"landed by the other attempt"  # not overwritten
 
 
 def test_rejects_unsafe_run_id(s3, no_sleep):

@@ -65,13 +65,46 @@ def aws() -> Any:
         yield
 
 
+class RawPolicyDenied(Exception):
+    """Raised by the test S3 client where the real bucket policy would deny the request."""
+
+
+def enforce_raw_policy(client: Any) -> list[dict[str, Any]]:
+    """Mimic infra's ``raw_enforce_create_only`` bucket policy on a client and log PutObjects.
+
+    Under ``raw/``: PutObject must carry ``IfNoneMatch="*"``; multipart uploads and copies are
+    denied (the extractors never use them). Returns the list that collects PutObject params.
+    """
+    puts: list[dict[str, Any]] = []
+
+    def check_put(params: dict[str, Any], **_: Any) -> None:
+        puts.append({k: v for k, v in params.items() if k != "Body"})
+        if params.get("Key", "").startswith("raw/") and params.get("IfNoneMatch") != "*":
+            raise RawPolicyDenied(f"PutObject without If-None-Match: {params['Key']}")
+
+    def deny(params: dict[str, Any], **_: Any) -> None:
+        if params.get("Key", "").startswith("raw/"):
+            raise RawPolicyDenied(f"write path not allowed under raw/: {params['Key']}")
+
+    client.meta.events.register("provide-client-params.s3.PutObject", check_put)
+    for op in ("CreateMultipartUpload", "CopyObject", "DeleteObject"):
+        client.meta.events.register(f"provide-client-params.s3.{op}", deny)
+    return puts
+
+
 @pytest.fixture
 def s3(aws: Any) -> Any:
     client = boto3.client("s3", region_name="us-west-2")
     client.create_bucket(
         Bucket=BUCKET, CreateBucketConfiguration={"LocationConstraint": "us-west-2"}
     )
+    client.test_puts = enforce_raw_policy(client)
     return client
+
+
+def seed(s3: Any, key: str, body: bytes) -> None:
+    """Test setup write that satisfies the raw bucket policy."""
+    s3.put_object(Bucket=BUCKET, Key=key, Body=body, IfNoneMatch="*")
 
 
 @pytest.fixture
