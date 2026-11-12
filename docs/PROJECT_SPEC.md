@@ -1,6 +1,6 @@
 # Project spec: King County New Eats
 
-Status: draft v0.3 (2026-11-12). Owner: Adrian.
+Status: draft v0.4 (2026-11-12). Owner: Adrian.
 Changes to this file need the owner's OK and an entry in `docs/decisions.md`.
 
 ## 1. Goal
@@ -60,19 +60,31 @@ in `docs/source_cards/`.
 
 | Source | Access | Raw grain | Keys (expected) | Role |
 |---|---|---|---|---|
-| King County food inspections, current (`r878-4sxa` on data.kingcounty.gov) | Socrata SODA API / CSV export | one row per **violation** (inspections with several violations repeat `Inspection_Serial_Num`) | business ID, inspection serial number, name, address, lat/long (*verify names*) | safety signal; first-inspection = "just opened" |
-| King County food inspections, legacy (`f29f-zza5`) | CSV | same, 2006–Nov 2025 | same (*verify schema differences*) | backfill + survival analysis |
+| King County food inspections, current (`r878-4sxa` on data.kingcounty.gov) | Socrata SODA API / CSV export | one row per **violation** (inspections with several violations repeat `Inspection_Serial_Num`) | `business_id`, `inspection_serial_num` (both `PFE-` prefixed), name, address; **no lat/long, UBI or license number** (profiled; see source card) | safety signal; first-inspection = "just opened" |
+| King County food inspections, legacy (`f29f-zza5`) | **not public** (HTTP 403); export to be requested from Public Health – Seattle & King County | same, 2006–Nov 2025 | different `business_id` scheme; serials map 1:1 via the `PFE-` prefix | survival analysis only (milestone 6) |
+| US Census Geocoder (geocoding.geo.census.gov) | free batch API, no key | one row per geocoded address | normalized address | lat/long for map pins (KC data has none) |
 | WA LCB local authority notices (`vgcw-qfjm` on data.wa.gov) | Socrata API / CSV | one row per license-application notice | license number, UBI, trade name, address (*verify*) | "opening soon" early signal (alcohol-serving places only) |
 | Press RSS (Eater Seattle, Seattle Met, others TBD) | RSS | one row per article | GUID, title, link, published date | buzz signal; headlines + links only, no article bodies |
 | Google Places (milestone 5) | Places API (New), free monthly cap per SKU | n/a | `place_id` only stored | quality signal, fetched at build time for a shortlist |
 
 Known quirks:
-- KC republished the inspection dataset under a new ID in May 2026; the legacy
-  set stopped at Nov 2025. Union both and dedupe the 2021–2025 overlap.
-- Inspection records can arrive late or be corrected: incremental pulls
-  filter on Socrata's system field `:updated_at` (not inspection date), use a
-  14-day lookback and merge on key. Deletions are not visible to incremental
-  pulls; a periodic full pull (weekly) catches them.
+- KC republished the inspection dataset under a new ID in May 2026. The
+  current set starts January 2021, which is enough history to separate a
+  genuine first inspection from an older business (routine inspections run
+  1–3 times a year). The legacy set is not public and is needed only for the
+  milestone 6 survival analysis. Business IDs were re-keyed at the republish;
+  new businesses since 2026-01 get 6-digit IDs, and some of those re-issue an
+  existing business (same name and address).
+- KC current is pulled **in full daily** (about 111k rows, 3 pages). Socrata
+  `:updated_at` holds a single value for every row, so it cannot drive
+  incremental pulls; a full pull also catches corrections and deletions. dbt
+  dedupes on key.
+- KC has no pre-opening inspection type: a new business's first inspection is
+  routine (94%) or educational. "Just opened" therefore means "first
+  inspected", which may trail the real opening by some weeks.
+- Geocoding: only addresses not already geocoded are sent to the Census
+  batch geocoder; results land in S3 raw like any source, so the call volume
+  stays tiny and scheduled. Unmatched addresses get no map pin.
 - LCB notices: pull the full dataset daily if its size allows (*verify*), so
   S3 holds a complete daily state and status history can be rebuilt from raw
   files even if dbt snapshots are lost.
@@ -84,6 +96,8 @@ Known quirks:
 ```
 EventBridge Scheduler (daily) → Step Functions state machine:
   → extract Lambdas in parallel (one per source) → S3 raw (dated, immutable)
+  → geocode Lambda: new KC addresses (not yet in raw geocode results) →
+    Census batch geocoder → S3 raw
   → on success of all extracts: Lambda sends GitHub repository_dispatch
     (on any failure: alert, no dispatch)
   → GitHub Actions pipeline.yml (triggered by the dispatch, not by cron):
@@ -100,8 +114,9 @@ EventBridge Scheduler (daily) → Step Functions state machine:
   → GitHub Actions: dbt docs generate → GitHub Pages
 Visitors hit static pages on Vercel's CDN and never touch Snowflake or S3.
 The Vercel build never connects to Snowflake.
-One-time backfill (milestone 1): legacy KC CSV + full pull of the current
-dataset → S3 raw → RAW.
+Initial load (milestone 1): first full pull of KC current + geocoding of all
+its addresses → S3 raw → RAW. Legacy KC is loaded in milestone 6 if the
+export is obtained.
 Ops: dbt tests + source freshness, failure alerts, CloudWatch logs,
      secrets in GitHub/Secrets Manager, Terraform state in S3, CI on PRs.
 ```
@@ -152,7 +167,17 @@ are applied in intermediate models, not staging.
 
 **Excluded:** grocery and convenience stores, institutional kitchens (schools,
 hospitals, care facilities, corrections), caterers and commissaries without a
-public storefront, temporary event permits, and anything else not listed above.
+public storefront, temporary event permits, **stadium/arena concessions and
+airport-terminal vendors** (listed in `seeds/venue_exclusions.csv` by
+address), and anything else not listed above.
+
+From profiling (see `docs/source_cards/kc_inspections_current.md`): KC's
+`classification` field drives the mapping. "General Food Services" is the
+main restaurant pool and "Mobile Food Unit" is `food_truck`. No field marks
+cafes or food halls: `cafe_bakery_dessert` comes from name keywords within
+the restaurant-class pool, and `food_hall_stall` from `is_multi_tenant`.
+"Bakery" (mostly in-store grocery bakeries) and "Limited Food Service"
+(mostly espresso stands) need explicit seed rules.
 KC inspection type/description fields map to a category via
 `seeds/establishment_type_rules.csv`; LCB license types via
 `seeds/lcb_notice_type_rules.csv`.
@@ -164,7 +189,9 @@ KC inspection type/description fields map to a category via
   business in the prior 12 months, and the names are not similar. Counts as an
   opening; `replaces_name` holds the previous business's name ("replaces X").
 - `ownership_transfer` – a new business ID or LCB assumption at the same
-  address with a similar name. **Not an opening; excluded.**
+  address with a similar name, including a re-issued KC ID that is
+  concurrently active with another ID of the same name and address.
+  **Not an opening; excluded.**
 
 On the LCB side, only new-application notices for included license types are
 candidate openings. Assumptions (ownership changes) are transfers; added
@@ -172,12 +199,13 @@ privileges, endorsements and other changes are not openings. Exact notice
 types come from profiling. The 12-month window and the name-similarity
 threshold are seed parameters.
 
-**Food trucks:** the recorded address is usually a commissary or owner
-address, not a serving location (*verify in profiling*). Trucks appear in the
+**Food trucks:** the recorded address is a commissary or base, not a
+serving location (confirmed in profiling: many units share commissary
+addresses). Trucks appear in the
 county-wide lists with a "Food truck" badge, get no map pin and are left out of
 area-filtered rankings (`rank_in_area` is null).
 
-**Multi-tenant addresses** (food halls, markets, malls, the airport): an
+**Multi-tenant addresses** (food halls, markets, malls): an
 address with several concurrently active businesses is flagged
 `is_multi_tenant`. Matching there never relies on address alone; it requires a
 strong name match.
@@ -193,6 +221,8 @@ strong name match.
 
 ### Intermediate
 - `int_addresses_normalized` – standard street suffixes, unit stripping, ZIP5
+- `int_address_geocodes` – one row per normalized address: lat/long and match
+  quality from the Census geocoder (null when unmatched)
 - `int_kc_establishments` – one row per KC business, first/last inspection
   dates, `category` (or excluded), `is_multi_tenant`
 - `int_lcb_notices_classified` – one row per LCB notice: `category`, notice
@@ -231,6 +261,7 @@ The app receives only `mart_new_openings`, `dim_zip` and
 - `mart_new_openings` – **the app's main table.** Grain: one row per
   restaurant currently "new or upcoming". Columns: ids, name, address, ZIP,
   neighborhood, `category`, `opening_type`, `replaces_name`,
+  `latitude`, `longitude` (null for food trucks and unmatched addresses),
   `list` (`just_opened` | `opening_soon`), list-entry date
   (first inspection date or LCB notice date), signal flags, each score
   component, score, `area`, `rank_in_list`, `rank_in_area` (within list).
@@ -309,9 +340,9 @@ openings, not as score validation.
 
 1. **Thin slice:** KC inspections only, end to end (extract → S3 → Snowflake →
    staging → simple mart → one Next.js page on Vercel), deployed on a schedule.
-   Includes the **history backfill** (legacy CSV + one full pull of the
-   current dataset) before switching to incremental pulls, because "first
-   inspection" needs each business's full history. All infrastructure is
+   The KC extractor does a full pull every run (the current dataset's
+   history from 2021 is enough to identify first inspections); addresses are
+   geocoded with the Census batch geocoder. All infrastructure is
    Terraform from the start, including the resource monitor and AWS Budgets
    alert.
 2. **Openings signals:** LCB notices, entity resolution, event log,
@@ -322,8 +353,8 @@ openings, not as score validation.
    press RSS buzz signal.
 5. **Quality layer:** Google Places for a shortlist at build time, Bayesian-
    adjusted rating, Hot/Sleeper modes.
-6. **Analysis:** opening survival analysis, write-up/blog post, 2–3 minute
-   video.
+6. **Analysis:** opening survival analysis (needs the legacy KC export,
+   requested from Public Health), write-up/blog post, 2–3 minute video.
 
 ## 9. Cost guardrails
 
@@ -345,12 +376,13 @@ openings, not as score validation.
 - Opening soon freshness: a newer filing is further from opening. Should the
   list favor recent filings (current rule) or filings nearing the typical
   filing-to-opening lag? Revisit after profiling the lag.
-- Actual refresh cadence of each source (to set freshness thresholds).
-- Which KC inspection fields identify category, and which LCB notice types
-  mean a new application vs an assumption (fills the classification seeds).
-- Does an ownership change in KC data create a new business ID? Does a food
-  truck's recorded address reflect where it serves?
-- Do KC inspection types include a pre-opening inspection, and if so, is that
-  the right "just opened" date?
+- Actual refresh cadence of LCB and press (KC: data current to the day;
+  daily vs weekly publication not yet confirmed).
+- Which LCB notice types mean a new application vs an assumption (fills the
+  LCB classification seed). KC classification values are profiled.
+- KC seed decisions: how to treat "Bakery", "Limited Food Service",
+  "Nonprofit Institution" and seasonal `SFE-` IDs; the cafe name-keyword list.
+- Typical lag between opening and first KC inspection (affects how "Just
+  opened" is worded in the UI).
 - Which press feeds are available and stable.
 - Map tiles: OpenStreetMap tiles (usage policy, fine at low traffic) vs a free-tier provider for MapLibre.

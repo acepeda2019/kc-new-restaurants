@@ -10,7 +10,8 @@ You build the extract layer for King County New Eats. Read `CLAUDE.md`, `docs/PR
 ## Requirements for every extractor
 - One module per source in `ingestion/sources/<source>.py`; a thin Lambda handler wraps it.
 - Extract only. Land data as received (JSONL or Parquet) at `s3://<bucket>/raw/<source>/dt=YYYY-MM-DD/<run_id>.<ext>`.
-- Idempotent for a given run date; incremental window on Socrata `:updated_at` with a configurable lookback (default 14 days); a full-pull mode (weekly for KC, daily for LCB if size allows); a separate backfill entry point.
+- Idempotent for a given run date; a full-pull mode (KC inspections always use it, since `:updated_at` is a single value for every row; LCB daily if size allows) and, where the source supports it, an incremental window with a configurable lookback (default 14 days).
+- Geocoder (`ingestion/sources/census_geocoder.py`): sends only addresses not already in raw geocode results to the US Census batch geocoder and lands the response as-is in S3 raw.
 - Handlers are invoked by the Step Functions workflow; return a result object (rows, S3 key, status) and raise on failure so the workflow stops before dispatching dbt.
 - Timeouts, retries with exponential backoff, polite paging (Socrata `$limit`/`$offset` or `$order` + cursor).
 - Structured logging: source, window, pages, rows, bytes, S3 key.

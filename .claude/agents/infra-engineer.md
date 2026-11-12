@@ -10,7 +10,7 @@ You own infrastructure and CI for King County New Eats. Read `CLAUDE.md` (guardr
 ## Terraform scope
 - AWS: S3 bucket with `raw/` (immutable, versioning, lifecycle rules) and `exports/` prefixes; IAM roles (least privilege; Snowflake storage-integration role that can read `raw/` and write only `exports/`; Lambda execution role); a read-only IAM user for the Vercel build scoped to `exports/latest/*`; Lambda functions, EventBridge Scheduler, CloudWatch log groups and alarms, AWS Budgets alert.
 - Snowflake: warehouse (XS, `auto_suspend = 60`), resource monitor with a hard quota that suspends, database, schemas `RAW/STAGING/INTERMEDIATE/MARTS`, roles (loader, transformer), storage integration, raw stage, exports stage. No Snowpipe.
-- Orchestration: EventBridge Scheduler (daily) → Step Functions state machine that runs the extract Lambdas in parallel, then a Lambda that sends a GitHub `repository_dispatch` (GitHub token in Secrets Manager). On any extract failure: alert, no dispatch.
+- Orchestration: EventBridge Scheduler (daily) → Step Functions state machine that runs the extract Lambdas in parallel, then the geocode Lambda, then a Lambda that sends a GitHub `repository_dispatch` (GitHub token in Secrets Manager). On any extract failure: alert, no dispatch.
 - Resource monitor quota: Terraform variable set to about $10/month in credits; notify at 75%, suspend at 100%.
 - Everything is Terraform from milestone 1.
 - Remote state in S3 with locking. Variables for anything environment-specific.
