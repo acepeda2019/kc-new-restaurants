@@ -16,11 +16,11 @@ silently. Record every design decision in `docs/decisions.md`.
 
 | Layer | Tool |
 |---|---|
-| Scheduling | AWS EventBridge Scheduler |
+| Scheduling | AWS EventBridge Scheduler → Step Functions (extracts, then GitHub `repository_dispatch`) |
 | Extract | Python on AWS Lambda (one handler per source) |
 | Raw storage | S3, immutable dated files |
-| Load | Snowpipe → Snowflake `RAW` schema |
-| Transform | dbt Core (Snowflake adapter), triggered by GitHub Actions |
+| Load | `COPY INTO` Snowflake `RAW` at the start of the pipeline job (no Snowpipe) |
+| Transform | dbt Core (Snowflake adapter), run by GitHub Actions on `repository_dispatch` (no GitHub cron) |
 | Export | Snowflake `COPY INTO` S3 stage: app marts → JSON at `s3://<bucket>/exports/` |
 | App | Next.js (UI generated with v0), static build on Vercel; reads JSON exports from S3 at build time only |
 | Infra | Terraform (AWS + Snowflake providers) |
@@ -37,7 +37,7 @@ transform/            # dbt project
   models/staging/<source>/
   models/intermediate/
   models/marts/
-  seeds/              # score weights, ZIP→neighborhood, manual entity-match overrides
+  seeds/              # score weights, ZIP→area, classification rules, entity-match overrides
   snapshots/
 infra/                # Terraform: S3, IAM, Lambda, EventBridge, Snowflake objects
 app/                  # Next.js app (UI from v0); lib/data.ts reads JSON exports at build time
@@ -60,7 +60,8 @@ Folders that don't exist yet are planned; create them as milestones need them.
 - Extractors only extract. Land data as-received (JSONL or Parquet) at
   `s3://<bucket>/raw/<source>/dt=YYYY-MM-DD/<run_id>.<ext>`. No cleaning here.
 - Every extractor is idempotent and re-runnable for a given date, supports an
-  incremental window with a lookback (default 14 days), and logs row counts.
+  incremental window on Socrata `:updated_at` with a lookback (default 14
+  days) plus a full-pull mode, and logs row counts.
 - Network calls: timeouts, retries with backoff, polite paging.
 
 **dbt (transform)**
@@ -70,14 +71,19 @@ Folders that don't exist yet are planned; create them as milestones need them.
 - Every model has a YAML entry stating its **grain** in the description, plus
   `unique` + `not_null` tests on its primary key. Every source has freshness.
 - Surrogate keys via `dbt_utils.generate_surrogate_key`.
-- Score weights, ZIP→neighborhood mapping and entity-match overrides live in
-  seeds, never hard-coded in SQL.
+- Score weights, ZIP→area mapping, category/notice-type
+  classification rules, press-match rules and entity/press-match overrides live in seeds, never
+  hard-coded in SQL.
 - SQL: lowercase keywords, CTEs (import CTEs first, final `select` last),
   explicit column lists in marts.
 
 **Snowflake**
-- Schemas: `RAW`, `STAGING`, `INTERMEDIATE`, `MARTS`.
-- One XS warehouse, `auto_suspend = 60`, resource monitor with a hard monthly quota.
+- Schemas: `RAW`, `STAGING`, `INTERMEDIATE`, `MARTS` (prod); dev and CI use
+  per-developer and per-PR schema prefixes.
+- One XS warehouse, `auto_suspend = 60`, resource monitor with a hard monthly
+  quota of about $10 in credits (suspend at 100%).
+- `int_restaurant_id_map` is persisted state (`full_refresh: false`). Never
+  drop, rebuild or full-refresh it without the owner's OK.
 
 ## Guardrails (non-negotiable)
 
@@ -114,7 +120,8 @@ Use the agents in `.claude/agents/` for these jobs:
 | Docs and decision log | `docs-writer` | README, docs/ |
 
 Default loop for any feature: **profile (if new data) → build → data-qa →
-spec-reviewer → fix → docs-writer.** The reviewer and QA agents must not have
+spec-reviewer → fix → docs-writer.** Exception: during milestone 1 the loop
+is **profile → build → data-qa**; the full loop applies from milestone 2. The reviewer and QA agents must not have
 written the work they check. Run independent build tasks in parallel only when
 they touch different folders.
 

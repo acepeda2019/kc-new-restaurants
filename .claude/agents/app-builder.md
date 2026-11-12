@@ -12,10 +12,10 @@ You build the public Next.js app for King County New Eats. Read `CLAUDE.md` (gua
 - Validate the JSON shape at load (e.g. zod) and fail the build on a schema mismatch or a `manifest.json` schema version the app does not know.
 - The app never connects to Snowflake. No `snowflake-sdk` dependency.
 - Data is loaded at **build time only**: server components with `export const revalidate = false`; detail pages via `generateStaticParams`. Never `force-dynamic`, never an API route, never client code that fetches from S3, never a `NEXT_PUBLIC_` credential.
-- The whole mart ships with the page; the ZIP filter runs client-side.
+- The whole mart ships with the page; the area filter runs client-side.
 
 ## v1 UI
-- Home: ZIP filter, map with a pin per restaurant (react-leaflet or MapLibre), and two lists, **Just opened** and **Opening soon**, each showing its top 5 by `rank_in_list` (or `rank_in_zip` when a ZIP is selected). Cards show rank, score, name, neighborhood + ZIP and the signal checklist that explains the rank. No cuisine in v1. "Updated <date>" from `manifest.json`.
+- Home: area filter (areas from `dim_zip`), map with a pin per restaurant (react-leaflet or MapLibre), and two lists, **Just opened** and **Opening soon**, each showing its top 5 by `rank_in_list` (or `rank_in_area` when an area is selected). Cards show rank, score, name, neighborhood + ZIP and the signal checklist that explains the rank, plus a category badge and "Replaces <name>" when `replaces_name` is set. Food trucks show a "Food truck" badge, no map pin, and drop out of the list when an area is selected. No cuisine in v1. "Updated <date>" from `manifest.json`.
 - `/restaurant/[id]`: signal timeline from the events table, inspection results.
 - Mobile first; real buttons, inputs and labels; sample data clearly labelled.
 
