@@ -2,6 +2,56 @@
 
 Newest first. One entry per decision: context, decision, consequences.
 
+## 2026-11-12 — Area filter instead of ZIP filter
+- **Context:** a few hundred openings across about 100 King County ZIPs leaves many ZIPs with 0–2 places per list.
+- **Decision:** filter by about 15–25 areas (neighborhoods or city groups) from `seeds/zip_to_area.csv` via `dim_zip`. `rank_in_area` replaces `rank_in_zip`. ZIP still shows on cards.
+- **Consequences:** lists stay populated when filtered; one more seed to maintain. Food trucks stay out of area rankings.
+
+## 2026-11-12 — Press buzz: name matching with a review queue
+- **Context:** headlines rarely carry an address, so press-to-restaurant matching is its own fuzzy problem.
+- **Decision:** `int_press_mentions` matches distinctive restaurant names in headlines (rules in `seeds/press_match_rules.csv`); low-confidence hits go to a review queue decided in `seeds/press_mention_overrides.csv`. Only accepted matches count toward buzz.
+- **Consequences:** buzz stays a small, auditable weight; generic names (e.g. "Pho House") may get no buzz, which is acceptable.
+
+## 2026-11-12 — Lighter agent loop in milestone 1
+- **Context:** the full six-step, eight-agent loop is heavy for the thin slice.
+- **Decision:** milestone 1 uses profile → build → data-qa; the full loop (adding spec-reviewer and docs-writer) applies from milestone 2.
+- **Consequences:** faster thin slice; spec drift in milestone 1 is caught by the first full review in milestone 2.
+
+## 2026-11-12 — Persisted restaurant ID map
+- **Context:** "anchor on the first key observed" is order-dependent; dbt full refreshes and backfills could reassign IDs, and there was no rule for merges or splits.
+- **Decision:** `int_restaurant_id_map` is an append-only incremental model with `full_refresh: false`. On a merge the oldest ID survives and the other becomes an alias (`merged_into_id`); splits only via `seeds/entity_overrides.csv`.
+- **Consequences:** IDs and detail-page URLs never change. The map is state that must be protected; recovery path is re-seeding from the latest JSON export.
+
+## 2026-11-12 — Step Functions + repository_dispatch; Snowpipe dropped
+- **Context:** separate schedules for extract, Snowpipe and dbt could race (dbt on a half-loaded day), and GitHub disables scheduled workflows after 60 days without repo activity.
+- **Decision:** EventBridge Scheduler starts a Step Functions workflow that runs the extract Lambdas, then triggers the GitHub dbt workflow via `repository_dispatch`. The workflow loads RAW with `COPY INTO` before `dbt build`. Snowpipe is not used.
+- **Consequences:** explicit step ordering and failure handling; no GitHub cron to expire. One fewer Snowflake object type; loading uses the warehouse wake the job already pays for. Supersedes "loaded by Snowpipe" in the S3 entry below.
+
+## 2026-11-12 — Terraform from milestone 1
+- **Context:** building milestones 1–3 by hand meant importing or rebuilding resources in milestone 4.
+- **Decision:** every resource is Terraform from milestone 1, including the resource monitor and Budgets alert.
+- **Consequences:** slower start; no rework later, and cost guardrails exist before the first scheduled run.
+
+## 2026-11-12 — Snowflake budget cap about $10/month
+- **Context:** the Snowflake trial ends after about 30 days; after that the daily build, CI and storage are a small real cost.
+- **Decision:** resource monitor with a hard monthly credit quota equal to about $10 at the account's credit price; notify at 75%, suspend at 100%.
+- **Consequences:** a runaway job or heavy CI month pauses the pipeline instead of spending more; the static site keeps serving the last good build.
+
+## 2026-11-12 — Environments, CI state and incremental pulls (defaults)
+- **Context:** CI with `state:modified` needs a stored prod manifest; dev and CI need isolated schemas; date-based lookbacks miss corrections to old records.
+- **Decision:** targets `prod`, `dev` (per-developer schema prefix) and `ci` (per-PR prefix, dropped on close); prod `manifest.json` stored at `s3://<bucket>/dbt-artifacts/prod/` and used with `--defer --state`. Incremental pulls filter on Socrata `:updated_at` with a 14-day lookback, plus a weekly full pull to catch deletions. LCB is pulled in full daily if size allows.
+- **Consequences:** CI builds only changed models; S3 holds enough history to rebuild LCB status changes from raw.
+
+## 2026-11-12 — What counts as a restaurant and an opening
+- **Context:** KC inspections cover every food business (grocery, schools, caterers, events), and both KC and LCB data record ownership changes that look like openings. Without explicit rules the lists would fill with false openings.
+- **Decision:** include four categories: `restaurant`, `cafe_bakery_dessert`, `food_hall_stall`, `food_truck`; exclude the rest. Classify each opening as `new_opening`, `new_concept` (different business at a recently occupied address, shown as "replaces X") or `ownership_transfer` (same address, similar name; excluded). Mapping rules, the 12-month window and the name-similarity threshold live in seeds, filled from profiling.
+- **Consequences:** new models `int_lcb_notices_classified` and `int_opening_events`. Food trucks appear county-wide with a badge, with no map pin and no ZIP ranking, because their recorded address is usually not where they serve. Multi-tenant addresses require a strong name match.
+
+## 2026-11-12 — History backfill moves to milestone 1
+- **Context:** "Just opened" depends on identifying a business's first-ever inspection, which incremental pulls with a 14-day lookback cannot do.
+- **Decision:** milestone 1 loads the legacy CSV and one full pull of the current dataset before switching to incremental.
+- **Consequences:** milestone 1 grows; milestone 4 no longer carries the backfill job.
+
 ## 2026-11-12 — Two separate lists: Just opened and Opening soon
 - **Context:** in one combined ranking, LCB-only places could never compete: freshness decayed from the filing date (months before opening) and safety had no value before a first inspection.
 - **Decision:** `mart_new_openings` carries a `list` column (`just_opened` | `opening_soon`); each list is scored and ranked separately with its own weights in `seeds/score_weights.csv`. The `stage` component is removed (it is constant within a list). Safety applies only to Just opened. A place moves lists on its first inspection and keeps its `restaurant_id`.
@@ -44,7 +94,7 @@ Newest first. One entry per decision: context, decision, consequences.
 
 ## 2026-11-06 — Land raw data in S3 before Snowflake
 - **Context:** source portals overwrite records and have changed dataset IDs.
-- **Decision:** immutable dated raw files in S3, loaded by Snowpipe.
+- **Decision:** immutable dated raw files in S3, loaded by Snowpipe *(loading changed 2026-11-12 to `COPY INTO` in the pipeline job)*.
 - **Consequences:** full replayability and warehouse portability; one more layer to manage.
 
 ## 2026-11-06 — AWS + Snowflake + dbt Core + Terraform; no Airflow in v1
