@@ -126,6 +126,31 @@ is **profile → build → data-qa**; the full loop applies from milestone 2. Th
 written the work they check. Run independent build tasks in parallel only when
 they touch different folders.
 
+## Pull requests and auto-merge
+
+Work goes on a branch and lands through a PR into `main` (merge commit,
+branch deleted after merge). Claude **may merge its own PR without asking**
+only when all of these hold:
+
+1. **Small:** under 200 changed lines (additions + deletions as reported by
+   `gh pr view --json additions,deletions`), counting code and docs alike.
+2. **No breaking change.** A PR is breaking if it does any of:
+   - changes a model's grain, primary key, or the meaning of a column, or
+     removes/renames a column in a mart, `dim_`/`fct_` model or JSON export;
+   - touches `int_restaurant_id_map` logic or anything that could change
+     issued `restaurant_id`s;
+   - changes scoring formulas, weights, list or classification rules, or
+     scope in `docs/PROJECT_SPEC.md`;
+   - changes the guardrails or this auto-merge rule in `CLAUDE.md`;
+   - changes Terraform in a way that destroys or replaces a resource, alters
+     IAM permissions, secrets or cost limits;
+   - changes the S3 raw/export layout or the Snowflake schema layout.
+3. **Checks pass:** every required GitHub check on the PR is green (once CI
+   exists), and the PR's own definition-of-done items are met.
+
+If any condition fails, or Claude is unsure, open the PR and ask the owner.
+When Claude auto-merges, it says so in its reply, with the PR link and size.
+
 ## Definition of done (any change)
 
 - Spec-aligned (or the spec and `docs/decisions.md` updated, with the user's OK).

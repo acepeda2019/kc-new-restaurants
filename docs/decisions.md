@@ -2,6 +2,11 @@
 
 Newest first. One entry per decision: context, decision, consequences.
 
+## 2026-11-12 — Auto-merge small, non-breaking PRs
+- **Context:** the owner is often away from the terminal; waiting for a manual merge on small, safe PRs slows the loop.
+- **Decision:** Claude may merge its own PR without asking when it is under 200 changed lines, contains no breaking change (as defined in `CLAUDE.md`, "Pull requests and auto-merge") and all required checks pass. Everything else waits for the owner.
+- **Consequences:** faster iteration on small changes; spec, scoring, ID-map, guardrail, IAM/cost and destructive infra changes always get a human review. Claude reports every auto-merge.
+
 ## 2026-11-12 — KC: current dataset only in milestone 1; legacy deferred
 - **Context:** profiling found the legacy dataset (`f29f-zza5`) is private (HTTP 403) and not in the catalog. The current dataset starts January 2021, which is enough history to tell a genuine first inspection from an older business.
 - **Decision:** milestone 1 uses only the current dataset. Request the legacy export from Public Health – Seattle & King County for the milestone 6 survival analysis.
