@@ -37,7 +37,7 @@ transform/            # dbt project
   models/staging/<source>/
   models/intermediate/
   models/marts/
-  seeds/              # score weights, ZIP→area, classification rules, entity-match overrides
+  seeds/              # score weights, ZIP→area, classification rules, venue exclusions, overrides
   snapshots/
 infra/                # Terraform: S3, IAM, Lambda, EventBridge, Snowflake objects
 app/                  # Next.js app (UI from v0); lib/data.ts reads JSON exports at build time
@@ -59,9 +59,10 @@ Folders that don't exist yet are planned; create them as milestones need them.
 - Environment with `uv`; lint/format with `ruff`; type hints on public functions.
 - Extractors only extract. Land data as-received (JSONL or Parquet) at
   `s3://<bucket>/raw/<source>/dt=YYYY-MM-DD/<run_id>.<ext>`. No cleaning here.
-- Every extractor is idempotent and re-runnable for a given date, supports an
-  incremental window on Socrata `:updated_at` with a lookback (default 14
-  days) plus a full-pull mode, and logs row counts.
+- Every extractor is idempotent and re-runnable for a given date, supports a
+  full-pull mode and, where the source supports it, an incremental window
+  with a lookback (default 14 days), and logs row counts. KC inspections are
+  pulled in full every run (`:updated_at` is unusable there).
 - Network calls: timeouts, retries with backoff, polite paging.
 
 **dbt (transform)**

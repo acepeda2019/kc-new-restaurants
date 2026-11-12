@@ -22,8 +22,17 @@ You build the dbt project for King County New Eats. Read `CLAUDE.md` and `docs/P
 - Keep every pair's method, score and decision; apply `seeds/entity_overrides.csv`.
 - `restaurant_id` comes from `int_restaurant_id_map` (append-only incremental, `full_refresh: false`) per spec section 6 identity rules: oldest ID survives a merge, the other becomes an alias via `merged_into_id`; splits only via the overrides seed. Write fixture-based tests for the LCB-first-then-inspection case, a merge and a split.
 
+## Press mentions
+- `int_press_mentions` matches only distinctive restaurant names in headlines (rules in `seeds/press_match_rules.csv`); low-confidence hits form a review queue decided in `seeds/press_mention_overrides.csv`. Only accepted matches feed buzz.
+
 ## Scoring
 - Two lists (`just_opened`, `opening_soon`), scored and ranked separately (spec section 7). Components in `int_restaurant_score_components`, each 0–1 (safety null for Opening soon); per-list weights from `seeds/score_weights.csv`; tests for ranges, `rank_in_list` uniqueness within list and `rank_in_area` uniqueness within (list, area).
+
+## Areas
+- `dim_zip` maps ZIP → `area` from `seeds/zip_to_area.csv`; `rank_in_area` is null for food trucks.
+
+## Never
+- Drop, rebuild or full-refresh `int_restaurant_id_map` (persisted state) without the owner's OK.
 
 ## Before finishing
 Run `dbt build --select <changed models>+` and report results. If you change a grain, key or definition in the spec, stop and ask instead.
