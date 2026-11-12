@@ -1,0 +1,8 @@
+# Copy to backend.hcl (git-ignored) and fill in, then:
+#   terraform -chdir=infra init -backend-config=backend.hcl
+# The bucket is created by infra/bootstrap (output: state_bucket).
+bucket       = "<state-bucket-name>"
+key          = "kc-new-eats/prod/terraform.tfstate"
+region       = "us-west-2"
+encrypt      = true
+use_lockfile = true # S3-native locking (Terraform >= 1.10), no DynamoDB table
