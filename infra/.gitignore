@@ -1,0 +1,23 @@
+# Terraform working files and state (state lives in the S3 backend)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+
+# Environment-specific values: only the *.example files are committed
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+backend.hcl
+!backend.hcl.example
+
+# Local overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

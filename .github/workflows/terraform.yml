@@ -1,0 +1,64 @@
+name: terraform
+
+# Static checks only: no cloud credentials, no plan, no apply.
+# (Plan against the real accounts arrives with ci.yml in milestone 2.)
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform.yml"
+      - ".github/workflows/pipeline.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.8
+          terraform_wrapper: false
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive -diff infra
+
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [infra/bootstrap, infra]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.8
+          terraform_wrapper: false
+      - name: terraform init (no backend)
+        run: terraform -chdir=${{ matrix.dir }} init -backend=false -lockfile=readonly
+      - name: terraform validate
+        run: terraform -chdir=${{ matrix.dir }} validate
+      # Mocked providers: plans the stack with no credentials, creates nothing.
+      - name: terraform test (mocked providers)
+        if: matrix.dir == 'infra'
+        run: terraform -chdir=${{ matrix.dir }} test
+
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck infra/scripts/*.sh
