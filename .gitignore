@@ -224,3 +224,6 @@ __marimo__/
 
 # Local exploration samples (profiling downloads)
 exploration/**/data/
+
+# Claude Code agent worktrees (local only)
+.claude/worktrees/
