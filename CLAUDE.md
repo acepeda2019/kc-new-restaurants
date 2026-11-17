@@ -1,109 +1,77 @@
-# King County New Eats — Claude Code guide
+# King County New Eats: Claude Code guide
 
-A portfolio analytics-engineering project. It answers one question for diners:
+A private app for the owner and a few friends that answers:
 
-> **What are the new and upcoming restaurants I should try in King County, WA?**
+> **What restaurants just opened near me in King County, WA, and why is each worth a look?**
 
-It also has to show, to an interviewer reading the repo, a production-style
-pipeline: ingestion → raw storage → governed transformation → a small public app.
+It doubles as a portfolio piece: governed dbt models with tests, classification logic and a
+usable app, in a form a reviewer grasps quickly.
 
-**`docs/PROJECT_SPEC.md` is the source of truth** for scope, sources, data model,
-scoring and milestones. Read it before any non-trivial task. If a request
-conflicts with the spec, say so and ask before proceeding; never change scope
-silently. Record every design decision in `docs/decisions.md`.
+## Where things live
 
-## Stack
-
-| Layer | Tool |
+| Question | File |
 |---|---|
-| Scheduling | AWS EventBridge Scheduler → Step Functions (extracts, then GitHub `repository_dispatch`) |
-| Extract | Python on AWS Lambda (one handler per source) |
-| Raw storage | S3, immutable dated files |
-| Load | `COPY INTO` Snowflake `RAW` at the start of the pipeline job (no Snowpipe) |
-| Transform | dbt Core (Snowflake adapter), run by GitHub Actions on `repository_dispatch` (no GitHub cron) |
-| Export | Snowflake `COPY INTO` S3 stage: app marts → JSON at `s3://<bucket>/exports/` |
-| App | Next.js (UI generated with v0), static build on Vercel; reads JSON exports from S3 at build time only |
-| Infra | Terraform (AWS + Snowflake providers) |
-| CI | GitHub Actions: lint, `dbt build` on changed models, `terraform plan` |
-| Local exploration | DuckDB |
+| How does the system work now? | **`ARCHITECTURE.md`**: the single source of truth. Review all code against it. |
+| Why was something chosen? | `docs/decisions.md`: dated log, newest first |
+| How did we get here? | `docs/superpowers/`: dated designs and plans. **Frozen history, not current.** |
+| What does a source look like? | `docs/source_cards/` |
+
+Read `ARCHITECTURE.md` before any non-trivial task. If a request conflicts with it, say so
+and ask; never change scope silently. A PR that changes behaviour described there updates
+`ARCHITECTURE.md` in the same PR and adds a `docs/decisions.md` entry.
 
 ## Repo layout
 
 ```
-ingestion/            # Python extractors, one module per source; Lambda handlers
+ingestion/            # Python: extractors (one module per source) + CLI runner
   sources/<source>.py
   tests/
-transform/            # dbt project
-  models/staging/<source>/
-  models/intermediate/
-  models/marts/
-  seeds/              # score weights, ZIP→area, classification rules, venue exclusions, overrides
-  snapshots/
-infra/                # Terraform: S3, IAM, Lambda, EventBridge, Snowflake objects
-app/                  # Next.js app (UI from v0); lib/data.ts reads JSON exports at build time
+transform/            # dbt project (DuckDB): staging → intermediate → marts, seeds, export
+app/                  # Next.js app (UI from v0) on Vercel
   data/sample/        # labelled sample JSON for local and v0 development
-exploration/          # DuckDB notebooks/scripts used for profiling (not production)
-docs/
-  PROJECT_SPEC.md
-  decisions.md
-  source_cards/       # one card per source, written from profiling
+infra/                # Terraform: S3 raw bucket + GitHub OIDC role only
+exploration/          # profiling scripts (not production)
+docs/                 # decisions.md, source_cards/, superpowers/ (history)
 .claude/agents/       # subagent definitions
 .github/workflows/
 ```
 
-Folders that don't exist yet are planned; create them as milestones need them.
-
 ## Conventions
 
 **Python (ingestion)**
-- Environment with `uv`; lint/format with `ruff`; type hints on public functions.
-- Extractors only extract. Land data as-received (JSONL or Parquet) at
-  `s3://<bucket>/raw/<source>/dt=YYYY-MM-DD/<run_id>.<ext>`. No cleaning here.
-- Every extractor is idempotent and re-runnable for a given date, supports a
-  full-pull mode and, where the source supports it, an incremental window
-  with a lookback (default 14 days), and logs row counts. KC inspections are
-  pulled in full every run (`:updated_at` is unusable there).
-- Network calls: timeouts, retries with backoff, polite paging.
+- `uv` for environments (Python 3.12), `ruff` for lint and format, type hints on public functions.
+- Extractors only extract. They land data as received at
+  `s3://<bucket>/raw/<source>/dt=YYYY-MM-DD/<run_id>.<ext>`, write-once. No cleaning here.
+- Every extractor is idempotent for a given date, logs row counts, and uses timeouts,
+  retries with backoff and polite paging.
 
 **dbt (transform)**
-- Layers and naming: `stg_<source>__<entity>` (1:1 with source, rename/cast/dedupe
-  only) → `int_<purpose>` → `dim_`, `fct_`, `mart_`.
+- Layers and naming: `stg_<source>__<entity>` (1:1 with source; rename, cast, dedupe only)
+  → `int_<purpose>` → `mart_<purpose>`.
 - Only `ref()` and `source()`; no hard-coded schema names.
-- Every model has a YAML entry stating its **grain** in the description, plus
-  `unique` + `not_null` tests on its primary key. Every source has freshness.
-- Surrogate keys via `dbt_utils.generate_surrogate_key`.
-- Score weights, ZIP→area mapping, category/notice-type
-  classification rules, press-match rules and entity/press-match overrides live in seeds, never
-  hard-coded in SQL.
-- SQL: lowercase keywords, CTEs (import CTEs first, final `select` last),
-  explicit column lists in marts.
+- Every model has a YAML entry stating its **grain**, plus `unique` + `not_null` on its key.
+  Every source has freshness.
+- Rules, thresholds and weights live in seeds, never hard-coded in SQL.
+- SQL: lowercase keywords, CTEs (import CTEs first, final `select` last), explicit column
+  lists in marts.
 
-**Snowflake**
-- Schemas: `RAW`, `STAGING`, `INTERMEDIATE`, `MARTS` (prod); dev and CI use
-  per-developer and per-PR schema prefixes.
-- One XS warehouse, `auto_suspend = 60`, resource monitor with a hard monthly
-  quota of about $10 in credits (suspend at 100%).
-- `int_restaurant_id_map` is persisted state (`full_refresh: false`). Never
-  drop, rebuild or full-refresh it without the owner's OK.
+**Claude API**
+- Model `claude-haiku-5-5` everywhere. Before writing a Claude call, read the `claude-api`
+  skill and use only documented SDK calls.
 
 ## Guardrails (non-negotiable)
 
-1. **Cost stays bounded by schedules, never by traffic.** No always-on compute.
-   The public app is static; visitors must never trigger warehouse queries or
-   paid API calls. No live AI/LLM features in the public app.
-   The app **never connects to Snowflake.** It reads JSON exports from
-   `s3://<bucket>/exports/latest/` **only at build time**: pages are static
-   (`revalidate = false`), rebuilt by a Vercel deploy hook after a passing
-   `dbt build` and export. No `force-dynamic` pages and no API routes.
-   The read-only S3 key lives only in server-side Vercel env vars, never
-   `NEXT_PUBLIC_*`.
-2. **Google Places terms:** never store Places content (ratings, names,
-   addresses) beyond `place_id`. Out of scope until milestone 5 anyway.
-3. **Secrets** never enter the repo. Use GitHub Actions secrets locally mirrored
-   in an untracked `.env`; AWS Secrets Manager for Lambda.
-4. **Ask before** `terraform apply`, dropping/replacing Snowflake objects,
-   deleting S3 data, force-pushing, or anything that costs money.
-5. **No invented data.** Placeholders are labelled as sample data.
+1. **Cost is capped, never open-ended.** The only request-time Claude call is `/api/ask`,
+   and it checks the caps (global and per-visitor daily, question length, `max_tokens`)
+   *before* calling Claude, failing closed. No other API routes except `/api/login`. Pages
+   are static and visitors never touch S3 or the pipeline. The whole site sits behind the
+   passcode.
+2. **Google Places terms:** never store Places content beyond `place_id` (later scope).
+3. **Secrets** never enter the repo: GitHub Actions secrets and Vercel env vars only.
+4. **Ask before** `terraform apply`, deleting S3 data, force-pushing, or anything that costs
+   money.
+5. **No invented data.** Placeholders are labelled as sample data. Inferred values are
+   labelled ("likely Indian").
 
 ## Subagent workflow
 
@@ -113,48 +81,44 @@ Use the agents in `.claude/agents/` for these jobs:
 |---|---|---|
 | Understand a new source | `data-profiler` | `docs/source_cards/<source>.md` |
 | Write extract code | `ingestion-engineer` | `ingestion/` + tests |
-| Write dbt models/tests | `dbt-modeler` | `transform/` |
+| Write dbt models and tests | `dbt-modeler` | `transform/` |
 | Infra and CI | `infra-engineer` | `infra/`, `.github/workflows/` |
-| Build app pages | `app-builder` | `app/` |
+| Build the app | `app-builder` | `app/` |
 | Check the data | `data-qa` | QA report (does not fix code) |
-| Check work against the spec | `spec-reviewer` | Review report (does not fix code) |
-| Docs and decision log | `docs-writer` | README, docs/ |
+| Check work against `ARCHITECTURE.md` | `spec-reviewer` | review report (does not fix code) |
+| Docs and decision log | `docs-writer` | `ARCHITECTURE.md`, README, `docs/` |
 
-Default loop for any feature: **profile (if new data) → build → data-qa →
-spec-reviewer → fix → docs-writer.** Exception: during milestone 1 the loop
-is **profile → build → data-qa**; the full loop applies from milestone 2. The reviewer and QA agents must not have
-written the work they check. Run independent build tasks in parallel only when
-they touch different folders.
+Reviewers and QA must not have written the work they check.
 
 ## Pull requests and auto-merge
 
-Work goes on a branch and lands through a PR into `main` (merge commit,
-branch deleted after merge). Claude **may merge its own PR without asking**
-only when all of these hold:
+Work goes on a branch and lands through a PR into `main` (merge commit; the branch is
+deleted after merge). Descriptions follow `.github/pull_request_template.md`: one bold
+sentence first, then what changes from before, then why.
+
+Claude **may merge its own PR without asking** only when all of these hold:
 
 1. **Small:** under 200 changed lines (additions + deletions as reported by
    `gh pr view --json additions,deletions`), counting code and docs alike.
-2. **No breaking change.** A PR is breaking if it does any of:
-   - changes a model's grain, primary key, or the meaning of a column, or
-     removes/renames a column in a mart, `dim_`/`fct_` model or JSON export;
-   - touches `int_restaurant_id_map` logic or anything that could change
-     issued `restaurant_id`s;
-   - changes scoring formulas, weights, list or classification rules, or
-     scope in `docs/PROJECT_SPEC.md`;
-   - changes the guardrails or this auto-merge rule in `CLAUDE.md`;
-   - changes Terraform in a way that destroys or replaces a resource, alters
-     IAM permissions, secrets or cost limits;
-   - changes the S3 raw/export layout or the Snowflake schema layout.
-3. **Checks pass:** every required GitHub check on the PR is green (once CI
-   exists), and the PR's own definition-of-done items are met.
+2. **Not breaking.** A PR is breaking if it:
+   - changes a model's grain, key or the meaning of a column, or removes or renames a
+     column in a mart or the app JSON;
+   - changes classification rules, scoring, the confidence threshold, caps, or the scope
+     in `ARCHITECTURE.md`;
+   - changes the guardrails or this auto-merge rule;
+   - changes Terraform in a way that destroys or replaces a resource, or alters IAM,
+     secrets or cost limits;
+   - changes the S3 raw layout.
+3. **Checks pass:** every required GitHub check is green, and the PR's definition-of-done
+   items are met.
 
-If any condition fails, or Claude is unsure, open the PR and ask the owner.
-When Claude auto-merges, it says so in its reply, with the PR link and size.
+If any condition fails, or Claude is unsure, open the PR and ask the owner. When Claude
+auto-merges, it says so in its reply, with the PR link and size.
 
 ## Definition of done (any change)
 
-- Spec-aligned (or the spec and `docs/decisions.md` updated, with the user's OK).
-- `dbt build` passes for affected models; new models have grain + key tests.
-- Extractors have a unit test with a recorded sample response.
+- Matches `ARCHITECTURE.md`, or updates it plus `docs/decisions.md` with the owner's OK.
+- `dbt build` passes for affected models; new models have grain and key tests.
+- Extractors have a unit test with a recorded sample response; app logic has unit tests.
 - `data-qa` and `spec-reviewer` reports have no open blocking issues.
 - Docs updated: source card, model YAML descriptions, README if user-facing.

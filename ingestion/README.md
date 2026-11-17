@@ -1,7 +1,7 @@
 # Ingestion (extract layer)
 
 Python 3.12 extractors run as AWS Lambda functions by the Step Functions workflow
-(`KC inspections -> Census geocoder -> GitHub dispatch`). They only extract: data lands in S3
+(`KC inspections -> Census geocoder`). They only extract: data lands in S3
 `raw/` exactly as received. Cleaning, typing and renaming are dbt's job.
 
 | Module | Handler string | Reads | Writes |

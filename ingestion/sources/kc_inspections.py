@@ -21,7 +21,7 @@ means the object for this ``run_id`` already exists, which is treated as already
 
 Consistency: the row count is read before paging and must equal the rows landed, and the
 ``X-SODA2-Truth-Last-Modified`` header must not change during the pull (a republish mid-pull
-would mix two versions). Either failure raises, so Step Functions can retry.
+would mix two versions). Either failure raises, so the daily job stops before dbt.
 """
 
 from __future__ import annotations

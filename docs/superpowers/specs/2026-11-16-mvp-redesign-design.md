@@ -1,6 +1,10 @@
 # MVP redesign: King County New Eats
 
-Date: 2026-11-16. Status: draft for owner approval.
+> **Frozen history (2026-11-17).** This is the record of how the MVP was designed and planned.
+> It is not kept up to date. The current system is described in `ARCHITECTURE.md`;
+> `docs/PROJECT_SPEC.md`, referenced below, was retired into it.
+
+Date: 2026-11-16. Status: approved by the owner 2026-11-16.
 Supersedes the architecture in `docs/PROJECT_SPEC.md` §5 and the v1 scope in §3/§8
 once approved (the spec and `docs/decisions.md` get updated as part of the work).
 
