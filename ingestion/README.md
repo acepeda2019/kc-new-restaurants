@@ -9,6 +9,7 @@ received. Cleaning, typing and renaming are dbt's job. System context: `../ARCHI
 | `run.py` (CLI) | env | runs the two extractors below in order; one JSON result line per step |
 | `sources/kc_inspections.py` | Socrata `r878-4sxa` | `raw/kc_inspections/dt=YYYY-MM-DD/<run_id>.jsonl.gz` |
 | `sources/census_geocoder.py` | `raw/kc_inspections/`, `raw/census_geocoder/` | `raw/census_geocoder/dt=YYYY-MM-DD/<run_id>/{request,response}_NNNN.csv`, `chunk_NNNN.json`, `manifest_NNNN.json` |
+| `sources/claude_classifications.py` | dbt's `int_candidates` (`--db`), `raw/claude_classifications/` | `raw/claude_classifications/dt=YYYY-MM-DD/<run_id>.jsonl.gz`: one Claude Haiku judgment per new or changed candidate |
 | `sources/geocode_key.py` | (library) | canonical `geocode_key` rule; **dbt must reproduce it** |
 
 ## Run
@@ -16,7 +17,13 @@ received. Cleaning, typing and renaming are dbt's job. System context: `../ARCHI
 ```bash
 cd ingestion
 RAW_BUCKET=<bucket> uv run python run.py extract [--run-date YYYY-MM-DD] [--run-id ID] [--force]
+RAW_BUCKET=<bucket> ANTHROPIC_API_KEY=<key> uv run python run.py classify --db ../transform/kcne.duckdb [--limit N]
 ```
+
+`classify` sends a candidate only if its inputs changed since its last record (hash of the
+classification inputs), so each business normally costs one Haiku call (~$0.0001). Failed calls
+(API error, refusal, invalid output) are counted and retried next run; the run still succeeds.
+The log line `classify_done` reports tokens and cost.
 
 Environment: `RAW_BUCKET` (required), `SOCRATA_APP_TOKEN` (optional), `LOG_LEVEL` (default INFO);
 AWS credentials from the environment (the GitHub OIDC role in CI).

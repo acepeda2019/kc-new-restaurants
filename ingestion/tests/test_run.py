@@ -73,3 +73,32 @@ def test_cli_prints_one_json_line_per_step(
     assert len(lines) == 2
     assert '"source": "kc_inspections"' in lines[0]
     assert '"source": "census_geocoder"' in lines[1]
+
+
+def test_cli_classify_reads_candidates_and_lands(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from sources import claude_classifications
+
+    seen: dict[str, Any] = {}
+
+    def fake_read(db_path: str, limit: int | None = None) -> list[dict]:
+        seen["read"] = (db_path, limit)
+        return [{"business_id": "PFE-PR-1"}]
+
+    def fake_extract(**kwargs: Any) -> dict:
+        seen["extract"] = kwargs
+        return {"source": "claude_classifications", "rows": 1, "failed": 0}
+
+    monkeypatch.setattr(claude_classifications, "read_candidates", fake_read)
+    monkeypatch.setattr(claude_classifications, "extract", fake_extract)
+    monkeypatch.setattr(run, "s3_client", lambda: "s3-client")
+    monkeypatch.setattr(run, "anthropic_client", lambda: "claude-client")
+
+    run.main(["classify", "--db", "kcne.duckdb", "--limit", "5", "--run-date", "2026-11-17"])
+
+    assert seen["read"] == ("kcne.duckdb", 5)
+    assert seen["extract"]["candidates"] == [{"business_id": "PFE-PR-1"}]
+    assert seen["extract"]["client"] == "claude-client"
+    assert seen["extract"]["bucket"] == "test-bucket"
+    assert '"source": "claude_classifications"' in capsys.readouterr().out

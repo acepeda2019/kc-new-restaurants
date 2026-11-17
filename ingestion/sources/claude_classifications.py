@@ -5,7 +5,8 @@ never classified with the same inputs, one ``messages.create`` call with a JSON-
 returns ``category``, ``opening_type``, ``replaces_name``, ``likely_cuisine``, ``confidence``
 and a one-line ``reason``.
 
-Landing the records in S3 and the CLI come in a follow-up PR (SAN-35, part 2).
+Landing: ``s3://$RAW_BUCKET/raw/claude_classifications/dt=YYYY-MM-DD/<run_id>.jsonl.gz``,
+one JSON object per business, write-once like every raw file.
 
 Skip rule: a candidate is sent only when no earlier record for that business has the same
 ``input_hash`` (sha256 of its classification inputs), so a business costs one call unless
@@ -16,13 +17,20 @@ retried on the next run; the run itself still succeeds.
 from __future__ import annotations
 
 import datetime as dt
+import gzip
 import hashlib
+import io
 import json
 import logging
 from typing import Any
 
 from sources.common import (
+    STATUS_SUCCEEDED,
     log,
+    put_once,
+    raw_partition,
+    read_object,
+    validate_run_id,
 )
 
 SOURCE = "claude_classifications"
@@ -30,6 +38,7 @@ MODEL = "claude-haiku-5-5"
 MAX_TOKENS = 2000
 REASON_MAX_CHARS = 120
 PRICE_PER_MTOK = {"input": 0.10, "output": 0.50}  # USD, claude-api skill pricing table
+STATUS_NOTHING_NEW = "nothing_new"
 
 CATEGORIES = ("restaurant", "cafe_bakery_dessert", "food_hall_stall", "food_truck", "excluded")
 OPENING_TYPES = ("new_opening", "new_concept", "ownership_transfer")
@@ -220,3 +229,65 @@ def classify_candidates(
         cost_usd=round(cost, 4),
     )
     return records, failed
+
+
+def load_prior(s3: Any, bucket: str) -> dict[str, str]:
+    """business_id -> input_hash of its most recent classification across all landed files."""
+    latest: dict[str, tuple[str, str]] = {}
+    paginator = s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=f"raw/{SOURCE}/"):
+        for obj in page.get("Contents", []):
+            body = gzip.decompress(read_object(s3, bucket, obj["Key"]))
+            for line in body.splitlines():
+                record = json.loads(line)
+                seen = latest.get(record["business_id"])
+                if seen is None or record["classified_at"] >= seen[0]:
+                    latest[record["business_id"]] = (record["classified_at"], record["input_hash"])
+    return {business_id: value[1] for business_id, value in latest.items()}
+
+
+def read_candidates(db_path: str, limit: int | None = None) -> list[dict[str, Any]]:
+    """Rows of transform's ``int_candidates`` from the dbt DuckDB file (read-only)."""
+    import duckdb
+
+    with duckdb.connect(db_path, read_only=True) as con:
+        sql = "select * from int_candidates order by first_inspection_date desc, business_id"
+        if limit is not None:
+            sql += f" limit {int(limit)}"
+        cursor = con.execute(sql)
+        columns = [c[0] for c in cursor.description]
+        return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
+
+
+def extract(
+    *,
+    bucket: str,
+    run_date: str,
+    run_id: str,
+    candidates: list[dict[str, Any]],
+    s3: Any,
+    client: Any,
+) -> dict[str, Any]:
+    """Classify new or changed candidates and land the records. Returns the step result."""
+    validate_run_id(run_id)
+    records, failed = classify_candidates(candidates, load_prior(s3, bucket), client)
+    result: dict[str, Any] = {
+        "source": SOURCE,
+        "run_date": run_date,
+        "run_id": run_id,
+        "candidates": len(candidates),
+        "rows": len(records),
+        "failed": failed,
+        "bucket": bucket,
+    }
+    if not records:
+        return {**result, "status": STATUS_NOTHING_NEW, "s3_keys": []}
+
+    buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0, filename="") as gz:
+        for record in records:
+            line = json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n"
+            gz.write(line.encode())
+    key = f"{raw_partition(SOURCE, run_date)}{run_id}.jsonl.gz"
+    put_once(s3, bucket, key, buf.getvalue(), ContentType="application/gzip")
+    return {**result, "status": STATUS_SUCCEEDED, "s3_keys": [key]}
