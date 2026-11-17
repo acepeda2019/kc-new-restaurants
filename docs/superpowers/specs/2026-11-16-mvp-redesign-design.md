@@ -8,6 +8,10 @@ Date: 2026-11-16. Status: approved by the owner 2026-11-16.
 Supersedes the architecture in `docs/PROJECT_SPEC.md` §5 and the v1 scope in §3/§8
 once approved (the spec and `docs/decisions.md` get updated as part of the work).
 
+**Design history** (private claude.ai artifacts; the owner shares them as needed):
+- Original UI design, from the v0.4 spec era. Kept for history only; **not** the target design: https://claude.ai/artifact/R5vqPzUpFJSVt8pun5XuCe
+- MVP UI mockup (dark map, floating panels): the target for Tasks 8–10: https://claude.ai/artifact/DtEGBA9Zv91zrdhsophvgB
+
 ## 1. Intent
 
 **User intent:** *"Show me what restaurants just opened near me, and tell me briefly why each
