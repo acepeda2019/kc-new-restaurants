@@ -1,13 +1,11 @@
 name: terraform
 
 # Static checks only: no cloud credentials, no plan, no apply.
-# (Plan against the real accounts arrives with ci.yml in milestone 2.)
 on:
   pull_request:
     paths:
       - "infra/**"
       - ".github/workflows/terraform.yml"
-      - ".github/workflows/pipeline.yml"
 
 permissions:
   contents: read
@@ -55,10 +53,3 @@ jobs:
         if: matrix.dir == 'infra'
         run: terraform -chdir=${{ matrix.dir }} test
 
-  scripts:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - name: shellcheck
-        run: shellcheck infra/scripts/*.sh

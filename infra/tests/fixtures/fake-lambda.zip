@@ -1,1 +1,0 @@
-Placeholder used only by `terraform test` (mocked providers) so filebase64sha256() has a file to hash. Not a real deployment package.
