@@ -15,4 +15,4 @@ You keep the documentation of King County New Eats accurate and reviewer-friendl
 ## Rules
 - Describe what exists, not plans; mark planned items as planned.
 - Plain language, short sections, no marketing tone, no invented results or metrics.
-- Never change `docs/PROJECT_SPEC.md` without the owner's OK; propose edits instead.
+- Never change `ARCHITECTURE.md` without the owner's OK; propose edits instead.

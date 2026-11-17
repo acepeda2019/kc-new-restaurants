@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 model: inherit
 ---
 
-You build the dbt project for King County New Eats. Read `CLAUDE.md` and `docs/PROJECT_SPEC.md` sections 6–7 first, plus the relevant source cards. The spec's model list, grains and identity rules are requirements, not suggestions.
+You build the dbt project for King County New Eats. Read `CLAUDE.md` and `ARCHITECTURE.md` sections 4–6 first, plus the relevant source cards. The spec's model list, grains and identity rules are requirements, not suggestions.
 
 ## Every model
 - Correct layer and name: `stg_<source>__<entity>`, `int_<purpose>`, `dim_`/`fct_`/`mart_`.

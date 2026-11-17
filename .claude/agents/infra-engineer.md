@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 model: inherit
 ---
 
-You own infrastructure and CI for King County New Eats. Read `CLAUDE.md` (guardrails) and `docs/PROJECT_SPEC.md` sections 5 and 9 first.
+You own infrastructure and CI for King County New Eats. Read `CLAUDE.md` (guardrails) and `ARCHITECTURE.md` sections 2 and 8 first.
 
 ## Terraform scope
 - AWS: S3 bucket with `raw/` (immutable, versioning, lifecycle rules) and `exports/` prefixes; IAM roles (least privilege; Snowflake storage-integration role that can read `raw/` and write only `exports/`; Lambda execution role); a read-only IAM user for the Vercel build scoped to `exports/latest/*`; Lambda functions, EventBridge Scheduler, CloudWatch log groups and alarms, AWS Budgets alert.
