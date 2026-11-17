@@ -62,7 +62,7 @@ The GitHub Actions failure email is the alert.
 | CLI runner for the extractors | `ingestion/run.py` | built (SAN-33) |
 | dbt staging (KC, Census) | `transform/models/staging/` | built (SAN-34) |
 | dbt candidates (`int_establishments`, `int_candidates`) | `transform/models/intermediate/` | planned (SAN-34) |
-| Claude classification | `ingestion/sources/claude_classifications.py` | planned (SAN-35) |
+| Claude classification | `ingestion/sources/claude_classifications.py` | built (SAN-35), not yet run live |
 | Marts | `transform/models/marts/` | planned (SAN-36) |
 | Export + publish guard | `transform/export.py` | planned (SAN-37) |
 | App shell, passcode, data, ranking | `app/` | planned (SAN-38) |

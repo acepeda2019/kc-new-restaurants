@@ -1,11 +1,17 @@
+import gzip
 import json
 from types import SimpleNamespace
 from typing import Any
 
 import anthropic
 import httpx2
+import pytest
 
 from sources import claude_classifications as cc
+from tests.conftest import BUCKET
+
+RUN_DATE = "2026-11-17"
+RUN_ID = "20261117T200000Z-abcd1234"
 
 # Candidate rows shaped like transform's int_candidates (real businesses from the KC sample).
 PANINO = {
@@ -156,3 +162,55 @@ def test_out_of_range_confidence_is_a_failure() -> None:
     client = FakeClient({PANINO["business_id"]: message({**ANSWER, "confidence": 1.7})})
     records, failed = cc.classify_candidates([PANINO], {}, client)
     assert (records, failed) == ([], 1)
+
+
+def test_lands_one_write_once_file(s3) -> None:
+    client = FakeClient({})
+    result = cc.extract(
+        bucket=BUCKET,
+        run_date=RUN_DATE,
+        run_id=RUN_ID,
+        candidates=[PANINO, CURRY],
+        s3=s3,
+        client=client,
+    )
+    key = f"raw/claude_classifications/dt={RUN_DATE}/{RUN_ID}.jsonl.gz"
+    assert result["s3_keys"] == [key]
+    assert result["rows"] == 2 and result["failed"] == 0
+    assert s3.test_puts[-1]["IfNoneMatch"] == "*"
+    body = gzip.decompress(s3.get_object(Bucket=BUCKET, Key=key)["Body"].read())
+    assert [json.loads(line)["business_id"] for line in body.splitlines()] == [
+        PANINO["business_id"],
+        CURRY["business_id"],
+    ]
+
+    # A second run on the same inputs reads the prior file and sends nothing.
+    client2 = FakeClient({})
+    again = cc.extract(
+        bucket=BUCKET,
+        run_date=RUN_DATE,
+        run_id="20261117T210000Z-abcd1234",
+        candidates=[PANINO, CURRY],
+        s3=s3,
+        client=client2,
+    )
+    assert client2.requests == []
+    assert again["status"] == "nothing_new" and again["s3_keys"] == []
+
+
+@pytest.fixture
+def no_candidates() -> list[dict]:
+    return []
+
+
+def test_no_candidates_writes_nothing(s3, no_candidates: list[dict]) -> None:
+    result = cc.extract(
+        bucket=BUCKET,
+        run_date=RUN_DATE,
+        run_id=RUN_ID,
+        candidates=no_candidates,
+        s3=s3,
+        client=FakeClient({}),
+    )
+    assert result["status"] == "nothing_new"
+    assert "Contents" not in s3.list_objects_v2(Bucket=BUCKET, Prefix="raw/claude_classifications/")
