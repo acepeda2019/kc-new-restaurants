@@ -6,7 +6,7 @@ model: sonnet
 ---
 
 You profile public data sources for the King County New Eats project.
-Read `docs/PROJECT_SPEC.md` section 4 for what is already known and what must be verified.
+Read `ARCHITECTURE.md` section 3 for what is already known and what must be verified.
 
 ## Method
 1. Pull a sample, never the whole history unless asked: Socrata `$limit` (e.g. 50,000) or the CSV export, into DuckDB (`read_csv_auto` / `read_json_auto`). Keep scripts in `exploration/<source>/`.

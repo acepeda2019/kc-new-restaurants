@@ -1,5 +1,9 @@
 # King County New Eats MVP Implementation Plan
 
+> **Frozen history (2026-11-17).** This is the record of how the MVP was designed and planned.
+> It is not kept up to date. The current system is described in `ARCHITECTURE.md`;
+> `docs/PROJECT_SPEC.md`, referenced below, was retired into it.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A private, phone-friendly web app showing King County restaurants first inspected in the last 180 days on a map, with headline metrics, a personal top 3 and a capped Claude Haiku question bar.
@@ -8,7 +12,7 @@
 
 **Tech Stack:** Python 3.12 + uv + ruff + pytest; Anthropic Python SDK; dbt-core + dbt-duckdb (httpfs/aws extensions); Next.js (App Router, TypeScript) + vitest; MapLibre GL; `@upstash/redis`; Anthropic TypeScript SDK; Vercel CLI; Terraform (S3 + GitHub OIDC only).
 
-**Spec:** `docs/superpowers/specs/2026-11-16-mvp-redesign-design.md` (read it first; `docs/PROJECT_SPEC.md` §6–7 and `docs/source_cards/` hold the data rules it references).
+**Spec:** `docs/superpowers/specs/2026-11-16-mvp-redesign-design.md` (history). **Current rules: `ARCHITECTURE.md`** (§4 domain rules, §6 ranking) and `docs/source_cards/`..
 
 ## Global Constraints
 
@@ -50,15 +54,20 @@
 - [ ] **Step 4:** Rewrite `infra/README.md` to the two resources and the owner-only apply steps.
 - [ ] **Step 5:** Commit `chore: remove Step Functions/Lambda/Snowflake stack; keep S3 + GitHub OIDC`. PR needs owner review (destroys planned resources, changes IAM).
 
-### Task 2: Update the spec, decision log and CLAUDE.md to the MVP
+### Task 2: Make ARCHITECTURE.md the single source of truth
+
+*Rescoped 2026-11-17 by the owner: one evergreen architecture doc instead of patching the old spec.*
 
 **Files:**
-- Modify: `docs/PROJECT_SPEC.md` (§3 scope, §5 architecture, §8 milestones, §9 cost), `docs/decisions.md` (new top entries), `CLAUDE.md` (stack table, repo layout, guardrail 1, subagent workflow, definition of done), `README.md`
+- Create: `ARCHITECTURE.md`
+- Delete: `docs/PROJECT_SPEC.md` (still-valid data rules move into `ARCHITECTURE.md`)
+- Modify: `CLAUDE.md` ("where things live" table, guardrail 1, conventions, auto-merge definitions), `docs/decisions.md` (2026-11-16/17 entries; tag superseded entries), history banners on this plan and the design doc, pointers in `.claude/agents/`
 
-- [ ] **Step 1:** Add decision entries dated 2026-11-16: lean MVP replaces AWS/Snowflake stack; Just opened only (Opening soon later); Claude Haiku judgment calls with confidence + overrides seed (rules first); live question bar with hard caps replaces "no live AI" (supersedes 2026-11-06 entry); Next.js on Vercel deployed from Actions with baked-in JSON (supersedes S3 export entry); `restaurant_id` = KC `business_id` (persisted ID map deferred); dbt on DuckDB.
-- [ ] **Step 2:** Rewrite `CLAUDE.md` guardrail 1 to: static pages + one `/api/ask` route + `/api/login`; Claude only via `/api/ask` with the caps in Global Constraints; whole site behind passcode. Keep guardrails 2–5. Replace the stack table with this plan's Tech Stack.
-- [ ] **Step 3:** Update spec sections to point at the design doc rather than duplicate it.
-- [ ] **Step 4:** Commit `docs: rescope spec, decisions and CLAUDE.md to the lean MVP`. PR needs owner review (changes guardrails and scope).
+- [ ] **Step 1:** Write `ARCHITECTURE.md` from the design doc and this plan's Global Constraints, with a status column (built / in review / planned + ticket).
+- [ ] **Step 2:** Rewrite `CLAUDE.md` to point at it; guardrail 1 allows only `/api/ask` (capped, fails closed) and `/api/login`.
+- [ ] **Step 3:** Decision entries; tag superseded ones; delete `PROJECT_SPEC.md`; repoint references (`grep -rn PROJECT_SPEC` returns only history docs).
+- [ ] **Step 4:** Commit `docs: make ARCHITECTURE.md the single source of truth`. PR needs owner review (guardrails and scope).
+- Follow-up PR: refresh `.claude/agents/` content (still describes Snowflake/Lambda).
 
 ### Task 3: Run the extractors from the command line
 
@@ -117,7 +126,7 @@
   - `test_failures_are_counted_not_raised` (client raises `anthropic.APIStatusError` for one candidate and returns `stop_reason == "refusal"` for another → 2 failed, others returned, no exception),
   - `test_lands_one_write_once_file` (moto S3; key under `raw/claude_classifications/dt=…/`; `put_once` used).
 - [ ] **Step 2:** `uv run pytest tests/test_claude_classifications.py -v` → FAIL.
-- [ ] **Step 3:** Implement. One `messages.create` per candidate with `output_config.format` JSON schema; system prompt states the category/opening-type definitions from `docs/PROJECT_SPEC.md` §6 and asks for `likely_cuisine` only when the name makes it evident (else null). Treat the candidate JSON as data in a delimited block.
+- [ ] **Step 3:** Implement. One `messages.create` per candidate with `output_config.format` JSON schema; system prompt states the category/opening-type definitions from `ARCHITECTURE.md` §4 and asks for `likely_cuisine` only when the name makes it evident (else null). Treat the candidate JSON as data in a delimited block.
 - [ ] **Step 4:** `uv run pytest -v && uv run ruff check .` → PASS.
 - [ ] **Step 5:** Manual check (owner's key, small spend): `uv run python run.py classify --db ../transform/kcne.duckdb --limit 5` against sample data → 5 records printed, cost in the log line.
 - [ ] **Step 6:** Commit `feat(ingestion): Claude Haiku classification of new candidates with confidence`.

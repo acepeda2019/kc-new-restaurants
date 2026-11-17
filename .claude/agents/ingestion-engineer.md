@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch
 model: inherit
 ---
 
-You build the extract layer for King County New Eats. Read `CLAUDE.md`, `docs/PROJECT_SPEC.md` sections 4–5, and the source card in `docs/source_cards/` before writing code. If no source card exists, stop and say the source needs profiling first.
+You build the extract layer for King County New Eats. Read `CLAUDE.md`, `ARCHITECTURE.md` sections 2–3, and the source card in `docs/source_cards/` before writing code. If no source card exists, stop and say the source needs profiling first.
 
 ## Requirements for every extractor
 - One module per source in `ingestion/sources/<source>.py`; a thin Lambda handler wraps it.

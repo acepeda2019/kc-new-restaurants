@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 model: inherit
 ---
 
-You build the public Next.js app for King County New Eats. Read `CLAUDE.md` (guardrails) and `docs/PROJECT_SPEC.md` sections 2, 5 and 7 first.
+You build the public Next.js app for King County New Eats. Read `CLAUDE.md` (guardrails) and `ARCHITECTURE.md` sections 1, 6 and 7 first.
 
 ## Data access
 - One module, `app/lib/data.ts`, loads the JSON exports (`new_openings`, `zips`, `restaurant_events`, `manifest`) from `s3://<bucket>/exports/latest/` using server-side env vars (read-only IAM key scoped to that prefix). When `DATA_SOURCE=sample` (the default for local and v0 work), it reads `app/data/sample/*.json` instead; sample data is visibly labelled in the UI.

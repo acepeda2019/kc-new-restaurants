@@ -1,0 +1,211 @@
+# Architecture: King County New Eats
+
+**This is the single, current description of the system.** Review code against it.
+If a change alters anything here, update this file in the same PR and add a dated entry
+to `docs/decisions.md` saying why.
+
+| Question | Where it lives |
+|---|---|
+| How does the system work now? | **This file** |
+| Why was something chosen? | `docs/decisions.md` (dated log, newest first) |
+| How did we get here? (designs, plans) | `docs/superpowers/` (dated, frozen history; not current) |
+| What does a source look like? | `docs/source_cards/` |
+| How should Claude work in this repo? | `CLAUDE.md` |
+
+Status key: **built** = merged on `main`; **in review** = open PR; **planned** = not built
+yet (Linear ticket in brackets).
+
+## 1. What it is
+
+A private web app for the owner and a few friends that answers:
+*"What restaurants just opened near me, and why is each worth a look?"*
+
+One screen: a question bar, a map of new openings, three headline numbers and a personal
+top 3 with one-line reasons. UI mockup (private artifact):
+https://claude.ai/artifact/DtEGBA9Zv91zrdhsophvgB
+
+**In scope:** "Just opened" restaurants in King County, from KC food inspections, refreshed
+daily. Claude makes the judgment calls the data can't. A capped live question bar.
+
+**Later, in this order:** "Opening soon" (WA liquor-license notices); press buzz; ratings
+(Google Places: store `place_id` only, per its terms); survival analysis, Snohomish County,
+detail pages, accounts.
+
+**Never:** invented facts (no "good"/"best" without ratings data; inferred cuisine is always
+"likely X"); opinions about safety (cite inspection records only); any path where traffic
+can push cost past the caps.
+
+## 2. System flow
+
+```
+GitHub Actions, daily cron + manual run                        .github/workflows/daily.yml
+  1. extract   KC inspections, full pull        → s3 raw/kc_inspections/dt=…/<run_id>.jsonl.gz
+  2. geocode   new addresses only → Census      → s3 raw/census_geocoder/dt=…/<run_id>/
+  3. dbt build staging + intermediate (DuckDB, reads raw from S3)  → candidates
+  4. classify  candidates never seen before → Claude Haiku → s3 raw/claude_classifications/…
+  5. dbt build marts + tests                    → mart_new_openings, mart_metrics
+  6. publish   export JSON → guard (refuse 0 rows or <50% of last run) → vercel deploy --prebuilt
+
+Vercel (Next.js)
+  middleware  shared passcode → signed cookie; gates every page, the data and the API
+  page        JSON baked in at build → map, metrics, top 3 (static)
+  /api/ask    caps check (Upstash Redis) → Claude Haiku with the openings JSON as data → short answer
+```
+
+Any failed step stops the run: nothing is published and the site keeps the last good data.
+The GitHub Actions failure email is the alert.
+
+| Component | Where | Status |
+|---|---|---|
+| KC + Census extractors | `ingestion/sources/` | built |
+| S3 raw bucket + GitHub OIDC role | `infra/` | in review (SAN-31); `terraform apply` by owner only |
+| CLI runner for the extractors | `ingestion/run.py` | planned (SAN-33) |
+| dbt staging + candidates | `transform/` | planned (SAN-34) |
+| Claude classification | `ingestion/sources/claude_classifications.py` | planned (SAN-35) |
+| Marts | `transform/models/marts/` | planned (SAN-36) |
+| Export + publish guard | `transform/export.py` | planned (SAN-37) |
+| App shell, passcode, data, ranking | `app/` | planned (SAN-38) |
+| Map, location, "Tried it" | `app/` | planned (SAN-39) |
+| Capped question bar | `app/api/ask` | planned (SAN-40) |
+| Daily workflow + CI | `.github/workflows/` | planned (SAN-41) |
+
+## 3. Sources
+
+| Source | Access | Grain | Role |
+|---|---|---|---|
+| KC food inspections, current (`r878-4sxa`, data.kingcounty.gov) | Socrata API, no key | one row per violation | first inspection = "just opened"; safety |
+| US Census Geocoder | free batch API, no key | one row per address | lat/long for map pins (KC has none) |
+| Claude classifications (our own output) | Anthropic API | one row per KC business | category, opening type, likely cuisine, confidence |
+
+Quirks (details in the source cards):
+- KC is pulled **in full every run** (~111k rows): `:updated_at` is one value for every
+  row, so incremental pulls are impossible. dbt dedupes on key.
+- The current KC set starts January 2021, enough to tell a genuine first inspection from an
+  older business. There is no pre-opening inspection type, so "just opened" means "first
+  inspected", which may trail the real opening by weeks.
+- Only addresses never geocoded before go to the Census geocoder. Unmatched addresses and
+  food trucks get no pin. The geocode key (MD5 of `street_clean|zip5`,
+  `ingestion/sources/geocode_key.py`) must be reproduced exactly in dbt.
+
+**Raw storage rule:** `s3://$RAW_BUCKET/raw/<source>/dt=YYYY-MM-DD/<run_id>…`. Files are
+write-once (`If-None-Match: *` enforced by bucket policy) and the pipeline role can't
+delete them, so every run can be replayed from raw.
+
+## 4. Domain rules
+
+**Included categories** (`category`): `restaurant`, `cafe_bakery_dessert`,
+`food_hall_stall`, `food_truck`. Everything else is excluded: grocery and convenience,
+institutional kitchens, caterers and commissaries, temporary events, and stadium, arena and
+airport-terminal vendors (`seeds/venue_exclusions.csv`, by address).
+
+**Opening types** (`opening_type`):
+- `new_opening`: no other food business at the address in the prior 12 months.
+- `new_concept`: a different business replaced one at the address within 12 months;
+  `replaces_name` holds the old name ("replaces X").
+- `ownership_transfer`: same place, new owner or re-issued ID. **Not an opening; excluded.**
+
+**Rules first, Claude for the rest.** Clear cases are deterministic, in seeds and dbt: KC
+`classification` → category (e.g. "Mobile Food Unit" = `food_truck`; grocery and
+institutional classes excluded), venue exclusions, multi-tenant addresses, the 180-day
+window. Claude decides only what rules can't: café vs restaurant, in-store vs standalone
+bakery, "Limited Food Service" cases, and the opening type.
+
+**Claude classification** (`claude-haiku-5-5`, structured output):
+- Input: only *candidates*, meaning businesses first inspected in the last 180 days that the
+  rules didn't exclude and that were never classified before. That's hundreds on the first
+  run, a handful a day after.
+- Output: `category`, `opening_type`, `replaces_name`, `likely_cuisine` (nullable),
+  `confidence` 0–1, one-line `reason`.
+- Confidence ≥ `min_confidence` (seed, 0.8) → used. Below → held out of the app and listed
+  in `analyses/pending_review.sql`.
+- `seeds/classification_overrides.csv` always wins. The owner reviews pending rows by asking
+  Claude Code "what's pending?".
+- API errors, refusals or malformed output leave a candidate unclassified (out of the app).
+  The run still succeeds, logs the count and retries the candidate next run.
+
+**Food trucks:** the recorded address is a base, not where they serve, so trucks get no pin
+and no distance.
+
+## 5. Data model (dbt on DuckDB, `transform/`)
+
+| Model | Grain | Purpose |
+|---|---|---|
+| `stg_kc__inspection_violations` | violation | rename/cast raw KC rows |
+| `stg_kc__inspections` | inspection | violations deduped to inspections |
+| `stg_census__geocodes` | geocode key | lat/long + match status |
+| `stg_claude__classifications` | KC business | latest Claude classification |
+| `int_establishments` | KC business | first/last inspection, address, coordinates, first-inspection result and red points |
+| `int_candidates` | KC business | rule-filtered businesses inside the 180-day window (input to Claude) |
+| `mart_new_openings` | restaurant | the app table: accepted openings, score, rank, one-line "why it's here" |
+| `mart_metrics` | one row | opened last month (and vs. the month before), opened this week, share with a clean first inspection |
+
+**Identity:** `restaurant_id` = KC `business_id`. Cross-source identity (an ID map, merges,
+splits) waits for "Opening soon".
+
+**Seeds:** `classification_rules.csv`, `venue_exclusions.csv`,
+`classification_overrides.csv`, `score_params.csv`.
+
+**Tests that enforce the rules:** `unique` + `not_null` on every key, with the grain stated in
+the YAML. No `ownership_transfer` or excluded category in `mart_new_openings`.
+`replaces_name` is present exactly for `new_concept`. `confidence` is in [0, 1]. Coordinates are
+present unless the row is a food truck or its geocode didn't match. Requested geocode keys
+match the dbt key. Source freshness.
+
+## 6. Ranking
+
+`score = 100 × (0.6·freshness + 0.4·safety)` with
+`freshness = 0.5 ^ (days_since_first_inspection / 30)` and
+`safety = greatest(0, 1 − first_inspection_red_points / 50)`. Weights and the 50 live in
+`seeds/score_params.csv`. Only places first inspected within 180 days qualify.
+
+This ranks the *newest* openings with a boost for a clean first inspection. It does not
+claim food quality.
+
+**Personal top 3:** computed in the browser as `score − 10 × distance_mi`, dropping places
+marked "Tried it". Without location it falls back to score order with no distances.
+
+## 7. App (`app/`, Next.js on Vercel)
+
+- **Private:** middleware checks one shared passcode (`/api/login`) and sets a signed cookie
+  (`kcne_session`). The JSON is served only through the app, never from a public URL.
+- **Data:** `openings.json` and `metrics.json` are baked into each deploy. Visitors never
+  touch S3 or the pipeline. Per restaurant, the JSON carries the first and latest
+  inspection result, red points and short red-violation descriptions, so answers can cite
+  records.
+- **Location:** browser geolocation, asked on demand, never stored server-side. "Near me" is
+  a radius computed in the browser; "in [place]" uses ZIP and city.
+- **"Tried it":** browser localStorage only (`kcne_tried`), sent with each question so
+  answers can skip those places.
+- **Map:** MapLibre GL with free tiles. Pin colours: top 3, other new places, red
+  violations, you.
+- **`/api/ask`** (the only Claude call at request time):
+  - caps checked *before* calling Claude, in Upstash Redis: 200 questions/day in total and
+    20 per visitor (`ask:g:<date>`, `ask:v:<visitor>:<date>`, Pacific date). Questions are
+    limited to 500 characters;
+  - **fails closed:** if Redis is unreachable or a cap is hit, it returns 429 with a friendly
+    message, and the rest of the page keeps working;
+  - `claude-haiku-5-5`, thinking disabled, effort low, `max_tokens` 400;
+  - restaurant data goes in a delimited block marked as data, and the system prompt says to
+    answer only from it (prompt-injection defence).
+- **Answer style:** at most 3 recommendations, one-line reason each. "Likely <cuisine>" for
+  inferred cuisine. "Wary" answers cite the inspection date and red points. Say plainly
+  when the data can't answer (hours, price, ratings, opening soon).
+
+## 8. Infrastructure, secrets, cost
+
+- **Terraform** (`infra/`): one private, versioned S3 bucket and one IAM role that only
+  GitHub Actions on this repo's `main` can assume (OIDC). The owner runs `terraform apply`.
+- **Secrets** only in GitHub Actions secrets and Vercel env vars, never in the repo:
+  `ANTHROPIC_API_KEY` (a dedicated key for this app), `APP_PASSCODE`, `AUTH_SECRET`,
+  `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
+  `VERCEL_PROJECT_ID`. AWS is reached via the OIDC role (`AWS_ROLE_ARN` repo variable).
+- **Cost:** Haiku at about $0.002 per question, so the global cap bounds the worst case at
+  about $0.40/day. Classification is a few cents per day after the first run. Everything
+  else is on free tiers.
+
+## 9. Open questions
+
+- The typical lag between opening and first inspection (affects the "just opened" wording).
+- KC rule details: "Bakery", "Limited Food Service", "Nonprofit Institution", seasonal
+  `SFE-` IDs.
+- The map tile provider (OpenStreetMap usage policy vs. a free-tier provider).
