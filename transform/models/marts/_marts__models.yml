@@ -1,0 +1,76 @@
+version: 2
+
+models:
+  - name: mart_new_openings
+    description: "Grain: one row per restaurant (restaurant_id = KC business_id) that just opened: classified (owner override, or Claude at or above min_confidence), not excluded, not an ownership transfer. The app's main table."
+    data_tests:
+      - expression_is_true:
+          arguments: {expression: "opening_type <> 'ownership_transfer'"}
+      - expression_is_true:
+          arguments: {expression: "category <> 'excluded'"}
+      - expression_is_true:
+          arguments: {expression: "(replaces_name is not null) = (opening_type = 'new_concept')"}
+      - expression_is_true:
+          arguments: {expression: "confidence between 0 and 1"}
+      - expression_is_true:
+          arguments: {expression: "score between 0 and 100"}
+      - expression_is_true:
+          arguments: {expression: "latitude is not null or category = 'food_truck' or coalesce(geocode_match_status, '') <> 'Match'"}
+    columns:
+      - name: restaurant_id
+        data_tests: [unique, not_null]
+      - name: rank
+        description: 1 = highest score (ties broken by newest first inspection).
+        data_tests: [unique, not_null]
+      - name: category
+        data_tests:
+          - accepted_values:
+              arguments: {values: [restaurant, cafe_bakery_dessert, food_hall_stall, food_truck]}
+      - name: source
+        data_tests:
+          - accepted_values:
+              arguments: {values: [claude, override]}
+      - name: why
+        description: One line built only from facts (first inspection date and result, "replaces X").
+        data_tests: [not_null]
+
+  - name: mart_metrics
+    description: "Grain: one row. Headline numbers for the app and the review backlog."
+    columns:
+      - name: opened_last_30_days
+        data_tests: [not_null]
+
+  - name: int_classified_candidates
+    description: "Grain: one row per candidate, with its decision (override wins, else Claude) and review_status: accepted, rejected (excluded or ownership transfer) or pending (no classification, or confidence below min_confidence)."
+    columns:
+      - name: business_id
+        data_tests: [unique, not_null]
+      - name: review_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: [accepted, rejected, pending]}
+
+unit_tests:
+  - name: override_beats_claude
+    description: An owner override wins over Claude, even over a confident answer; no override and low confidence stays pending.
+    model: int_classified_candidates
+    given:
+      - input: ref('int_candidates')
+        rows:
+          - {business_id: A}
+          - {business_id: B}
+      - input: ref('stg_claude__classifications')
+        rows:
+          - {business_id: A, category: restaurant, opening_type: new_opening, replaces_name: null, likely_cuisine: null, confidence: 0.95, reason: confident}
+          - {business_id: B, category: restaurant, opening_type: new_opening, replaces_name: null, likely_cuisine: null, confidence: 0.5, reason: unsure}
+      - input: ref('classification_overrides')
+        rows:
+          - {business_id: A, category: excluded, opening_type: new_opening, replaces_name: null, likely_cuisine: null, decided_at: "2026-11-17", note: corporate cafeteria}
+      - input: ref('score_params')
+        rows:
+          - {min_confidence: 0.8}
+    expect:
+      rows:
+        - {business_id: A, category: excluded, source: override, review_status: rejected}
+        - {business_id: B, category: restaurant, source: claude, review_status: pending}

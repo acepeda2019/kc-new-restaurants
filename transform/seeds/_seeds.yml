@@ -16,3 +16,12 @@ seeds:
     columns:
       - name: geocode_key
         data_tests: [unique, not_null]
+  - name: classification_overrides
+    description: "Grain: one row per business_id. The owner's decision; it always wins over Claude. Empty until the first review."
+    config:
+      column_types: {business_id: varchar, category: varchar, opening_type: varchar, replaces_name: varchar, likely_cuisine: varchar, decided_at: date, note: varchar}
+    columns:
+      - name: business_id
+        data_tests: [unique, not_null]
+  - name: score_params
+    description: "Grain: one row. Scoring weights, window and Claude confidence threshold (ARCHITECTURE.md §6)."

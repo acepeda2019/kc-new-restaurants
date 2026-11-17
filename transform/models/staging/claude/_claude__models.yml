@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: stg_claude__classifications
+    description: "Grain: one row per business_id, its most recent Claude classification."
+    columns:
+      - name: business_id
+        data_tests: [unique, not_null]
+      - name: category
+        data_tests:
+          - accepted_values:
+              arguments: {values: [restaurant, cafe_bakery_dessert, food_hall_stall, food_truck, excluded]}
+      - name: opening_type
+        data_tests:
+          - accepted_values:
+              arguments: {values: [new_opening, new_concept, ownership_transfer]}
+      - name: confidence
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "confidence between 0 and 1"}
