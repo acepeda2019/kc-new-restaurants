@@ -112,7 +112,7 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure_logging(level: str | None = None) -> None:
-    """Install the JSON formatter on the root logger (idempotent; keeps any handler already installed)."""
+    """Install the JSON formatter on the root logger (idempotent; reuses existing handlers)."""
     root = logging.getLogger()
     root.setLevel((level or env("LOG_LEVEL", "INFO") or "INFO").upper())
     if not root.handlers:
