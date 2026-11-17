@@ -1,33 +1,30 @@
 # Ingestion (extract layer)
 
-Python 3.12 extractors run as AWS Lambda functions by the Step Functions workflow
-(`KC inspections -> Census geocoder`). They only extract: data lands in S3
-`raw/` exactly as received. Cleaning, typing and renaming are dbt's job.
+Python 3.12 extractors run by the daily GitHub Actions job through `run.py`
+(`KC inspections -> Census geocoder`). They only extract: data lands in S3 `raw/` exactly as
+received. Cleaning, typing and renaming are dbt's job. System context: `../ARCHITECTURE.md`.
 
-| Module | Handler string | Reads | Writes |
-|---|---|---|---|
-| `sources/kc_inspections.py` | `handlers.kc_inspections.handler` | Socrata `r878-4sxa` | `raw/kc_inspections/dt=YYYY-MM-DD/<run_id>.jsonl.gz` |
-| `sources/census_geocoder.py` | `handlers.census_geocoder.handler` | `raw/kc_inspections/`, `raw/census_geocoder/` | `raw/census_geocoder/dt=YYYY-MM-DD/<run_id>/{request,response}_NNNN.csv`, `chunk_NNNN.json`, `manifest_NNNN.json` |
-| `sources/dispatch.py` | `handlers.dispatch.handler` | Secrets Manager | GitHub `repository_dispatch` (`pipeline_run`) |
-| `sources/geocode_key.py` | (library) | | canonical `geocode_key` rule; **dbt must reproduce it** |
+| Module | Reads | Writes |
+|---|---|---|
+| `run.py` (CLI) | env | runs the two extractors below in order; one JSON result line per step |
+| `sources/kc_inspections.py` | Socrata `r878-4sxa` | `raw/kc_inspections/dt=YYYY-MM-DD/<run_id>.jsonl.gz` |
+| `sources/census_geocoder.py` | `raw/kc_inspections/`, `raw/census_geocoder/` | `raw/census_geocoder/dt=YYYY-MM-DD/<run_id>/{request,response}_NNNN.csv`, `chunk_NNNN.json`, `manifest_NNNN.json` |
+| `sources/geocode_key.py` | (library) | canonical `geocode_key` rule; **dbt must reproduce it** |
 
-## Contract with the workflow
+## Run
 
-Environment: `RAW_BUCKET` (required for KC and geocoder), `SOCRATA_APP_TOKEN` (optional),
-`GITHUB_REPO` (`owner/name`) and `GITHUB_TOKEN_SECRET_ARN` (dispatch), `LOG_LEVEL` (default INFO).
+```bash
+cd ingestion
+RAW_BUCKET=<bucket> uv run python run.py extract [--run-date YYYY-MM-DD] [--run-id ID] [--force]
+```
 
-Each handler returns a result dict and raises on failure:
-`{source, status, run_date, run_id, rows, s3_keys, bucket, ...}` with `status` in
-`succeeded | skipped_existing`. Event inputs:
+Environment: `RAW_BUCKET` (required), `SOCRATA_APP_TOKEN` (optional), `LOG_LEVEL` (default INFO);
+AWS credentials from the environment (the GitHub OIDC role in CI).
+`--run-date` defaults to today in America/Los_Angeles; the geocoder reuses the KC `run_id` and
+reads exactly the files KC landed. Exit code 1 if any step fails, so the job stops before dbt.
 
-- KC: optional `{"run_date": "YYYY-MM-DD", "run_id": "...", "force": false}`; `run_date` defaults
-  to today in America/Los_Angeles.
-- Geocoder: the KC result (optionally wrapped as `{"kc_inspections": <result>}`); it reuses the
-  KC `run_id` and `run_date`.
-- Dispatch: `[kc_result, geocoder_result]`, `{"results": [...]}` or
-  `{"kc_inspections": ..., "census_geocoder": ...}`. It refuses to dispatch unless both are OK.
-
-Dispatch `client_payload`: `run_date`, `run_id`, `s3_keys` and `rows` and `statuses` per source.
+Each step's result: `{source, status, run_date, run_id, rows, s3_keys, bucket, ...}` with
+`status` in `succeeded | skipped_existing`.
 
 ## Behaviour worth knowing
 
@@ -56,7 +53,7 @@ Dispatch `client_payload`: `run_date`, `run_id`, `s3_keys` and `rows` and `statu
   `"lon,lat"` field). Load `response_*.csv` as one VARCHAR column per line and split in staging;
   join `chunk_*.json` on `response_key` for `requested_at` and `benchmark` (a response without a
   chunk record falls back to its `dt=` date). `request_*.csv` holds the street/city/ZIP sent.
-  Every file is immutable, so `COPY INTO` load tracking never misses a change.
+  Every file is immutable, so a re-read always sees the same bytes.
 - Retries: timeouts, connection errors, 408/425/429/5xx with exponential backoff (honours
   `Retry-After`); other 4xx fail immediately.
 - Logs are JSON lines (`event`, `source`, `page`, `rows`, `bytes`, `s3_keys`, ...).
@@ -68,7 +65,6 @@ cd ingestion
 uv sync
 uv run ruff check . && uv run ruff format --check .
 uv run pytest            # no network: HTTP is mocked with recorded fixtures, AWS with moto
-./build.sh               # -> dist/lambda.zip (LAMBDA_ARCH=aarch64 for Graviton)
 ```
 
 Fixtures in `tests/fixtures/` are cut from real responses; see `tests/fixtures/README.md`.
