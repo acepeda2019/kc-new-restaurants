@@ -58,8 +58,8 @@ The GitHub Actions failure email is the alert.
 | Component | Where | Status |
 |---|---|---|
 | KC + Census extractors | `ingestion/sources/` | built |
-| S3 raw bucket + GitHub OIDC role | `infra/` | in review (SAN-31); `terraform apply` by owner only |
-| CLI runner for the extractors | `ingestion/run.py` | planned (SAN-33) |
+| S3 raw bucket + GitHub OIDC role | `infra/` | built (SAN-31), not yet applied; `terraform apply` by owner only |
+| CLI runner for the extractors | `ingestion/run.py` | built (SAN-33) |
 | dbt staging + candidates | `transform/` | planned (SAN-34) |
 | Claude classification | `ingestion/sources/claude_classifications.py` | planned (SAN-35) |
 | Marts | `transform/models/marts/` | planned (SAN-36) |
