@@ -1,0 +1,18 @@
+version: 2
+
+seeds:
+  - name: classification_rules
+    description: "Grain: one row per KC classification value (all 15 seen on 2026-11-17). Maps it to a rule category: excluded outright, food_truck, or needs_judgment (Claude decides)."
+    columns:
+      - name: classification
+        data_tests: [unique, not_null]
+      - name: rule_category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: [food_truck, needs_judgment, excluded]}
+  - name: venue_exclusions
+    description: "Grain: one row per geocode_key of a stadium, arena or airport-terminal address. Vendors there are excluded (diners can't simply walk in). Keys from ingestion/sources/geocode_key.py."
+    columns:
+      - name: geocode_key
+        data_tests: [unique, not_null]

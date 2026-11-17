@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-17 — Keep places with a failed first inspection
+- **Context:** the plan dropped candidates whose first inspection was "Unsatisfactory". Real data shows that is about 1 in 4 first routine inspections, and the "any to be wary of?" question needs those places.
+- **Decision:** keep them; the safety part of the score ranks them lower. Exclude only places closed by their latest inspection.
+- **Consequences:** more openings shown; "wary" answers can cite real records.
+
 ## 2026-11-17 — One evergreen architecture doc
 - **Context:** `docs/PROJECT_SPEC.md`, the MVP design doc, the plan and `CLAUDE.md` all described the system, and disagreed after the MVP redesign. An engineer had to guess which was current.
 - **Decision:** `ARCHITECTURE.md` (repo root) is the single current description and what code is reviewed against. `docs/PROJECT_SPEC.md` is deleted (in git history); its still-valid data rules moved into `ARCHITECTURE.md`. `docs/superpowers/` is frozen history. `CLAUDE.md` holds working rules only and points to the rest.
