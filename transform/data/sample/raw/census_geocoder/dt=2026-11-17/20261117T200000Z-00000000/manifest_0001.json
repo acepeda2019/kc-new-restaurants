@@ -1,0 +1,57 @@
+{
+  "attempt": 1,
+  "benchmark": "Public_AR_Current",
+  "chunks": [
+    {
+      "attempts": 1,
+      "benchmark": "Public_AR_Current",
+      "chunk": 1,
+      "elapsed_s": 0.66,
+      "http_status": 200,
+      "key_rule_version": "v1",
+      "match_counts": {
+        "Match": 21
+      },
+      "request_bytes": 1533,
+      "request_key": "raw/census_geocoder/dt=2026-11-17/20261117T200000Z-00000000/request_0001.csv",
+      "requested_at": "2026-11-17T21:21:15Z",
+      "response_already_landed": false,
+      "response_bytes": 3887,
+      "response_key": "raw/census_geocoder/dt=2026-11-17/20261117T200000Z-00000000/response_0001.csv",
+      "rows_received": 21,
+      "rows_sent": 21,
+      "source": "census_geocoder"
+    }
+  ],
+  "completed_at": "2026-11-17T21:21:15Z",
+  "counts": {
+    "distinct_keys": 21,
+    "empty_street_rows_skipped": 0,
+    "kc_rows": 104,
+    "mobile_rows_excluded": 8,
+    "new": 21,
+    "pending": 21,
+    "retry_unmatched": 0,
+    "skipped_matched": 0,
+    "skipped_recent_unmatched": 0
+  },
+  "endpoint": "https://geocoding.geo.census.gov/geocoder/locations/addressbatch",
+  "kc_input_keys": [
+    "raw/kc_inspections/dt=2026-11-17/20261117T200000Z-00000000.jsonl.gz"
+  ],
+  "key_rule_version": "v1",
+  "match_counts": {
+    "Match": 21
+  },
+  "rows_received": 21,
+  "run_date": "2026-11-17",
+  "run_id": "20261117T200000Z-00000000",
+  "source": "census_geocoder",
+  "started_at": "2026-11-17T21:21:15Z",
+  "status": "succeeded",
+  "written_keys": [
+    "raw/census_geocoder/dt=2026-11-17/20261117T200000Z-00000000/request_0001.csv",
+    "raw/census_geocoder/dt=2026-11-17/20261117T200000Z-00000000/response_0001.csv",
+    "raw/census_geocoder/dt=2026-11-17/20261117T200000Z-00000000/chunk_0001.json"
+  ]
+}

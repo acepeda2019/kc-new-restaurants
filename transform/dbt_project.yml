@@ -1,0 +1,24 @@
+name: kc_new_eats
+version: "0.1.0"
+config-version: 2
+profile: kc_new_eats
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+target-path: target
+clean-targets: [target, dbt_packages]
+
+vars:
+  # Root of the raw layer. Production: the S3 bucket. Local: --vars '{raw_root: data/sample/raw}'.
+  raw_root: "s3://{{ env_var('RAW_BUCKET', 'RAW_BUCKET-not-set') }}/raw"
+
+models:
+  kc_new_eats:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: table
+    marts:
+      +materialized: table

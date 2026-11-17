@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: kc
+    description: King County food inspections (Socrata `r878-4sxa`), landed as received by `ingestion/sources/kc_inspections.py`. One full pull per run.
+    tables:
+      - name: inspections_raw
+        description: One row per violation (one row with null violation fields for an inspection with none). Every landed file; one JSON object per row in `json` and the file path in `filename`.
+        config:
+          freshness:
+            warn_after: {count: 7, period: day}
+          loaded_at_field: "cast(json ->> 'inspection_date' as timestamp)"
+        meta:
+          external_location: >-
+            read_json_objects('{{ var("raw_root") }}/kc_inspections/*/*.jsonl.gz', format = 'newline_delimited', filename = true)
