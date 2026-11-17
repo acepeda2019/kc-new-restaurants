@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: int_establishments
+    description: "Grain: one row per KC business (business_id) in the latest pull. Business attributes, address key and coordinates, first and latest inspection, and the rule category."
+    columns:
+      - name: business_id
+        data_tests: [unique, not_null]
+      - name: rule_category
+        description: From seeds/classification_rules.csv. Null would mean an unseen classification value.
+        data_tests: [not_null]
+      - name: geocode_key
+        description: md5(street_clean|zip5), rule v1 from ingestion/sources/geocode_key.py. Null when the street normalises to empty.
+      - name: latitude
+        description: Null for food trucks (no geocoding; the address is a base) and for unmatched addresses.
+      - name: businesses_at_address
+        description: Businesses with the same geocode_key inspected in the 12 months before the pull (incl. this one). High counts mean a food hall, mall or market.
+
+  - name: int_candidates
+    description: "Grain: one row per KC business that could be a new opening. First inspected within 180 days of the pull, not excluded by rules or venue, and not closed by its latest inspection. Input to Claude classification."
+    columns:
+      - name: business_id
+        data_tests: [unique, not_null]
+      - name: rule_category
+        data_tests:
+          - accepted_values:
+              arguments: {values: [food_truck, needs_judgment]}
+      - name: prior_businesses_at_address
+        description: JSON list of other businesses at the same address key whose last inspection fell within 12 months before (to 30 days after) this one's first inspection. Lets Claude tell new_opening, new_concept and ownership_transfer apart.

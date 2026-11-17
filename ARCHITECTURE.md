@@ -61,7 +61,7 @@ The GitHub Actions failure email is the alert.
 | S3 raw bucket + GitHub OIDC role | `infra/` | built (SAN-31), not yet applied; `terraform apply` by owner only |
 | CLI runner for the extractors | `ingestion/run.py` | built (SAN-33) |
 | dbt staging (KC, Census) | `transform/models/staging/` | built (SAN-34) |
-| dbt candidates (`int_establishments`, `int_candidates`) | `transform/models/intermediate/` | planned (SAN-34) |
+| dbt candidates (`int_establishments`, `int_candidates`) | `transform/models/intermediate/` | built (SAN-34) |
 | Claude classification | `ingestion/sources/claude_classifications.py` | built (SAN-35), not yet run live |
 | Marts | `transform/models/marts/` | planned (SAN-36) |
 | Export + publish guard | `transform/export.py` | planned (SAN-37) |
@@ -106,10 +106,17 @@ airport-terminal vendors (`seeds/venue_exclusions.csv`, by address).
 - `ownership_transfer`: same place, new owner or re-issued ID. **Not an opening; excluded.**
 
 **Rules first, Claude for the rest.** Clear cases are deterministic, in seeds and dbt: KC
-`classification` → category (e.g. "Mobile Food Unit" = `food_truck`; grocery and
-institutional classes excluded), venue exclusions, multi-tenant addresses, the 180-day
-window. Claude decides only what rules can't: café vs restaurant, in-store vs standalone
-bakery, "Limited Food Service" cases, and the opening type.
+`classification` → rule category (`seeds/classification_rules.csv`: "Mobile Food Unit" =
+`food_truck`; grocery, institutional, caterer and seasonal classes `excluded`; General Food
+Services, Bakery and Limited Food Service `needs_judgment`), venue exclusions, the 180-day
+window. Claude decides only what rules can't: café vs restaurant vs food-hall stall vs
+corporate cafeteria, in-store vs standalone bakery, coffee stands, and the opening type. It gets
+the count of businesses at the address and the other businesses there in the prior 12 months.
+
+**Candidates** (`int_candidates`): first inspected within 180 days of the pull, rule category
+not `excluded`, not at an excluded venue, and not closed by its latest inspection. A failed
+("Unsatisfactory") first inspection does **not** exclude a place; it ranks lower on safety
+(owner, 2026-11-17). About 600 candidates on the full data (2026-11-17).
 
 **Claude classification** (`claude-haiku-5-5`, structured output):
 - Input: only *candidates*, meaning businesses first inspected in the last 180 days that the
@@ -135,7 +142,7 @@ and no distance.
 | `stg_kc__inspections` | inspection | violations deduped to inspections |
 | `stg_census__geocodes` | geocode key | lat/long + match status |
 | `stg_claude__classifications` | KC business | latest Claude classification |
-| `int_establishments` | KC business | first/last inspection, address, coordinates, first-inspection result and red points |
+| `int_establishments` | KC business | first/latest inspection, address key, coordinates, rule category, venue flag, businesses at the address |
 | `int_candidates` | KC business | rule-filtered businesses inside the 180-day window (input to Claude) |
 | `mart_new_openings` | restaurant | the app table: accepted openings, score, rank, one-line "why it's here" |
 | `mart_metrics` | one row | opened last month (and vs. the month before), opened this week, share with a clean first inspection |
