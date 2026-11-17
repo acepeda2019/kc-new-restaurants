@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: stg_census__geocodes
+    description: "Grain: one row per geocode_key: the latest geocoder response for that address key."
+    columns:
+      - name: geocode_key
+        description: md5 of street_clean|zip5 (rule v1, `ingestion/sources/geocode_key.py`).
+        data_tests: [unique, not_null]
+      - name: match_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: [Match, No_Match, Tie]}
+      - name: latitude
+        description: Null unless match_status = 'Match'.

@@ -1,0 +1,19 @@
+kc_new_eats:
+  target: dev
+  outputs:
+    # Local runs on the checked-in sample: --vars '{raw_root: data/sample/raw}'.
+    dev:
+      type: duckdb
+      path: kcne.duckdb
+      threads: 4
+    # The daily GitHub Actions job: raw files from S3, credentials from the OIDC role.
+    prod:
+      type: duckdb
+      path: kcne.duckdb
+      threads: 4
+      extensions: [httpfs, aws]
+      settings:
+        s3_region: "{{ env_var('AWS_REGION', 'us-west-2') }}"
+      secrets:
+        - type: s3
+          provider: credential_chain
