@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Extract layer for King County New Eats: Socrata and Census geocoder extractors landed as-received in S3 raw; run by the daily GitHub Actions job."
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "anthropic>=2.10.0",
     "boto3>=1.35",
     "requests>=2.32",
     "tzdata>=2026.6",
