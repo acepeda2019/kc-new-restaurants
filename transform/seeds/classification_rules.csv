@@ -1,0 +1,16 @@
+classification,rule_category,why
+General Food Services,needs_judgment,restaurant vs cafe/bakery vs food hall stall vs corporate cafeteria is Claude's call
+Bakery,needs_judgment,mostly in-store grocery bakeries; a few standalone bakeries
+Limited Food Service,needs_judgment,mostly espresso and coffee stands
+Mobile Food Unit,food_truck,address is a base or commissary
+Grocery Store,excluded,not a restaurant
+Meat/Fish Market,excluded,not a restaurant
+School Lunch Program,excluded,institutional kitchen
+Nonprofit Institution,excluded,institutional (churches; shelters; senior meals)
+Catering Operation,excluded,no public storefront
+General Food Service,excluded,seasonal SFE- sites (swim clubs; theme park; mountain pass)
+Commissary Kitchen,excluded,no public storefront
+Commissary Kitchen Exempt from,excluded,no public storefront
+DFDO,excluded,meaning unknown; excluded pending clarification
+DFDO Exempt from billing,excluded,meaning unknown; excluded pending clarification
+Bed and Breakfast Operation,excluded,not a restaurant

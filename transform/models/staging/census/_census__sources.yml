@@ -11,6 +11,12 @@ sources:
             read_csv('{{ var("raw_root") }}/census_geocoder/*/*/response_*.csv', header = false, null_padding = true,
             all_varchar = true, filename = true, quote = '"',
             names = ['geocode_key', 'input_address', 'match_status', 'match_type', 'matched_address', 'lon_lat', 'tiger_line_id', 'side'])
+      - name: geocoder_requests
+        description: Every request line sent to the geocoder (geocode_key, street, city, state, zip).
+        meta:
+          external_location: >-
+            read_csv('{{ var("raw_root") }}/census_geocoder/*/*/request_*.csv', header = false, all_varchar = true,
+            quote = '"', names = ['geocode_key', 'street', 'city', 'state', 'zip'])
       - name: geocoder_chunks
         description: One record per geocoder call (requested_at, benchmark). A response may lack one; then its dt= date is used.
         meta:
