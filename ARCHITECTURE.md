@@ -44,7 +44,8 @@ GitHub Actions, daily cron + manual run                        .github/workflows
   3. dbt build staging + intermediate (DuckDB, reads raw from S3)  → candidates
   4. classify  candidates never seen before → Claude Haiku → s3 raw/claude_classifications/…
   5. dbt build marts + tests                    → mart_new_openings, mart_metrics
-  6. publish   export JSON → guard (refuse 0 rows or <50% of last run) → vercel deploy --prebuilt
+  6. publish   export JSON → guard (refuse 0 rows or <50% of last run) → s3 exports/dt=…/<run_id>/
+               → vercel deploy --prebuilt
 
 Vercel (Next.js)
   middleware  shared passcode → signed cookie; gates every page, the data and the API
@@ -64,7 +65,7 @@ The GitHub Actions failure email is the alert.
 | dbt candidates (`int_establishments`, `int_candidates`) | `transform/models/intermediate/` | built (SAN-34) |
 | Claude classification | `ingestion/sources/claude_classifications.py` | built (SAN-35), not yet run live |
 | Marts | `transform/models/marts/` | built (SAN-36) |
-| Export + publish guard | `transform/export.py` | planned (SAN-37) |
+| Export + publish guard | `transform/export.py` | built (SAN-37) |
 | App shell, passcode, data, ranking | `app/` | planned (SAN-38) |
 | Map, location, "Tried it" | `app/` | planned (SAN-39) |
 | Capped question bar | `app/api/ask` | planned (SAN-40) |
@@ -182,7 +183,10 @@ marked "Tried it". Without location it falls back to score order with no distanc
 
 - **Private:** middleware checks one shared passcode (`/api/login`) and sets a signed cookie
   (`kcne_session`). The JSON is served only through the app, never from a public URL.
-- **Data:** `openings.json` and `metrics.json` are baked into each deploy. Visitors never
+- **Data:** `openings.json` and `metrics.json` (plus `manifest.json`: row count, schema
+  version) are baked into each deploy. A dated copy of every published export stays in
+  `s3://$RAW_BUCKET/exports/dt=…/<run_id>/` (never overwritten); the guard compares with
+  the newest one. Visitors never
   touch S3 or the pipeline. Per restaurant, the JSON carries the first and latest
   inspection result, red points and short red-violation descriptions, so answers can cite
   records.
