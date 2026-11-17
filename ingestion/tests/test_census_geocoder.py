@@ -297,10 +297,13 @@ def test_rerun_same_run_id_adds_a_manifest_and_overwrites_nothing(s3, http, no_s
     assert len(keys) == len(set(keys))
 
 
-def test_unmatched_are_retried_after_90_days(s3, http, no_sleep) -> None:
+def test_unmatched_are_retried_after_90_days(s3, http, no_sleep, monkeypatch) -> None:
     put_kc(s3)
     recorded_geocoder(http)
+    # requested_at is wall-clock time; pin it to the run date so "90 days later" is fixed.
+    monkeypatch.setattr(geo, "utc_now_iso", lambda: f"{RUN_DATE}T17:00:00Z")
     run(s3, no_sleep)
+    monkeypatch.undo()
 
     later = run(s3, no_sleep, run_date="2027-02-10", run_id="20270210T150000Z-cccccccc")
 
