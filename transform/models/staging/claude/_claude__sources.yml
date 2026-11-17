@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: claude
+    description: Claude Haiku classifications landed by `ingestion/sources/claude_classifications.py`.
+    tables:
+      - name: classifications_raw
+        description: One JSON object per classified business per run; one JSON object per row in `json` and the file path in `filename`.
+        config:
+          freshness:
+            warn_after: {count: 2, period: day}
+          loaded_at_field: "cast(json ->> 'classified_at' as timestamp)"
+        meta:
+          external_location: >-
+            read_json_objects('{{ var("raw_root") }}/claude_classifications/*/*.jsonl.gz', format = 'newline_delimited', filename = true)

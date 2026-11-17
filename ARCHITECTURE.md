@@ -63,7 +63,7 @@ The GitHub Actions failure email is the alert.
 | dbt staging (KC, Census) | `transform/models/staging/` | built (SAN-34) |
 | dbt candidates (`int_establishments`, `int_candidates`) | `transform/models/intermediate/` | built (SAN-34) |
 | Claude classification | `ingestion/sources/claude_classifications.py` | built (SAN-35), not yet run live |
-| Marts | `transform/models/marts/` | planned (SAN-36) |
+| Marts | `transform/models/marts/` | built (SAN-36) |
 | Export + publish guard | `transform/export.py` | planned (SAN-37) |
 | App shell, passcode, data, ranking | `app/` | planned (SAN-38) |
 | Map, location, "Tried it" | `app/` | planned (SAN-39) |
@@ -144,14 +144,20 @@ and no distance.
 | `stg_claude__classifications` | KC business | latest Claude classification |
 | `int_establishments` | KC business | first/latest inspection, address key, coordinates, rule category, venue flag, businesses at the address |
 | `int_candidates` | KC business | rule-filtered businesses inside the 180-day window (input to Claude) |
-| `mart_new_openings` | restaurant | the app table: accepted openings, score, rank, one-line "why it's here" |
-| `mart_metrics` | one row | opened last month (and vs. the month before), opened this week, share with a clean first inspection |
+| `int_classified_candidates` | KC business | each candidate's decision (override wins, else Claude) and `review_status`: accepted, rejected or pending |
+| `mart_new_openings` | restaurant | the app table: accepted openings, score, rank, one-line "why it's here", up to 5 red violations |
+| `mart_metrics` | one row | opened in the last 30 days (and the 30 before), last 7 days, last 180 days, clean first inspections, top 10 cities, pending-review count |
 
 **Identity:** `restaurant_id` = KC `business_id`. Cross-source identity (an ID map, merges,
 splits) waits for "Opening soon".
 
 **Seeds:** `classification_rules.csv`, `venue_exclusions.csv`,
-`classification_overrides.csv`, `score_params.csv`.
+`classification_overrides.csv` (empty until the owner decides a case), `score_params.csv`
+(weights, window, `min_confidence`).
+
+**"What's pending?"** `analyses/pending_review.sql` lists candidates with no answer or
+confidence below 0.8. An educational first visit (no score) counts as 0 red points, and its
+"why" line says it was not scored.
 
 **Tests that enforce the rules:** `unique` + `not_null` on every key, with the grain stated in
 the YAML. No `ownership_transfer` or excluded category in `mart_new_openings`.

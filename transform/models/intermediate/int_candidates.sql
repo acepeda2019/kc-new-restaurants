@@ -5,10 +5,15 @@ with establishments as (
     select * from {{ ref('int_establishments') }}
 ),
 
+params as (
+    select window_days from {{ ref('score_params') }}
+),
+
 window_candidates as (
     select *
     from establishments
-    where first_inspection_date > pulled_on - interval 180 day
+    cross join params
+    where first_inspection_date > pulled_on - to_days(params.window_days)
       and rule_category <> 'excluded'
       and not is_venue_excluded
       and not is_closed_by_latest_inspection
@@ -38,7 +43,7 @@ prior_at_address as (
 )
 
 select
-    window_candidates.*,
+    window_candidates.* exclude (window_days),
     coalesce(prior_at_address.prior_businesses_at_address, to_json([])) as prior_businesses_at_address
 from window_candidates
 left join prior_at_address using (business_id)

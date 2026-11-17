@@ -15,3 +15,7 @@ Nothing is invented.
 - `census_geocoder/dt=2026-11-12/…/`: the recorded fixture request/response from
   `ingestion/tests/fixtures/` (includes `Tie` and `No_Match` lines; no chunk record, so the run date
   comes from `dt=`).
+- `claude_classifications/dt=2026-11-17/…jsonl.gz`: **hand-labelled, not API output**
+  (`model: "sample-hand-labelled"`): 18 of the 19 candidates, labelled from their KC records so the
+  marts have input before the first live Haiku run. `input_hash` comes from the real code. One
+  candidate is left unclassified and one is below 0.8, so the review list has entries.
