@@ -5,9 +5,14 @@ This is the *why*. The current system is described in `ARCHITECTURE.md`; an entr
 *(superseded)* is kept as history only.
 
 ## 2026-11-18 — Passcode gate uses Next.js 16 `proxy.ts` and `SESSION_SECRET`
-- **Context:** `create-next-app` now installs Next.js 16, which deprecates `middleware.ts` in favour of `proxy.ts`. The plan named the cookie-signing key `AUTH_SECRET`; the SAN-38a brief named it `SESSION_SECRET`.
-- **Decision:** the gate lives in `app/proxy.ts`; signing uses Web Crypto only, so it works in any runtime. The env var is `SESSION_SECRET`.
-- **Consequences:** Vercel needs `SESSION_SECRET` (not `AUTH_SECRET`) and `APP_PASSCODE`.
+- **Context:** `create-next-app` now installs Next.js 16, which deprecates `middleware.ts` in favour of `proxy.ts`. The plan named the cookie-signing key `AUTH_SECRET`; the SAN-38a build used `SESSION_SECRET`.
+- **Decision (owner OK'd):**
+  - The gate lives in `app/proxy.ts`; signing uses Web Crypto only, so it works in any runtime.
+  - The env var is `SESSION_SECRET`: it says exactly what it signs (the `kcne_session` cookie), and nothing was deployed under the old name, so the rename costs nothing.
+  - Unlimited passcode attempts are accepted; a long passcode is the mitigation.
+  - Changing `APP_PASSCODE` does not log anyone out; rotating `SESSION_SECRET` does.
+  - `kcne_visitor` (the per-visitor cap id) lasts 1 year.
+- **Consequences:** the owner sets `SESSION_SECRET` (`openssl rand -base64 32`) and a long `APP_PASSCODE` in Vercel. Revisit attempt limits if the site is ever shared beyond friends.
 
 ## 2026-11-17 — Keep places with a failed first inspection
 - **Context:** the plan dropped candidates whose first inspection was "Unsatisfactory". Real data shows that is about 1 in 4 first routine inspections, and the "any to be wary of?" question needs those places.
