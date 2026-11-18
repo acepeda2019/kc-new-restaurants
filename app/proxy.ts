@@ -13,6 +13,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Static assets skip the gate; everything else, including other API paths, is checked.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Only real static paths skip the gate; everything else, including other API paths, is
+  // checked. Caution: /_next/image serves anything in public/ without the gate, so never
+  // put private data in public/.
+  matcher: ["/((?!_next/static/|_next/image$|favicon\\.ico$).*)"],
 };

@@ -16,3 +16,5 @@ npm run build
 ```
 
 With either variable unset, the gate fails closed: nobody can log in.
+Changing `APP_PASSCODE` does not log anyone out; rotate `SESSION_SECRET` to revoke all sessions.
+Cookies are `Secure`: Safari may drop them on `http://localhost`, so test locally in Chrome or Firefox.

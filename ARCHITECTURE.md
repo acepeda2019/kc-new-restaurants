@@ -48,7 +48,7 @@ GitHub Actions, daily cron + manual run                        .github/workflows
                → vercel deploy --prebuilt
 
 Vercel (Next.js)
-  middleware  shared passcode → signed cookie; gates every page, the data and the API
+  proxy       shared passcode → signed cookie; gates every page, the data and the API
   page        JSON baked in at build → map, metrics, top 3 (static)
   /api/ask    caps check (Upstash Redis) → Claude Haiku with the openings JSON as data → short answer
 ```
