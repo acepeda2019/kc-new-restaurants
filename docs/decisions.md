@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-18 — Passcode gate uses Next.js 16 `proxy.ts` and `SESSION_SECRET`
+- **Context:** `create-next-app` now installs Next.js 16, which deprecates `middleware.ts` in favour of `proxy.ts`. The plan named the cookie-signing key `AUTH_SECRET`; the SAN-38a brief named it `SESSION_SECRET`.
+- **Decision:** the gate lives in `app/proxy.ts`; signing uses Web Crypto only, so it works in any runtime. The env var is `SESSION_SECRET`.
+- **Consequences:** Vercel needs `SESSION_SECRET` (not `AUTH_SECRET`) and `APP_PASSCODE`.
+
 ## 2026-11-17 — Keep places with a failed first inspection
 - **Context:** the plan dropped candidates whose first inspection was "Unsatisfactory". Real data shows that is about 1 in 4 first routine inspections, and the "any to be wary of?" question needs those places.
 - **Decision:** keep them; the safety part of the score ranks them lower. Exclude only places closed by their latest inspection.
