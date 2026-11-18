@@ -48,7 +48,7 @@ GitHub Actions, daily cron + manual run                        .github/workflows
                → vercel deploy --prebuilt
 
 Vercel (Next.js)
-  middleware  shared passcode → signed cookie; gates every page, the data and the API
+  proxy       shared passcode → signed cookie; gates every page, the data and the API
   page        JSON baked in at build → map, metrics, top 3 (static)
   /api/ask    caps check (Upstash Redis) → Claude Haiku with the openings JSON as data → short answer
 ```
@@ -66,7 +66,8 @@ The GitHub Actions failure email is the alert.
 | Claude classification | `ingestion/sources/claude_classifications.py` | built (SAN-35), not yet run live |
 | Marts | `transform/models/marts/` | built (SAN-36) |
 | Export + publish guard | `transform/export.py` | built (SAN-37) |
-| App shell, passcode, data, ranking | `app/` | planned (SAN-38) |
+| App shell + passcode gate | `app/` | built (SAN-38a) |
+| App data, ranking, home page | `app/` | planned (SAN-38b/c) |
 | Map, location, "Tried it" | `app/` | planned (SAN-39) |
 | Capped question bar | `app/api/ask` | planned (SAN-40) |
 | Daily workflow + CI | `.github/workflows/` | planned (SAN-41) |
@@ -181,8 +182,10 @@ marked "Tried it". Without location it falls back to score order with no distanc
 
 ## 7. App (`app/`, Next.js on Vercel)
 
-- **Private:** middleware checks one shared passcode (`/api/login`) and sets a signed cookie
-  (`kcne_session`). The JSON is served only through the app, never from a public URL.
+- **Private:** `app/proxy.ts` (Next.js 16's name for middleware) sends every request
+  without a valid `kcne_session` cookie to `/login`. `/api/login` checks one shared
+  passcode and sets the cookie (HMAC-signed with `SESSION_SECRET`, 30 days). Missing
+  secrets fail closed. The JSON is served only through the app, never from a public URL.
 - **Data:** `openings.json` and `metrics.json` (plus `manifest.json`: row count, schema
   version) are baked into each deploy. A dated copy of every published export stays in
   `s3://$RAW_BUCKET/exports/dt=…/<run_id>/` (never overwritten); the guard compares with
@@ -214,7 +217,7 @@ marked "Tried it". Without location it falls back to score order with no distanc
 - **Terraform** (`infra/`): one private, versioned S3 bucket and one IAM role that only
   GitHub Actions on this repo's `main` can assume (OIDC). The owner runs `terraform apply`.
 - **Secrets** only in GitHub Actions secrets and Vercel env vars, never in the repo:
-  `ANTHROPIC_API_KEY` (a dedicated key for this app), `APP_PASSCODE`, `AUTH_SECRET`,
+  `ANTHROPIC_API_KEY` (a dedicated key for this app), `APP_PASSCODE`, `SESSION_SECRET`,
   `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
   `VERCEL_PROJECT_ID`. AWS is reached via the OIDC role (`AWS_ROLE_ARN` repo variable).
 - **Cost:** Haiku at about $0.002 per question, so the global cap bounds the worst case at
