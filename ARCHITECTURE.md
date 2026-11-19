@@ -236,7 +236,9 @@ near me). Named places with a pin are buttons that fly the map there.
 - **Layout and look:** a dark theme (ground `#0B0E13`, one lime accent `#D4F75A`, Geist)
   following the owner's UI mockup. On screens 1100px and wider the map fills the window and
   everything floats over it in dark panels: header (logo and the "Sample data ·
-  not today's list" pill), the question bar centred at the top with the brief or answer under it, the legend and data source at the bottom.
+  not today's list" pill), an ⓘ button beside the logo that opens the About panel
+  (`app/components/AboutButton.tsx`, a native `<dialog>`: what the site is, the data sources,
+  how to use it, the daily question cap, a GitHub link and a not-affiliated note), the question bar centred at the top with the brief or answer under it, the legend and data source at the bottom.
   The brief sits in a gradient-bordered panel (lime to lavender) labelled "✦ Today". Below 1100px (phones, tablets, small
   laptops) the map takes the top of the screen and one scrolling sheet below holds the
   question bar and the brief or answer; there, "Tried it" shows a visible "Tried" label.
