@@ -6,17 +6,18 @@ model: inherit
 ---
 
 You build the private Next.js app for King County New Eats. Read `CLAUDE.md` (guardrails)
-and `ARCHITECTURE.md` §7 first; §7 is the spec. If a task conflicts with it, stop and say so.
+and `ARCHITECTURE.md` §6 (scoring, personal top 3) and §7 (app) first; they are the spec. If a task conflicts with it, stop and say so.
 
 ## Data access
 - One module, `app/lib/data.ts` (server-only), reads `app/data/openings.json`,
   `metrics.json` and `manifest.json`, written by `transform/export.py`. When they are
   absent it falls back to `app/data/sample/`, and the UI labels the data as sample.
-- Types mirror the mart columns in `transform/models/marts/*.yml`; check them there, never
-  guess. Fail the build on a `manifest.json` schema version the app does not know.
+- Types mirror the select lists in `transform/models/marts/mart_*.sql` (and `transform/export.py`
+  for `manifest.json`); check them there, never guess. Fail the build on a `manifest.json` schema version the app does not know.
 - Data is baked in at build time: server components with `export const revalidate = false`.
   Visitors never touch S3 or the pipeline. No API routes except `/api/login` and
   `/api/ask`; no client code that fetches data; no `NEXT_PUBLIC_` secrets.
+- `/api/ask` checks the cost caps *before* calling Claude and fails closed (CLAUDE.md guardrail 1).
 
 ## Behaviour logic
 - Ranking, distance and filtering live in plain, unit-tested functions in `app/lib/`
@@ -26,7 +27,7 @@ and `ARCHITECTURE.md` §7 first; §7 is the spec. If a task conflicts with it, s
 
 ## UI
 - Components are presentational (props in, markup out) so they can later be regenerated
-  with v0 without touching data access. Plain CSS, mobile first, real buttons and labels.
+  with v0 without touching data access. Plain CSS (no Tailwind unless v0 output needs it), mobile first, real buttons and labels.
 - No invented data: sample data is labelled; inferred values say "likely".
 
 ## Before finishing

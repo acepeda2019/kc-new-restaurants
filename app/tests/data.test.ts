@@ -1,15 +1,21 @@
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { loadData } from "@/lib/data";
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const SAMPLE_DIR = path.join(DATA_DIR, "sample");
 
+const tempDirs: string[] = [];
+const removeTempDirs = () => {
+  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+};
+
 /** A data dir holding only the tracked sample, as on a fresh checkout. */
 function sampleOnlyDir(): string {
   const dir = mkdtempSync(path.join(tmpdir(), "kcne-data-"));
+  tempDirs.push(dir);
   cpSync(SAMPLE_DIR, path.join(dir, "sample"), { recursive: true });
   return dir;
 }
@@ -23,7 +29,17 @@ function realExportDir(manifestPatch: Record<string, unknown> = {}): string {
   return dir;
 }
 
+type Row = Record<string, unknown>;
+
+/** Rewrite openings.json in dir. */
+function patchOpenings(dir: string, patch: (rows: Row[]) => Row[]): void {
+  const file = path.join(dir, "openings.json");
+  writeFileSync(file, JSON.stringify(patch(JSON.parse(readFileSync(file, "utf8")))));
+}
+
 describe("loadData", () => {
+  afterEach(removeTempDirs);
+
   it("falls back to the sample when the real export is absent", () => {
     const data = loadData(sampleOnlyDir());
     expect(data.isSample).toBe(true);
@@ -46,15 +62,26 @@ describe("loadData", () => {
 
   it("rejects an openings row missing a mart column", () => {
     const dir = realExportDir();
-    const rows = JSON.parse(readFileSync(path.join(dir, "openings.json"), "utf8"));
-    delete rows[0].why;
-    writeFileSync(path.join(dir, "openings.json"), JSON.stringify(rows));
-    expect(() => loadData(dir)).toThrow(/why/);
+    patchOpenings(dir, (rows) => rows.map((r, i) => (i === 0 ? { ...r, why: undefined } : r)));
+    expect(() => loadData(dir)).toThrow(/missing column\(s\) why/);
+  });
+
+  it.each(["restaurant_id", "rank", "why"])("rejects a null %s (not-null in the mart)", (column) => {
+    const dir = realExportDir();
+    patchOpenings(dir, (rows) => rows.map((r, i) => (i === 0 ? { ...r, [column]: null } : r)));
+    expect(() => loadData(dir)).toThrow(new RegExp(`row 0: null ${column}`));
+  });
+
+  it("rejects openings that disagree with the manifest row_count", () => {
+    const dir = realExportDir();
+    patchOpenings(dir, (rows) => rows.slice(1));
+    expect(() => loadData(dir)).toThrow(/manifest says/);
   });
 });
 
 describe("sample openings", () => {
   const { openings, metrics } = loadData(sampleOnlyDir());
+  afterAll(removeTempDirs);
 
   it("has the mart's not-null and accepted-value guarantees", () => {
     expect(openings.length).toBeGreaterThan(0);

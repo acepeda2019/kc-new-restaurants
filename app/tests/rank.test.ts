@@ -55,6 +55,19 @@ describe("personalTopThree", () => {
     expect(top[1].distanceMi).toBeCloseTo(haversineMi(SEATTLE, BELLEVUE), 5);
   });
 
+  it("drops places marked tried when location is known", () => {
+    const rows = [opening("a", 1, 90, SEATTLE), opening("b", 2, 80, SEATTLE), opening("c", 3, 70, BELLEVUE)];
+    expect(ids(personalTopThree(rows, { here: SEATTLE, tried: new Set(["a"]) }))).toEqual(["b", "c"]);
+  });
+
+  it("lets distance beat a higher score: 90 at ~6 mi loses to 50 at ~0.1 mi", () => {
+    const far = opening("far", 1, 90, BELLEVUE); // 90 − 10 × 6.09 ≈ 29
+    const near = opening("near", 2, 50, { lat: 47.6076, lon: -122.3321 }); // 50 − 10 × 0.1 ≈ 49
+    const top = personalTopThree([far, near], { here: SEATTLE, tried: new Set() });
+    expect(ids(top)).toEqual(["near", "far"]);
+    expect(top[0].distanceMi).toBeCloseTo(0.1, 1);
+  });
+
   it("puts trucks and unmapped rows after mappable ones when location is known", () => {
     const truck = opening("truck", 1, 99, SEATTLE, "food_truck");
     const unmapped = opening("unmapped", 2, 98);

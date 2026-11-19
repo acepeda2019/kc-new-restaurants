@@ -99,7 +99,7 @@ function requireKeys(row: Record<string, unknown>, keys: readonly string[], wher
 }
 
 function readJson(dir: string, name: string): unknown {
-  return JSON.parse(readFileSync(/*turbopackIgnore: true*/ path.join(dir, name), "utf8"));
+  return JSON.parse(readFileSync(path.join(/*turbopackIgnore: true*/ dir, name), "utf8"));
 }
 
 /** Load and check the export in dataDir, else its sample/ subfolder. */
