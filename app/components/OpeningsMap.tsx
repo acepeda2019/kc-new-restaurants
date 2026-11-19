@@ -12,7 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, Map as MapLibreMap, Popup } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import { PIN_COLORS } from "@/components/MapLegend";
-import { boundsOf, cameraTarget, popupText, type MapFocus, type PinProps, type Pins } from "@/lib/pins";
+import { boundsOf, cameraTarget, homeView, popupText, type MapFocus, type PinProps, type Pins } from "@/lib/pins";
 
 // OpenFreeMap: free, no key. Override with any MapLibre style URL.
 const STYLE_URL = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/dark";
@@ -33,7 +33,7 @@ const reducedMotion = () => media("(prefers-reduced-motion: reduce)");
 // screens, under the header pills otherwise. Read at camera time, so it follows resizes.
 function viewPadding() {
   return media(FLOATING)
-    ? { top: 96, bottom: 72, left: 440, right: 280 }
+    ? { top: 330, bottom: 72, left: 48, right: 48 } // the bar and brief sit centred at the top
     : { top: 72, bottom: 24, left: 24, right: 24 };
 }
 
@@ -66,6 +66,20 @@ export function OpeningsMap({ pins, focus, onFocus, onUnavailable }: Props) {
     if (!target) return;
     lastCentered.current = target.center;
     map.easeTo({ ...target, padding: viewPadding() });
+  }
+
+  // Back to the starting view (SAN-53), closing any popup.
+  function resetView() {
+    const map = mapRef.current;
+    if (!map) return;
+    latestOnFocus.current(null);
+    const view = homeView(latestPins.current);
+    const animate = !reducedMotion();
+    // flyTo/easeTo keep their padding on the map, and fitBounds adds its own on top of it,
+    // which would squeeze the pins into a corner; start from none.
+    map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });
+    if ("bounds" in view) map.fitBounds(view.bounds, { padding: viewPadding(), maxZoom: 14, animate });
+    else map.easeTo({ ...view, padding: viewPadding(), duration: animate ? 600 : 0 });
   }
 
   // Ring the focused pin and open its popup; from the lists, also fly there (and on phones
@@ -277,10 +291,19 @@ export function OpeningsMap({ pins, focus, onFocus, onUnavailable }: Props) {
     <div className="map-layer">
       {failed ? (
         <p className="pill map-unavailable" role="status">
-          Map unavailable. The lists still work.
+          Map unavailable. The question bar still works.
         </p>
       ) : (
-        <div ref={box} className="map-box" role="region" aria-label="Map of new openings" />
+        <>
+          <div ref={box} className="map-box" role="region" aria-label="Map of new openings" />
+          <button type="button" className="map-reset" onClick={resetView} title="Reset map view">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+            </svg>
+            <span className="sr-only">Reset map view</span>
+          </button>
+        </>
       )}
     </div>
   );

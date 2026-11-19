@@ -107,6 +107,17 @@ export function cameraTarget(pins: Pins, lastCentered: LonLat | null): { center:
   return { center: [lon, lat], zoom: YOU_ZOOM };
 }
 
+/**
+ * The "reset view" camera: around the visitor once located (as after "Use my location"),
+ * else every pin (King County when there are none). The visitor's own pin is left out of the
+ * bounds so the whole-county view doesn't depend on where they are.
+ */
+export function homeView(pins: Pins): { center: LonLat; zoom: number } | { bounds: Bounds } {
+  const you = pins.features.find((f) => f.properties.kind === "you");
+  if (you) return { center: you.geometry.coordinates, zoom: YOU_ZOOM };
+  return { bounds: boundsOf(pins.features) };
+}
+
 /** Zoom for showing one place: its street and the blocks around it. */
 export const FOCUS_ZOOM = 15;
 

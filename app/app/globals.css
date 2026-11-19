@@ -176,6 +176,23 @@ input {
   height: 100%;
 }
 
+/* Reset view (SAN-53): bottom-right of the map on phones, clear of the attribution. */
+.map-reset {
+  position: absolute;
+  right: 12px;
+  bottom: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
 .map-unavailable {
   position: absolute;
   top: 50%;
@@ -715,6 +732,13 @@ button.link {
 
 /* Wide screens: full-window map, panels floating around its centre. */
 @media (min-width: 1100px) {
+  /* Under the "Sample data" pill, top-right. */
+  .map-reset {
+    top: 72px;
+    right: 24px;
+    bottom: auto;
+  }
+
   :root {
     --map-h: 100svh;
   }
