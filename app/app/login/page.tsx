@@ -27,7 +27,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main>
+    <main className="login">
       <h1>King County New Eats</h1>
       <form onSubmit={onSubmit}>
         <label htmlFor="passcode">Passcode</label>

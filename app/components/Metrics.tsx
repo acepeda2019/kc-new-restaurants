@@ -9,14 +9,14 @@ type Props = {
   near?: { count: number; radiusMi: number };
 };
 
-/** Headline numbers from mart_metrics, plus "near you" when the caller measured it. */
+/** Headline numbers from mart_metrics, plus "near you" when the caller measured it. CSS shows each number above its label. */
 export function Metrics({ metrics, near }: Props) {
   return (
     <dl className="metrics">
       <div>
         <dt>Opened in the last 30 days</dt>
         <dd className="number">{metrics.opened_last_30_days}</dd>
-        <dd className="note">{metrics.opened_prior_30_days} in the 30 days before</dd>
+        <dd className="note compare">{metrics.opened_prior_30_days} in the 30 days before</dd>
       </div>
       {near ? (
         <div>

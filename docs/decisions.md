@@ -4,6 +4,15 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-18 — Dark, map-first redesign from the owner's mockup
+- **Context:** the MVP screens were deliberately plain while the logic was built. The owner wants the look of the UI mockup (SAN-42).
+- **Decision:**
+  - The page follows the mockup: a full-window dark map on desktop with floating panels over it, and on phones a map on top with a scrolling sheet below.
+  - Dark ground, lime accent, Geist (self-hosted via `next/font`). OpenFreeMap `dark` style. Top-3 pins numbered to match the cards.
+  - Presentation only: no ranking, data or cap logic changed.
+  - Kept from the current app where the mockup differs: the precise legend labels, the visible food-truck list, and muted greys that pass WCAG AA (the mockup's footer grey didn't).
+- **Consequences:** the "Sample data" explanation is a short pill for sighted visitors, with the full sentence for screen readers. "Tried it" is a tick icon button with a hidden label and tooltip. The question bar (SAN-40b) goes in the header slot on desktop; its place on phones is still to decide.
+
 ## 2026-11-18 — The question bar sends at most 100 places per question
 - **Context:** `/api/ask` sends the restaurant list to Haiku with every question. A real 180-day export could hold several hundred places, which is about 66k input tokens per question and roughly $1.40/day at the 200-question cap. That would use up the owner's prepaid $5 in a few days of heavy use.
 - **Decision (owner):** send at most 100 places: the nearest once located, else the top-ranked, after removing tried places. The prompt says the list may be a subset.

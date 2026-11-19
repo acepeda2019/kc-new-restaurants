@@ -214,14 +214,20 @@ where it serves, so it can't be "near you".
   stays visible (pressed) so a mistaken tap can be undone in place, and a "N hidden as
   tried · Clear" link resets them (N = tried places still listed, other than the one
   just marked).
-- **Map:** MapLibre GL with OpenFreeMap tiles (free, no key); `NEXT_PUBLIC_MAP_STYLE_URL`
-  overrides the style URL. Every opening with a fixed location is pinned, including ones
-  marked "Tried it"; pin logic is in `app/lib/pins.ts`. Pin colours: top 3 (larger,
-  outlined, drawn on top, and winning over red), red points at latest inspection, other
-  new places, you. After "Use my location" the map recenters on the visitor. Food trucks
-  get no pin and are listed under the map as "Food trucks (no fixed spot)". If the map or
-  its style fails to load, a "Map unavailable" note replaces it and the cards still work.
-  Under the map, a collapsed "All N places" list (closed by default; rows render only when
+- **Layout and look:** a dark theme (ground `#0B0E13`, one lime accent `#D4F75A`, Geist)
+  following the owner's UI mockup. On screens 720px and wider the map fills the window and
+  everything floats over it in dark panels: header (logo, question-bar slot, "Sample data"
+  pill), your top 3 and the lists on the left, the three stat tiles on the right, the legend
+  and data source at the bottom. On phones the map takes the top of the screen and one
+  scrolling sheet below holds the tiles, top 3 and lists.
+- **Map:** MapLibre GL with OpenFreeMap's `dark` style (free, no key); `NEXT_PUBLIC_MAP_STYLE_URL`
+  overrides it. Every opening with a fixed location is pinned, including ones marked "Tried
+  it"; pin logic is in `app/lib/pins.ts`. Pins: top 3 lime, numbered 1–3 to match the cards,
+  larger and drawn on top (winning over red); red points at latest inspection orange with a
+  dark ring; other new places light grey; you blue. After "Use my location" the map
+  recenters on the visitor. Food trucks get no pin and are listed as "Food trucks (no fixed
+  spot)". If the map or its style fails to load, a "Map unavailable" note shows on the plain
+  dark ground and the panels still work. A collapsed "All N places" list (closed by default; rows render only when
   opened) gives every opening as text. Once located: fixed-location places nearest first
   (ties by rank), then food trucks and places without coordinates in rank order; without a
   location, rank order. Tried places are tagged, not hidden. It is the keyboard and screen-reader route to what the map shows.
