@@ -4,6 +4,14 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-18 — Personal top 3 in the browser: 2-mile "near you", in-place undo
+- **Context:** SAN-39a adds location and "Tried it". The spec gave the formula but not the radius, which headline number "near you" replaces, or how a tried mark is undone.
+- **Decision:**
+  - "Near you" means fixed-location places within 2 miles; once located it replaces the "last 7 days" number, so the strip keeps three numbers (owner default).
+  - The 8 s location timeout starts after the visitor allows location, so a slow tap on "Allow" isn't treated as a failure.
+  - The place just marked "Tried it" stays visible so it can be undone; earlier marks are hidden from the top 3 and, for now, can only be cleared by clearing site data.
+- **Consequences:** `/api/ask` (SAN-40) should reuse `NEAR_RADIUS_MI` for "near me". A "reset tried" control is a candidate follow-up.
+
 ## 2026-11-18 — Daily deploys never fall back to sample data; trucks rank last near you
 - **Context:** `app/lib/data.ts` falls back to the labelled sample when no export is present, so a production build without the pipeline would replace real data with the labelled sample. Separately, with a location known, the personal top 3 had to place food trucks, which have no fixed spot.
 - **Decision (owner OK'd):**
