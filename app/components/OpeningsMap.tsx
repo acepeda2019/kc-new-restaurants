@@ -3,25 +3,28 @@
 /**
  * The openings map (ARCHITECTURE.md §7). Props in, pixels out: pins come from lib/pins.
  * MapLibre is imported inside the effect, so the server render (and the static HTML) is just
- * the fixed-height box and the legend. Any MapLibre or style failure shows a short note
- * instead; the rest of the page never depends on the map.
+ * the empty map layer behind the panels. Any MapLibre or style failure shows a short note
+ * instead; the rest of the page never depends on the map. The legend is MapLegend.
  */
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
-import { boundsOf, cameraTarget, popupText, type PinKind, type PinProps, type Pins } from "@/lib/pins";
+import { PIN_COLORS } from "@/components/MapLegend";
+import { boundsOf, cameraTarget, popupText, type PinProps, type Pins } from "@/lib/pins";
 
 // OpenFreeMap: free, no key. Override with any MapLibre style URL.
-const STYLE_URL = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
+const STYLE_URL = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/dark";
 const SOURCE_ID = "openings";
+const GROUND = "#0B0E13"; // page background; dark rings and rank numbers use it
+// Faint glow behind top, wary and you pins (the colour at low opacity).
+const HALO = { top: "rgba(212,247,90,.18)", wary: "rgba(255,138,61,.18)", you: "rgba(90,169,255,.2)" };
 
-const LEGEND: { kind: PinKind; color: string; label: string }[] = [
-  { kind: "top", color: "#6a1b9a", label: "Your top 3" },
-  { kind: "new", color: "#00796b", label: "Other new places" },
-  { kind: "wary", color: "#c62828", label: "Red points at latest inspection" },
-  { kind: "you", color: "#1a1a1a", label: "You" },
-];
-const colorOf = (kind: PinKind) => LEGEND.find((l) => l.kind === kind)!.color;
+// Keep pins clear of the floating panels: on wide screens they cover the left and right edges.
+function fitPadding() {
+  return window.innerWidth >= 1100
+    ? { top: 96, bottom: 72, left: 440, right: 280 }
+    : { top: 72, bottom: 24, left: 24, right: 24 };
+}
 
 type Props = { pins: Pins };
 
@@ -70,7 +73,7 @@ export function OpeningsMap({ pins }: Props) {
           container: box.current,
           style: STYLE_URL,
           bounds: boundsOf(latestPins.current.features),
-          fitBoundsOptions: { padding: 32, maxZoom: 14 },
+          fitBoundsOptions: { padding: fitPadding(), maxZoom: 14 },
           attributionControl: { compact: false }, // OpenStreetMap / OpenFreeMap credit stays visible
         });
         mapRef.current = map;
@@ -84,22 +87,47 @@ export function OpeningsMap({ pins }: Props) {
         map.on("load", () => {
           map!.addSource(SOURCE_ID, { type: "geojson", data: latestPins.current });
           map!.addLayer({
+            id: `${SOURCE_ID}-halo`,
+            type: "circle",
+            source: SOURCE_ID,
+            filter: ["!=", ["get", "kind"], "new"],
+            paint: {
+              "circle-color": ["match", ["get", "kind"], "top", HALO.top, "you", HALO.you, HALO.wary],
+              "circle-radius": ["match", ["get", "kind"], "top", 22, "you", 16, 11],
+            },
+          });
+          map!.addLayer({
             id: SOURCE_ID,
             type: "circle",
             source: SOURCE_ID,
-            // The top 3 stand out by more than colour: bigger, thicker white outline, drawn on top.
+            // The top 3 stand out by more than colour: bigger, numbered, drawn on top.
             layout: { "circle-sort-key": ["match", ["get", "kind"], "top", 3, "you", 2, "wary", 1, 0] },
             paint: {
               "circle-color": [
                 "match", ["get", "kind"],
-                "top", colorOf("top"), "wary", colorOf("wary"), "you", colorOf("you"),
-                colorOf("new"),
+                "top", PIN_COLORS.top, "wary", PIN_COLORS.wary, "you", PIN_COLORS.you,
+                PIN_COLORS.new,
               ],
-              "circle-radius": ["match", ["get", "kind"], "top", 11, "you", 7, 6],
-              // Wary pins get a thick dark ring so they differ by more than colour too.
-              "circle-stroke-color": ["match", ["get", "kind"], "wary", "#1a1a1a", "#fff"],
-              "circle-stroke-width": ["match", ["get", "kind"], "top", 3, "wary", 2.5, 1.5],
+              "circle-radius": ["match", ["get", "kind"], "top", 14, "you", 7, "wary", 6.5, 5],
+              // Wary pins keep a thick dark ring so they differ by more than colour too.
+              "circle-stroke-color": GROUND,
+              "circle-stroke-width": ["match", ["get", "kind"], "you", 3, "wary", 2.5, "top", 2, 1],
             },
+          });
+          // The card's number (1-3) on each top pin, in the dark ground colour.
+          map!.addLayer({
+            id: `${SOURCE_ID}-rank`,
+            type: "symbol",
+            source: SOURCE_ID,
+            filter: ["==", ["get", "kind"], "top"],
+            layout: {
+              "text-field": ["to-string", ["get", "rank"]],
+              "text-font": ["Noto Sans Bold"], // a font OpenFreeMap serves glyphs for
+              "text-size": 14,
+              "text-allow-overlap": true,
+              "text-ignore-placement": true,
+            },
+            paint: { "text-color": GROUND },
           });
         });
         map.on("click", SOURCE_ID, (e) => {
@@ -123,24 +151,14 @@ export function OpeningsMap({ pins }: Props) {
   }, []);
 
   return (
-    <figure className="openings-map">
+    <div className="map-layer">
       {failed ? (
-        <p className="map-unavailable" role="status">
-          Map unavailable. The lists below still work.
+        <p className="pill map-unavailable" role="status">
+          Map unavailable. The lists still work.
         </p>
       ) : (
         <div ref={box} className="map-box" role="region" aria-label="Map of new openings" />
       )}
-      <figcaption>
-        <ul className="map-legend">
-          {LEGEND.map((l) => (
-            <li key={l.kind}>
-              <span className={`swatch ${l.kind}`} style={{ background: l.color }} aria-hidden="true" />
-              {l.label}
-            </li>
-          ))}
-        </ul>
-      </figcaption>
-    </figure>
+    </div>
   );
 }

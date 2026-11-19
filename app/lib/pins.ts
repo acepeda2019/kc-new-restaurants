@@ -7,7 +7,8 @@ import type { LatLon } from "@/lib/rank";
 
 /** Pin colour group: the current top 3, places with red points at the latest inspection, other new places, the visitor. */
 export type PinKind = "top" | "wary" | "new" | "you";
-export type PinProps = { id: string; kind: PinKind; name: string; why: string };
+/** `rank` (1-3, top pins only) is the place's position in the personal top 3, the number on its card. */
+export type PinProps = { id: string; kind: PinKind; name: string; why: string; rank?: number };
 export type PinFeature = {
   type: "Feature";
   geometry: { type: "Point"; coordinates: [lon: number, lat: number] };
@@ -23,11 +24,11 @@ export const KING_COUNTY_BOUNDS: Bounds = [
   [-121.06, 47.78],
 ];
 
-function pin(id: string, kind: PinKind, at: LatLon, name: string, why: string): PinFeature {
+function pin(id: string, kind: PinKind, at: LatLon, name: string, why: string, rank?: number): PinFeature {
   return {
     type: "Feature",
     geometry: { type: "Point", coordinates: [at.lon, at.lat] },
-    properties: { id, kind, name, why },
+    properties: rank ? { id, kind, name, why, rank } : { id, kind, name, why },
   };
 }
 
@@ -35,14 +36,17 @@ function pin(id: string, kind: PinKind, at: LatLon, name: string, why: string): 
  * One pin per opening with a fixed spot (not a food truck, coordinates known), tried or not,
  * so visitors can pan around and see what is near them. Kind:
  * "top" if in `topIds`, else "wary" if the latest inspection had red points, else "new".
+ * Top pins get `rank` from `topIds`' insertion order, so pass the top 3 in card order.
  * With `here`, adds one "you" pin.
  */
 export function toPins(openings: Opening[], opts: { topIds: ReadonlySet<string>; here?: LatLon }): Pins {
+  const topOrder = [...opts.topIds];
   const features: PinFeature[] = [];
   for (const o of openings) {
     if (o.category === "food_truck" || o.latitude === null || o.longitude === null) continue;
-    const kind: PinKind = opts.topIds.has(o.restaurant_id) ? "top" : o.latest_red_points > 0 ? "wary" : "new";
-    features.push(pin(o.restaurant_id, kind, { lat: o.latitude, lon: o.longitude }, o.name, o.why));
+    const rank = topOrder.indexOf(o.restaurant_id) + 1; // 0 when not in the top 3
+    const kind: PinKind = rank ? "top" : o.latest_red_points > 0 ? "wary" : "new";
+    features.push(pin(o.restaurant_id, kind, { lat: o.latitude, lon: o.longitude }, o.name, o.why, rank));
   }
   if (opts.here) features.push(pin("you", "you", opts.here, "You are here", ""));
   return { type: "FeatureCollection", features };

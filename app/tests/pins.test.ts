@@ -39,6 +39,13 @@ describe("toPins", () => {
     expect(kinds(pins)).toEqual({ a: "top", b: "top", c: "wary", d: "new" });
   });
 
+  it("numbers top pins 1-3 in topIds order (the card order); other pins have no rank", () => {
+    const rows = [opening("a", SEATTLE), opening("b", BELLEVUE), opening("c", SEATTLE), opening("d", BELLEVUE)];
+    const pins = toPins(rows, { topIds: new Set(["c", "a", "b"]) });
+    const ranks = Object.fromEntries(pins.features.map((f) => [f.properties.id, f.properties.rank]));
+    expect(ranks).toEqual({ a: 2, b: 3, c: 1, d: undefined });
+  });
+
   it("carries name and why, and puts coordinates in lon, lat order", () => {
     const [pin] = toPins([opening("a", SEATTLE)], { topIds: new Set() }).features;
     expect(pin.type).toBe("Feature");
