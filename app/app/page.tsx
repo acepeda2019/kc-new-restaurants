@@ -1,19 +1,16 @@
 import { Metrics } from "@/components/Metrics";
-import { OpeningList } from "@/components/OpeningList";
 import { TopThree } from "@/components/TopThree";
-import { getManifest, getMetrics, getOpenings, isSampleData } from "@/lib/data";
-import { formatPlainDate, pacificDate } from "@/lib/format";
-import { othersByRank, personalTopThree } from "@/lib/rank";
+import { getMetrics, getOpenings, isSampleData } from "@/lib/data";
+import { formatPlainDate } from "@/lib/format";
+import { personalTopThree } from "@/lib/rank";
 
 // Data is baked in at build time; each daily deploy rebuilds the page.
 export const revalidate = false;
 
 export default function Home() {
-  const openings = getOpenings();
+  const metrics = getMetrics();
   // No location or "Tried it" yet (SAN-39): plain rank order.
-  const top = personalTopThree(openings, { tried: new Set() });
-  const rest = othersByRank(openings, top);
-  const updated = formatPlainDate(pacificDate(getManifest().built_at));
+  const top = personalTopThree(getOpenings(), { tried: new Set() });
 
   return (
     <main>
@@ -24,21 +21,14 @@ export default function Home() {
         </p>
       )}
       <h1>King County New Eats</h1>
-      <p className="updated">Updated {updated}</p>
+      <p className="updated">Data as of {formatPlainDate(metrics.pulled_on)}</p>
 
-      <Metrics metrics={getMetrics()} />
+      <Metrics metrics={metrics} />
 
       <section aria-labelledby="top-three">
         <h2 id="top-three">Top 3 new openings</h2>
         <TopThree items={top} />
       </section>
-
-      {rest.length > 0 && (
-        <section aria-labelledby="the-rest">
-          <h2 id="the-rest">Everything else, by rank</h2>
-          <OpeningList items={rest} />
-        </section>
-      )}
     </main>
   );
 }

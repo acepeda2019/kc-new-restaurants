@@ -5,31 +5,21 @@
 import type { Opening } from "@/lib/data";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const TIME_ZONE = "America/Los_Angeles";
 
 /**
  * "2026-11-13" → "Nov 13, 2026". Reads the digits directly instead of going through
  * `new Date()`, which would treat the date as UTC midnight and can shift it a day.
+ * Throws on anything that is not a real calendar date (e.g. 2026-02-31).
  */
 export function formatPlainDate(isoDate: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-  const month = m ? Number(m[2]) : 0;
-  const day = m ? Number(m[3]) : 0;
-  if (!m || month < 1 || month > 12 || day < 1 || day > 31) {
+  const [year, month, day] = m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
+  // Day 0 of the next month is the last day of this one; UTC so the local zone can't interfere.
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (!m || month < 1 || month > 12 || day < 1 || day > daysInMonth) {
     throw new Error(`not a YYYY-MM-DD date: ${isoDate}`);
   }
-  return `${MONTHS[month - 1]} ${day}, ${m[1]}`;
-}
-
-/** A timestamp (e.g. manifest built_at, ISO UTC) → its Pacific calendar date, "YYYY-MM-DD". */
-export function pacificDate(timestamp: string): string {
-  const at = new Date(timestamp);
-  if (Number.isNaN(at.getTime())) throw new Error(`not a timestamp: ${timestamp}`);
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(at);
-  const part = (type: string) => parts.find((p) => p.type === type)?.value;
-  return `${part("year")}-${part("month")}-${part("day")}`;
+  return `${MONTHS[month - 1]} ${day}, ${year}`;
 }
 
 /** Inferred cuisine is never stated as fact: "likely Egyptian", or null when unknown. */
@@ -50,7 +40,12 @@ const CATEGORY_LABELS: Record<Opening["category"], string> = {
   food_truck: "Food truck",
 };
 
-/** The mart's category code in plain words. */
-export function categoryLabel(category: Opening["category"]): string {
-  return CATEGORY_LABELS[category];
+/** The mart's category in plain words; food trucks get a badge so they stand out. */
+export function categoryTag(category: Opening["category"]): { label: string; isBadge: boolean } {
+  return { label: CATEGORY_LABELS[category], isBadge: category === "food_truck" };
+}
+
+/** Where to say a place is: a truck's address is only its base, not where it serves. */
+export function placeLabel(city: string, category: Opening["category"]): string {
+  return category === "food_truck" ? `based in ${city}` : city;
 }

@@ -1,4 +1,4 @@
-import { categoryLabel, formatDistance, likelyCuisine } from "@/lib/format";
+import { categoryTag, formatDistance, likelyCuisine, placeLabel } from "@/lib/format";
 import type { RankedOpening } from "@/lib/rank";
 
 type Item = Pick<
@@ -8,26 +8,23 @@ type Item = Pick<
 
 /** The personal top 3; shows distance only when the caller measured one. */
 export function TopThree({ items }: { items: Item[] }) {
-  if (items.length === 0) return <p>No new openings to show.</p>;
+  if (items.length === 0) return <p>Nothing new to show.</p>;
   return (
     <ol className="top-three">
       {items.map((o) => {
         const cuisine = likelyCuisine(o.likely_cuisine);
         const distance = formatDistance(o.distanceMi);
+        const tag = categoryTag(o.category);
         return (
           <li key={o.restaurant_id}>
             <h3>{o.name}</h3>
             <p className="where">
-              {o.city}
+              {placeLabel(o.city, o.category)}
               {distance && <> · {distance}</>}
             </p>
             <p>{o.why}</p>
             <p className="tags">
-              {o.category === "food_truck" ? (
-                <span className="badge">Food truck</span>
-              ) : (
-                <span>{categoryLabel(o.category)}</span>
-              )}
+              <span className={tag.isBadge ? "badge" : undefined}>{tag.label}</span>
               {cuisine && <span>{cuisine}</span>}
             </p>
           </li>

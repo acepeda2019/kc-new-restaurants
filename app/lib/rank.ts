@@ -51,9 +51,3 @@ export function personalTopThree(
   mapped.sort((a, b) => personal(b) - personal(a) || byRank(a, b));
   return [...mapped, ...unmapped.sort(byRank)].slice(0, TOP_N);
 }
-
-/** Every opening not shown in `top`, in the mart's rank order (the list under the top 3). */
-export function othersByRank(openings: Opening[], top: { restaurant_id: string }[]): Opening[] {
-  const shown = new Set(top.map((o) => o.restaurant_id));
-  return openings.filter((o) => !shown.has(o.restaurant_id)).sort((a, b) => a.rank - b.rank);
-}

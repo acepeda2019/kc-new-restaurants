@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryLabel, formatDistance, formatPlainDate, likelyCuisine, pacificDate } from "@/lib/format";
+import { categoryTag, formatDistance, formatPlainDate, likelyCuisine, placeLabel } from "@/lib/format";
 
 describe("formatPlainDate", () => {
   it("keeps a YYYY-MM-DD date on its own day", () => {
@@ -8,27 +8,17 @@ describe("formatPlainDate", () => {
     expect(formatPlainDate("2026-12-31")).toBe("Dec 31, 2026");
   });
 
-  it("rejects anything that is not a plain date", () => {
+  it("accepts Feb 29 only in a leap year", () => {
+    expect(formatPlainDate("2028-02-29")).toBe("Feb 29, 2028");
+    expect(() => formatPlainDate("2026-02-29")).toThrow();
+  });
+
+  it("rejects anything that is not a real plain date", () => {
     expect(() => formatPlainDate("2026-11-13T00:00:00Z")).toThrow();
     expect(() => formatPlainDate("2026-13-01")).toThrow();
-  });
-});
-
-describe("pacificDate", () => {
-  it("turns a UTC timestamp into the Pacific calendar date", () => {
-    // 00:10 UTC on Nov 19 is still the afternoon of Nov 18 in Seattle.
-    expect(pacificDate("2026-11-19T00:10:12+00:00")).toBe("2026-11-18");
-    expect(pacificDate("2026-11-19T09:00:00Z")).toBe("2026-11-19");
-  });
-
-  it("follows daylight saving time", () => {
-    // PDT is UTC-7: 06:30 UTC on Jul 1 is 23:30 on Jun 30.
-    expect(pacificDate("2026-07-01T06:30:00Z")).toBe("2026-06-30");
-    expect(pacificDate("2026-07-01T07:30:00Z")).toBe("2026-07-01");
-  });
-
-  it("throws on a timestamp it cannot read", () => {
-    expect(() => pacificDate("not a date")).toThrow();
+    expect(() => formatPlainDate("2026-02-31")).toThrow();
+    expect(() => formatPlainDate("2026-04-31")).toThrow();
+    expect(() => formatPlainDate("2026-11-00")).toThrow();
   });
 });
 
@@ -59,11 +49,24 @@ describe("formatDistance", () => {
   });
 });
 
-describe("categoryLabel", () => {
-  it("names every mart category in plain words", () => {
-    expect(categoryLabel("restaurant")).toBe("Restaurant");
-    expect(categoryLabel("cafe_bakery_dessert")).toBe("Café, bakery or dessert");
-    expect(categoryLabel("food_hall_stall")).toBe("Food hall stall");
-    expect(categoryLabel("food_truck")).toBe("Food truck");
+describe("categoryTag", () => {
+  it("names fixed-location categories in plain words, as plain tags", () => {
+    expect(categoryTag("restaurant")).toEqual({ label: "Restaurant", isBadge: false });
+    expect(categoryTag("cafe_bakery_dessert")).toEqual({ label: "Café, bakery or dessert", isBadge: false });
+    expect(categoryTag("food_hall_stall")).toEqual({ label: "Food hall stall", isBadge: false });
+  });
+
+  it("marks food trucks with a badge", () => {
+    expect(categoryTag("food_truck")).toEqual({ label: "Food truck", isBadge: true });
+  });
+});
+
+describe("placeLabel", () => {
+  it("shows the city for a fixed location", () => {
+    expect(placeLabel("SEATTLE", "restaurant")).toBe("SEATTLE");
+  });
+
+  it("says a truck is only based in its city", () => {
+    expect(placeLabel("WOODINVILLE", "food_truck")).toBe("based in WOODINVILLE");
   });
 });

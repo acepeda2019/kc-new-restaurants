@@ -69,7 +69,7 @@ h2 {
 
 .updated,
 .where,
-.metrics small {
+.metrics .note {
   color: #666;
 }
 
@@ -103,18 +103,18 @@ h2 {
 
 .metrics dd {
   margin: 0;
+}
+
+.metrics .number {
   font-size: 1.8rem;
   font-weight: 600;
 }
 
-.metrics small {
-  display: block;
+.metrics .note {
   font-size: 0.85rem;
-  font-weight: 400;
 }
 
-.top-three,
-.opening-list {
+.top-three {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -154,11 +154,6 @@ h2 {
   color: #fff;
 }
 
-.opening-list li {
-  padding: 0.6rem 0;
-  border-bottom: 1px solid #ddd;
-}
-
 @media (min-width: 36rem) {
   .metrics {
     grid-template-columns: repeat(3, 1fr);
@@ -168,12 +163,11 @@ h2 {
 @media (prefers-color-scheme: dark) {
   .updated,
   .where,
-  .metrics small {
+  .metrics .note {
     color: #aaa;
   }
   .metrics > div,
-  .top-three li,
-  .opening-list li {
+  .top-three li {
     border-color: #333;
   }
   .sample-banner {
