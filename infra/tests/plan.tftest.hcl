@@ -33,3 +33,16 @@ run "github_role_trusts_only_this_repo_main_and_dispatch" {
     error_message = "GitHub role must trust only this repo's main branch"
   }
 }
+
+run "github_role_trusts_the_immutable_subject_when_set" {
+  command = plan
+
+  variables {
+    github_subject_repo = "acepeda2019@57119069/kc-new-restaurants@1455777807"
+  }
+
+  assert {
+    condition     = toset(local.github_subjects) == toset(["repo:acepeda2019@57119069/kc-new-restaurants@1455777807:ref:refs/heads/main"])
+    error_message = "GitHub role must trust the immutable subject when it is set"
+  }
+}

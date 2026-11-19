@@ -5,8 +5,9 @@
 locals {
   raw_prefix      = "raw/"
   github_oidc_url = "token.actions.githubusercontent.com"
-  # Scheduled and manually dispatched runs of main both present this subject.
-  github_subjects = ["repo:${var.github_repo}:ref:refs/heads/main"]
+  # Scheduled and manually dispatched runs of main both present this subject. Repos using
+  # GitHub's immutable subject claims send "owner@id/name@id" instead of "owner/name".
+  github_subjects = ["repo:${coalesce(var.github_subject_repo, var.github_repo)}:ref:refs/heads/main"]
 }
 
 data "aws_caller_identity" "current" {}
