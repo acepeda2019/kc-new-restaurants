@@ -214,3 +214,23 @@ h2 {
     background: #1e3a24;
   }
 }
+
+.hidden-tried {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+}
+
+@media (prefers-color-scheme: dark) {
+  .hidden-tried {
+    color: #aaa;
+  }
+}

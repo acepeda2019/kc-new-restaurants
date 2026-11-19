@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { TRIED_KEY, hiddenFromTop, loadTried, nextJustMarked, toggleTried } from "@/lib/tried";
+import { TRIED_KEY, hiddenCount, hiddenFromTop, loadTried, nextJustMarked, toggleTried } from "@/lib/tried";
 
 /** A fresh copy of lib/tried, so its module-level snapshot cache and listeners never leak between tests. */
 async function freshTried() {
@@ -13,6 +13,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
   return {
     getItem: (k: string) => data.get(k) ?? null,
     setItem: (k: string, v: string) => void data.set(k, v),
+    removeItem: (k: string) => void data.delete(k),
     data,
   };
 }
@@ -23,6 +24,9 @@ const throwing = {
   },
   setItem: () => {
     throw new Error("QuotaExceededError");
+  },
+  removeItem: () => {
+    throw new Error("SecurityError");
   },
 };
 
@@ -143,5 +147,48 @@ describe("hiddenFromTop and nextJustMarked (the just-marked place stays visible 
     expect(tried.has("a")).toBe(false);
     expect(justMarked).toBeNull();
     expect(hiddenFromTop(tried, justMarked)).toEqual(new Set());
+  });
+});
+
+describe("clearTried", () => {
+  it("removes every mark and notifies subscribers", async () => {
+    const { clearTried, loadTried, subscribeTried } = await freshTried();
+    const storage = memoryStorage({ kcne_tried: '["a","b"]', other: "kept" });
+    const onChange = vi.fn();
+    subscribeTried(onChange);
+    clearTried(storage);
+    expect(storage.data.has(TRIED_KEY)).toBe(false);
+    expect(storage.data.get("other")).toBe("kept");
+    expect(loadTried(storage)).toEqual(new Set());
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("never throws, and leaves the marks as they were when storage throws", async () => {
+    const { clearTried } = await freshTried();
+    const storage = { ...memoryStorage({ kcne_tried: '["a"]' }), removeItem: throwing.removeItem };
+    expect(() => clearTried(storage)).not.toThrow();
+    expect(loadTried(storage)).toEqual(new Set(["a"]));
+    expect(() => clearTried(undefined)).not.toThrow();
+  });
+});
+
+describe("hiddenCount", () => {
+  const listed = [{ restaurant_id: "a" }, { restaurant_id: "b" }, { restaurant_id: "c" }];
+
+  it("counts tried places that are on the list and hidden", () => {
+    expect(hiddenCount(listed, new Set(["a", "b"]), null)).toBe(2);
+  });
+
+  it("does not count the just-marked place, which is still shown", () => {
+    expect(hiddenCount(listed, new Set(["a", "b"]), "b")).toBe(1);
+    expect(hiddenCount(listed, new Set(["a"]), "a")).toBe(0);
+  });
+
+  it("ignores marks for places no longer on the list", () => {
+    expect(hiddenCount(listed, new Set(["gone", "a"]), null)).toBe(1);
+  });
+
+  it("is zero with nothing tried", () => {
+    expect(hiddenCount(listed, new Set(), null)).toBe(0);
   });
 });

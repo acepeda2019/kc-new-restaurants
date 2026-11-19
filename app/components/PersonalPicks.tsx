@@ -7,12 +7,21 @@
  * tried (the server snapshot), so it matches the static HTML; stored marks apply after hydration.
  */
 import { useState, useSyncExternalStore } from "react";
+import { HiddenTried } from "@/components/HiddenTried";
 import { Metrics } from "@/components/Metrics";
 import { TopThree } from "@/components/TopThree";
 import type { Metrics as MetricsData, Opening } from "@/lib/data";
 import { requestLocation } from "@/lib/location";
 import { NEAR_RADIUS_MI, countNear, personalTopThree, type LatLon } from "@/lib/rank";
-import { hiddenFromTop, nextJustMarked, subscribeTried, toggleTried, triedSnapshot } from "@/lib/tried";
+import {
+  clearTried,
+  hiddenCount,
+  hiddenFromTop,
+  nextJustMarked,
+  subscribeTried,
+  toggleTried,
+  triedSnapshot,
+} from "@/lib/tried";
 
 type Props = { openings: Opening[]; metrics: MetricsData };
 type LocationStatus = "idle" | "asking" | "found" | "unavailable";
@@ -40,6 +49,11 @@ export function PersonalPicks({ openings, metrics }: Props) {
     setJustMarked(nextJustMarked(id, toggleTried(id)));
   }
 
+  function clear() {
+    clearTried();
+    setJustMarked(null);
+  }
+
   const top = personalTopThree(openings, { here, tried: hiddenFromTop(tried, justMarked) });
   const near = here ? { count: countNear(openings, here), radiusMi: NEAR_RADIUS_MI } : undefined;
 
@@ -59,6 +73,7 @@ export function PersonalPicks({ openings, metrics }: Props) {
           </span>
         </p>
         <TopThree items={top} tried={tried} onToggleTried={toggle} />
+        <HiddenTried count={hiddenCount(openings, tried, justMarked)} onClear={clear} />
       </section>
     </>
   );
