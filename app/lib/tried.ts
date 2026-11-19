@@ -8,7 +8,7 @@ export const TRIED_KEY = "kcne_tried";
 
 type KeyValueStore = Pick<Storage, "getItem" | "setItem">;
 
-function browserStorage(): KeyValueStore | undefined {
+function browserStorage(): Storage | undefined {
   try {
     return typeof window === "undefined" ? undefined : window.localStorage;
   } catch {
@@ -60,6 +60,20 @@ export function toggleTried(id: string, storage: KeyValueStore | undefined = bro
   }
 }
 
+/** Removes every "Tried it" mark. Never throws; if storage fails the marks stay as they were. */
+/** Removes every mark. Returns false (marks untouched) when there is no storage or it throws. */
+export function clearTried(storage: Pick<Storage, "removeItem"> | undefined = browserStorage()): boolean {
+  try {
+    if (!storage) return false;
+    storage.removeItem(TRIED_KEY);
+    return true;
+  } catch {
+    return false; // leave the marks; the snapshot still shows what is stored
+  } finally {
+    listeners.forEach((notify) => notify());
+  }
+}
+
 /** For useSyncExternalStore: calls `onChange` after a toggle here or a change in another tab. */
 export function subscribeTried(onChange: () => void): () => void {
   listeners.add(onChange);
@@ -90,4 +104,10 @@ export function hiddenFromTop(tried: Set<string>, justMarked: string | null): Se
 /** After a click on `id`, the place to keep visible: `id` if it is now stored as tried, else none. */
 export function nextJustMarked(id: string, triedAfter: Set<string>): string | null {
   return triedAfter.has(id) ? id : null;
+}
+
+/** How many listed places are hidden from the top 3 as tried (the just-marked one is still shown). */
+export function hiddenCount(openings: { restaurant_id: string }[], tried: Set<string>, justMarked: string | null): number {
+  const hidden = hiddenFromTop(tried, justMarked);
+  return openings.filter((o) => hidden.has(o.restaurant_id)).length;
 }
