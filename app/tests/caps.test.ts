@@ -71,4 +71,9 @@ describe("checkAndCount", () => {
     };
     await expect(checkAndCount(redis, "amy", NOW)).rejects.toThrow("connection refused");
   });
+
+  it.each([undefined, null, Number.NaN, "3"])("fails closed when Redis returns %s instead of a count", async (bad) => {
+    const redis = { incr: async () => bad, expire: async () => 1 } as unknown as RedisLike;
+    expect(await checkAndCount(redis, "amy", NOW)).toEqual({ ok: false, reason: "visitor" });
+  });
 });

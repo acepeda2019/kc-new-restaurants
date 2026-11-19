@@ -18,6 +18,7 @@ vi.mock("@upstash/redis", () => ({ Redis: class {} }));
 vi.mock("@/lib/caps", () => ({ checkAndCount: fakes.checkAndCount }));
 
 import { POST } from "@/app/api/ask/route";
+import { SAMPLE_NOTE } from "@/lib/ask";
 
 const SECRET = "test-secret-not-real";
 const OUT_OF_QUESTIONS = { message: "Out of questions for today. The map and lists still work." };
@@ -55,9 +56,9 @@ describe("POST /api/ask", () => {
   it("answers a valid question, calling Claude once", async () => {
     const res = await ask({ question: "Newest near me", here: { lat: 47.6, lon: -122.3 }, tried: ["X"] });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ answer: "Try KOSHARI." });
+    expect(await res.json()).toEqual({ answer: `Try KOSHARI.\n\n${SAMPLE_NOTE}` });
     expect(fakes.create).toHaveBeenCalledOnce();
-    expect(fakes.clientOptions).toEqual([{ apiKey: "sk-test-not-real", timeout: 20_000, maxRetries: 1 }]);
+    expect(fakes.clientOptions).toEqual([{ apiKey: "sk-test-not-real", timeout: 20_000, maxRetries: 0 }]);
     expect(fakes.checkAndCount).toHaveBeenCalledWith(expect.anything(), "visitor-1", expect.any(Date));
   });
 
@@ -124,6 +125,7 @@ describe("POST /api/ask", () => {
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual(UNAVAILABLE);
     expect(fakes.clientOptions).toEqual([]);
+    expect(fakes.checkAndCount).not.toHaveBeenCalled();
     expect(fakes.create).not.toHaveBeenCalled();
   });
 

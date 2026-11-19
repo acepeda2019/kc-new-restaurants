@@ -4,10 +4,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic, { APIError, AuthenticationError, BadRequestError, RateLimitError } from "@anthropic-ai/sdk";
 import { Redis } from "@upstash/redis";
-import { answer, buildRequest } from "@/lib/ask";
+import { answer, buildRequest, SAMPLE_NOTE } from "@/lib/ask";
 import { SESSION_COOKIE, VISITOR_COOKIE, verifySession } from "@/lib/auth";
 import { checkAndCount } from "@/lib/caps";
-import { getOpenings } from "@/lib/data";
+import { getOpenings, isSampleData } from "@/lib/data";
 import type { LatLon } from "@/lib/rank";
 
 export const runtime = "nodejs";
@@ -76,11 +76,13 @@ export async function POST(request: NextRequest) {
     return reply(429, OUT_OF_QUESTIONS);
   }
 
-  // 5. Only now: Claude.
+  // 5. Only now: Claude. No SDK retries, so one counted question is at most one billed call.
   try {
-    const client = new Anthropic({ apiKey, timeout: 20_000, maxRetries: 1 });
+    const client = new Anthropic({ apiKey, timeout: 20_000, maxRetries: 0 });
     const params = buildRequest(body.question, getOpenings(), { here: body.here, tried: body.tried });
-    return NextResponse.json({ answer: await answer(client, params) });
+    const text = await answer(client, params);
+    // Guardrail 5: an answer built from the labelled sample says so.
+    return NextResponse.json({ answer: isSampleData() ? `${text}\n\n${SAMPLE_NOTE}` : text });
   } catch (err) {
     logFailure(err);
     return reply(503, UNAVAILABLE);

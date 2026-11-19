@@ -39,13 +39,18 @@ async function increment(redis: RedisLike, key: string): Promise<number> {
   return count;
 }
 
+/** Fails closed: anything but a whole number at or under the cap counts as over it. */
+function within(count: unknown, cap: number): boolean {
+  return Number.isInteger(count) && (count as number) <= cap;
+}
+
 /** Counts one question for `visitorId` today and says whether it is within both caps. */
 export async function checkAndCount(redis: RedisLike, visitorId: string, now: Date): Promise<CapResult> {
   const date = pacificDate(now);
-  if ((await increment(redis, `ask:v:${visitorId}:${date}`)) > VISITOR_DAILY_CAP) {
+  if (!within(await increment(redis, `ask:v:${visitorId}:${date}`), VISITOR_DAILY_CAP)) {
     return { ok: false, reason: "visitor" };
   }
-  if ((await increment(redis, `ask:g:${date}`)) > GLOBAL_DAILY_CAP) {
+  if (!within(await increment(redis, `ask:g:${date}`), GLOBAL_DAILY_CAP)) {
     return { ok: false, reason: "global" };
   }
   return { ok: true };

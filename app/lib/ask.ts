@@ -11,7 +11,9 @@ import { allPlaces, type LatLon } from "@/lib/rank";
 export const MODEL = "claude-haiku-5-5";
 export const MAX_TOKENS = 400;
 export const REFUSAL_ANSWER = "I can't help with that one.";
-/** Places sent per question, to keep the cost per question about $0.001 (owner decision, SAN-40). */
+/** Added to answers built from the labelled sample (guardrail 5: no invented data). */
+export const SAMPLE_NOTE = "(Answered from sample data, not today's list.)";
+/** Places sent per question, to keep the cost per question about $0.0015 at Haiku 5.5 rates (owner decision, SAN-40). */
 export const MAX_DATA_ROWS = 100;
 
 export type AskContext = { here?: LatLon; tried: string[] };
