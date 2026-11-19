@@ -61,7 +61,10 @@ export async function POST(request: NextRequest) {
 
   // A deploy without a key can't answer; refuse before using up anyone's question.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return reply(503, UNAVAILABLE);
+  if (!apiKey) {
+    console.error("ask failed", { status: undefined, error: "MissingAnthropicApiKey" });
+    return reply(503, UNAVAILABLE);
+  }
 
   // 4. Caps. Missing config, a Redis error or a cap hit all fail closed.
   const url = process.env.KV_REST_API_URL;

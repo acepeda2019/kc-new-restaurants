@@ -119,7 +119,8 @@ describe("POST /api/ask", () => {
     expect(fakes.create).not.toHaveBeenCalled();
   });
 
-  it("returns 503 without ANTHROPIC_API_KEY, never building a client", async () => {
+  it("returns 503 without ANTHROPIC_API_KEY, never building a client, and logs why", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubEnv("ANTHROPIC_API_KEY", undefined);
     const res = await ask({ question: "hi" });
     expect(res.status).toBe(503);
@@ -127,6 +128,7 @@ describe("POST /api/ask", () => {
     expect(fakes.clientOptions).toEqual([]);
     expect(fakes.checkAndCount).not.toHaveBeenCalled();
     expect(fakes.create).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith("ask failed", { status: undefined, error: "MissingAnthropicApiKey" });
   });
 
   it("returns 503 on a Claude error and logs only status and error class", async () => {
