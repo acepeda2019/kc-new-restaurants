@@ -5,7 +5,9 @@
   by `run.py snapshot-lcb` to `raw/lcb_local_authority/dt=…/<run_id>.jsonl.gz` (from 2026-11-19).
 - **License / terms:** public records. Rows include applicants' personal details (`contact`,
   `dayphone`, `applicants`, `designatedsignee`, `licenseename`, `mailaddress`). Keep them in
-  the private raw bucket only. Drop them in staging; never show or export them.
+  the private raw bucket only. Staging drops them, except `licenseename` (usually a company,
+  sometimes a person), which is kept for matching only and never exported (owner decision
+  2026-11-19; test `no_licensee_name_in_marts`).
 - **Refresh cadence observed:** updated daily (catalog `data_updated_at` 2026-11-19). Holds
   only the **latest posted batches**, not a fixed window (see Quirks).
 - **Coverage:** statewide; ~14 rows on 2026-11-19, posted 2026-09-22 to 2026-11-18, application
@@ -73,6 +75,28 @@ privilege (`… REST …`), by **Business Startup Date** month:
 - With applications pending one to three months, the list would hold **about 10–40 places**.
 
 **Decision: go.** A modest list, but early information nothing else provides.
+
+## Matching to KC inspections (QA, 2026-11-19)
+Rules as in `int_lcb_match_pairs` (same ZIP + street number, KC first inspection no earlier than
+30 days before the licence, Jaro-Winkler on cleaned names), run on the 69 King County
+restaurant licences with a Business Startup Date in Jan–Jun 2026 (LCB On Premise list)
+against KC businesses first inspected since 2025-11 (Socrata `r878-4sxa`):
+
+| Result | Licences |
+|---|---|
+| match (score ≥ 0.85) | 33 (48%) |
+| review (0.70–0.85) | 2 |
+| only a different-name business at the address | 6 |
+| no KC business at the address after the licence | 28 |
+
+- **Lead time:** median **164 days** from licence to first KC inspection, so places stay in
+  Opening soon for months. The drop-off cutoff should be about a year, not 120 days.
+- **KC often records the company name**, not the trade name: HANA KATSU is "C AND R 2026, CORP",
+  TAILWIND CAFE AT GOOD WEATHER is "Giri's Concepts LLC", BELMONT is "MIDNIGHT RUNWAY LLC" (same
+  address, inspected 4–7 months after the licence). So matching also scores the LCB
+  `licenseename` (owner decision: kept in staging for matching only, never exported). On the
+  same 69 licences: trade name only 33 match / 2 review / 6 different-name-only; trade or
+  licensee name **38 match (55%) / 1 review / 2 different-name-only**.
 
 ## Open questions (need a week or more of snapshots)
 - Do notices leave the window on approval, after a fixed time, or with the next batch?

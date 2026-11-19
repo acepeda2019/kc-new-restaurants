@@ -9,6 +9,8 @@ models:
         data_tests: [unique, not_null]
       - name: license_number
         data_tests: [not_null]
+      - name: licensee_name
+        description: "Company (sometimes a sole proprietor) on the licence. For matching to KC only; never exported (owner decision 2026-11-19; test no_licensee_name_in_marts)."
       - name: notice_type
         data_tests: [not_null]
       - name: application_date

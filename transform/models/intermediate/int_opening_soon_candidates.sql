@@ -26,6 +26,7 @@ select
     n.application_date,
     n.posted_date,
     n.trade_name,
+    n.licensee_name,
     n.ubi,
     n.street_address,
     n.city,

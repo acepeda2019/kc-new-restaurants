@@ -4,6 +4,19 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-19 — Match licence applicants to inspections by rules first
+- **Context:** an Opening soon place has opened when it gets its first KC inspection, but LCB and KC share no ID.
+- **Decision:**
+  - Pair a notice with KC businesses at the same ZIP and street number, first inspected no earlier than 30 days before the application (earlier ones are the previous business).
+  - Score cleaned names with Jaro-Winkler: ≥ 0.85 is a match, 0.70–0.85 is for review, below is a different business. Thresholds are in `seeds/lcb_match_params.csv`; `seeds/lcb_match_overrides.csv` wins.
+  - Every pair is kept (`int_lcb_match_pairs`). Claude judging borderline pairs is deferred until review volume shows it's needed.
+- **Consequences:**
+  - On 69 real 2026 licences, 48% matched.
+  - Median lead time is 164 days, so places stay in Opening soon for months.
+  - KC often records the company name, so matching also scores the LCB licensee name. That lifts matches to 38 of 69 (55%).
+  - **Owner decision:** `licensee_name` (sometimes a person) is kept in staging for matching only. It never reaches a mart or the app; test `no_licensee_name_in_marts` enforces it.
+  - The drop-off cutoff waits for a week of snapshots.
+
 ## 2026-11-19 — Which licence notices count for Opening soon
 - **Context:** WSLCB notices cover every licence type (restaurants, bars, shops, cannabis, tobacco, shipping) and several notice types. Source card: `docs/source_cards/lcb_local_authority.md`.
 - **Decision:**

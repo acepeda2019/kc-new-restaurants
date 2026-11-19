@@ -43,3 +43,15 @@ seeds:
         data_tests: [unique, not_null]
       - name: counts_as_opening
         data_tests: [not_null]
+  - name: lcb_match_params
+    description: "Grain: one row. Thresholds for matching WSLCB notices to KC businesses: a name score (Jaro-Winkler on cleaned names) at or above name_score_min is a match, between name_score_review_min and that is for review; the KC business must be first inspected no earlier than inspection_lead_days before the licence application (else it's the previous business at the address)."
+    config:
+      column_types: {name_score_min: double, name_score_review_min: double, inspection_lead_days: integer}
+  - name: lcb_match_overrides
+    description: "Grain: one row per notice_id. The owner's decision; it always wins over the rules. business_id = the KC business it opened as; empty = never matches. Empty until the first review."
+    config:
+      column_types: {notice_id: varchar, business_id: varchar, note: varchar}
+    columns:
+      - name: notice_id
+        data_tests: [unique, not_null]
+
