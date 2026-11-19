@@ -8,12 +8,14 @@
  */
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AllPlaces } from "@/components/AllPlaces";
+import { AskBar } from "@/components/AskBar";
 import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
 import { Metrics } from "@/components/Metrics";
 import { OpeningsMap } from "@/components/OpeningsMap";
 import { TopThree } from "@/components/TopThree";
 import type { Metrics as MetricsData, Opening } from "@/lib/data";
+import { askQuestion } from "@/lib/askClient";
 import { requestLocation } from "@/lib/location";
 import { nextFocus, resolveFocus, toPins, trucksOf, type FocusRequest } from "@/lib/pins";
 import { NEAR_RADIUS_MI, allPlaces, countNear, personalTopThree, type LatLon } from "@/lib/rank";
@@ -97,11 +99,12 @@ export function PersonalPicks({ openings, metrics }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [focusedId]);
 
-  // DOM order is the phone order (stats, top 3, lists); on wide screens CSS places them around the map.
+  // DOM order is the phone order (question bar, stats, top 3, lists); on wide screens CSS places them around the map.
   return (
     <>
       <OpeningsMap pins={pins} focus={focus} onFocus={showFromMap} onUnavailable={mapUnavailable} />
       <div className="panels">
+        <AskBar onAsk={(question) => askQuestion({ question, here, tried })} />
         <Metrics metrics={metrics} near={near} />
 
         <section aria-labelledby="top-three" className="panel picks">

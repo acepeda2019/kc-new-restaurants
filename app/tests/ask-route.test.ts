@@ -43,7 +43,7 @@ beforeEach(() => {
   vi.stubEnv("ANTHROPIC_API_KEY", "sk-test-not-real");
   vi.stubEnv("KV_REST_API_URL", "https://redis.invalid");
   vi.stubEnv("KV_REST_API_TOKEN", "token-not-real");
-  fakes.checkAndCount.mockResolvedValue({ ok: true });
+  fakes.checkAndCount.mockResolvedValue({ ok: true, left: 7 });
   fakes.create.mockResolvedValue({ stop_reason: "end_turn", content: [{ type: "text", text: "Try KOSHARI." }] });
 });
 afterEach(() => {
@@ -56,7 +56,7 @@ describe("POST /api/ask", () => {
   it("answers a valid question, calling Claude once", async () => {
     const res = await ask({ question: "Newest near me", here: { lat: 47.6, lon: -122.3 }, tried: ["X"] });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ answer: `Try KOSHARI.\n\n${SAMPLE_NOTE}` });
+    expect(await res.json()).toEqual({ answer: `Try KOSHARI.\n\n${SAMPLE_NOTE}`, left: 7 });
     expect(fakes.create).toHaveBeenCalledOnce();
     expect(fakes.clientOptions).toEqual([{ apiKey: "sk-test-not-real", timeout: 20_000, maxRetries: 0 }]);
     expect(fakes.checkAndCount).toHaveBeenCalledWith(expect.anything(), "visitor-1", expect.any(Date));

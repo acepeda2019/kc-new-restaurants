@@ -29,16 +29,16 @@ describe("checkAndCount", () => {
   it("allows the 200th question of the day and refuses the 201st as global", async () => {
     const { redis } = fakeRedis();
     for (let i = 1; i < 200; i++) await checkAndCount(redis, `v${i}`, NOW);
-    expect(await checkAndCount(redis, "v200", NOW)).toEqual({ ok: true });
+    expect(await checkAndCount(redis, "v200", NOW)).toEqual({ ok: true, left: 19 });
     expect(await checkAndCount(redis, "v201", NOW)).toEqual({ ok: false, reason: "global" });
   });
 
   it("allows a visitor's 20th question and refuses the 21st as visitor", async () => {
     const { redis } = fakeRedis();
     for (let i = 1; i < 20; i++) await checkAndCount(redis, "amy", NOW);
-    expect(await checkAndCount(redis, "amy", NOW)).toEqual({ ok: true });
+    expect(await checkAndCount(redis, "amy", NOW)).toEqual({ ok: true, left: 0 });
     expect(await checkAndCount(redis, "amy", NOW)).toEqual({ ok: false, reason: "visitor" });
-    expect(await checkAndCount(redis, "bo", NOW)).toEqual({ ok: true });
+    expect(await checkAndCount(redis, "bo", NOW)).toEqual({ ok: true, left: 19 });
   });
 
   it("counts refused questions too, but a visitor over their cap does not use up the global cap", async () => {

@@ -19,7 +19,8 @@ export type RedisLike = {
   expire(key: string, seconds: number): Promise<unknown>;
 };
 
-export type CapResult = { ok: true } | { ok: false; reason: "global" | "visitor" };
+/** `left`: questions this visitor has left today, for the bar's "N left today". */
+export type CapResult = { ok: true; left: number } | { ok: false; reason: "global" | "visitor" };
 
 /** YYYY-MM-DD in America/Los_Angeles. */
 function pacificDate(now: Date): string {
@@ -47,11 +48,12 @@ function within(count: unknown, cap: number): boolean {
 /** Counts one question for `visitorId` today and says whether it is within both caps. */
 export async function checkAndCount(redis: RedisLike, visitorId: string, now: Date): Promise<CapResult> {
   const date = pacificDate(now);
-  if (!within(await increment(redis, `ask:v:${visitorId}:${date}`), VISITOR_DAILY_CAP)) {
+  const visitorCount = await increment(redis, `ask:v:${visitorId}:${date}`);
+  if (!within(visitorCount, VISITOR_DAILY_CAP)) {
     return { ok: false, reason: "visitor" };
   }
   if (!within(await increment(redis, `ask:g:${date}`), GLOBAL_DAILY_CAP)) {
     return { ok: false, reason: "global" };
   }
-  return { ok: true };
+  return { ok: true, left: VISITOR_DAILY_CAP - visitorCount };
 }

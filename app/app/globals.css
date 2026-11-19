@@ -193,8 +193,132 @@ input {
   gap: 12px;
 }
 
-.ask-slot {
-  display: none; /* empty until SAN-40b */
+/* Question bar (SAN-40b): top of the sheet on phones, top-centre over the map on desktop. */
+.ask {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ask-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 6px 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--tile);
+}
+
+.ask-form:focus-within {
+  border-color: var(--lime);
+}
+
+.ask-spark {
+  flex: none;
+  color: var(--lime);
+}
+
+.ask-form input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 1rem; /* 16px stops iOS zooming in on focus */
+}
+
+.ask-form input::placeholder {
+  color: var(--muted);
+}
+
+.ask-left {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.ask-send {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+  border-radius: 14px;
+}
+
+.ask button[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.ask-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.ask-answer-wrap:empty {
+  display: none;
+}
+
+.ask-pending {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-3);
+}
+
+.ask-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(212, 247, 90, 0.25);
+  border-radius: 18px;
+  background: #13170f;
+}
+
+.ask-answer p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-line; /* the answer's own line breaks, as plain text */
+}
+
+.ask-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lime);
+}
+
+.ask-error {
+  border-color: rgba(255, 138, 61, 0.35);
+  background: #1d1611;
+}
+
+.ask-error .ask-label {
+  color: var(--orange-text);
 }
 
 .panels {
@@ -639,7 +763,7 @@ button.link {
   .panels {
     display: grid;
     grid-template-columns: minmax(0, 380px) 1fr minmax(0, 220px);
-    grid-template-areas: "picks . stats" "places . stats";
+    grid-template-areas: "picks ask stats" "places . stats";
     align-items: start;
     gap: 12px 16px;
     margin: 0;
@@ -658,6 +782,28 @@ button.link {
     border: 1px solid var(--line);
     border-radius: 22px;
     background: var(--panel);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--shadow);
+  }
+
+  .ask {
+    grid-area: ask;
+    justify-self: center;
+    width: min(100%, 640px);
+    pointer-events: auto;
+  }
+
+  .ask-form {
+    background: var(--panel);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--shadow);
+  }
+
+  .ask-chips {
+    justify-content: center;
+  }
+
+  .ask-answer {
     backdrop-filter: blur(20px);
     box-shadow: var(--shadow);
   }
