@@ -18,7 +18,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 /** manifest.json schema versions this app can read (export.py SCHEMA_VERSION). */
-export const KNOWN_SCHEMA_VERSIONS = [1];
+export const KNOWN_SCHEMA_VERSIONS = [2]; // 2 added opening_soon.json (SAN-48)
 
 export type RedViolation = { date: string; description: string; points: number };
 
@@ -67,17 +67,43 @@ export type Metrics = {
   pending_review_count: number;
 };
 
+/**
+ * One row of mart_opening_soon: a King County restaurant licence application (WSLCB) not yet
+ * matched to a KC inspection. No coordinates yet (addresses aren't geocoded) and never the
+ * licensee name.
+ */
+export type OpeningSoon = {
+  notice_id: string;
+  trade_name: string;
+  notice_type: "NEW LICENSE APPLICATION" | "CHANGE OF LOCATION";
+  application_date: string;
+  street_address: string | null;
+  city: string | null;
+  zip5: string | null;
+  licence_label: "full-bar restaurant" | "beer/wine restaurant";
+  days_since_application: number;
+  why: string;
+  rank: number; // 1 = newest application
+};
+
 export type Manifest = {
   built_at: string;
   run_date: string;
   run_id: string;
   row_count: number;
+  opening_soon_count: number;
   schema_version: number;
 };
 
-export type AppData = { openings: Opening[]; metrics: Metrics; manifest: Manifest; isSample: boolean };
+export type AppData = {
+  openings: Opening[];
+  metrics: Metrics;
+  openingSoon: OpeningSoon[];
+  manifest: Manifest;
+  isSample: boolean;
+};
 
-const FILES = ["openings.json", "metrics.json", "manifest.json"] as const;
+const FILES = ["openings.json", "metrics.json", "opening_soon.json", "manifest.json"] as const;
 
 // Every column the export must carry; a missing one means the mart and the app drifted.
 const OPENING_KEYS: (keyof Opening)[] = [
@@ -92,7 +118,13 @@ const METRICS_KEYS: (keyof Metrics)[] = [
   "built_at", "pulled_on", "opened_last_30_days", "opened_prior_30_days", "opened_last_7_days",
   "opened_last_180_days", "clean_first_inspection_count", "by_city", "pending_review_count",
 ];
-const MANIFEST_KEYS: (keyof Manifest)[] = ["built_at", "run_date", "run_id", "row_count", "schema_version"];
+const OPENING_SOON_KEYS: (keyof OpeningSoon)[] = [
+  "notice_id", "trade_name", "notice_type", "application_date", "street_address", "city", "zip5",
+  "licence_label", "days_since_application", "why", "rank",
+];
+const MANIFEST_KEYS: (keyof Manifest)[] = [
+  "built_at", "run_date", "run_id", "row_count", "opening_soon_count", "schema_version",
+];
 // Not-null in the mart YAML tests.
 const OPENING_NOT_NULL: (keyof Opening)[] = ["restaurant_id", "rank", "why"];
 
@@ -113,7 +145,7 @@ export function loadData(dataDir: string = path.join(process.cwd(), "data")): Ap
   }
   const isSample = present.length === 0;
   if (isSample && process.env.REQUIRE_EXPORT === "1") {
-    throw new Error(`${dataDir}: REQUIRE_EXPORT=1 but no real export found; the real export is required. Run transform/export.py to write openings.json, metrics.json and manifest.json here`);
+    throw new Error(`${dataDir}: REQUIRE_EXPORT=1 but no real export found; the real export is required. Run transform/export.py to write the JSON files here`);
   }
   const dir = isSample ? path.join(dataDir, "sample") : dataDir;
 
@@ -137,7 +169,15 @@ export function loadData(dataDir: string = path.join(process.cwd(), "data")): Ap
   const metrics = readJson(dir, "metrics.json") as Metrics;
   requireKeys(metrics, METRICS_KEYS, "metrics.json");
 
-  return { openings, metrics, manifest, isSample };
+  // Opening soon may be empty; it must still match the manifest and carry every column.
+  const openingSoon = readJson(dir, "opening_soon.json") as OpeningSoon[];
+  if (!Array.isArray(openingSoon)) throw new Error("opening_soon.json: expected an array");
+  openingSoon.forEach((row, i) => requireKeys(row, OPENING_SOON_KEYS, `opening_soon.json row ${i}`));
+  if (openingSoon.length !== manifest.opening_soon_count) {
+    throw new Error(`opening_soon.json has ${openingSoon.length} rows, manifest says ${manifest.opening_soon_count}`);
+  }
+
+  return { openings, metrics, openingSoon, manifest, isSample };
 }
 
 let cached: AppData | undefined;
@@ -147,6 +187,7 @@ function data(): AppData {
 
 export const getOpenings = (): Opening[] => data().openings;
 export const getMetrics = (): Metrics => data().metrics;
+export const getOpeningSoon = (): OpeningSoon[] => data().openingSoon;
 export const getManifest = (): Manifest => data().manifest;
 /** True when the app is showing app/data/sample/: the UI must label it as sample data. */
 export const isSampleData = (): boolean => data().isSample;

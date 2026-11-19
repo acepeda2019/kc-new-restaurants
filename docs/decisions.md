@@ -4,6 +4,17 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-19 — Opening soon export (schema version 2)
+- **Context:** the app needs the Opening soon list; the export/app contract is versioned by `manifest.schema_version`.
+- **Decision:**
+  - `mart_opening_soon` holds King County restaurant licence applications not yet matched to a KC inspection and younger than `seeds/opening_soon_params.csv` `max_pending_days` (365, given the 164-day median lead time).
+  - Ranked newest application first, with a factual "why" ("Applied for a full-bar restaurant licence on Nov 4"; licence labels in `seeds/lcb_privilege_rules.csv`). "As of" is the newest snapshot, not the build clock.
+  - The export adds `opening_soon.json` and `manifest.opening_soon_count`, as schema version 2. The app accepts only 2, and both ship in the same deploy.
+  - An empty Opening soon list is allowed; the publish guard still applies only to Just opened.
+- **Consequences:**
+  - No coordinates yet: licence addresses aren't geocoded, so pins and distance ranking wait for a geocoding step before the app list.
+  - The licensee name stays out of the mart (tested in dbt and in the app's sample test).
+
 ## 2026-11-19 — Match licence applicants to inspections by rules first
 - **Context:** an Opening soon place has opened when it gets its first KC inspection, but LCB and KC share no ID.
 - **Decision:**

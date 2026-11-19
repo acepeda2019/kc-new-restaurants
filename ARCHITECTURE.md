@@ -46,7 +46,7 @@ GitHub Actions, daily cron + manual run                        .github/workflows
   3. dbt build up to int_candidates (DuckDB, reads raw from S3)    → candidates
   4. classify  candidates never seen before → Claude Haiku → s3 raw/claude_classifications/…
   5. dbt build everything + tests              → mart_new_openings, mart_metrics
-  6. publish   export JSON → guard (refuse 0 rows or <50% of last run) → s3 exports/dt=…/<run_id>/
+  6. publish   export JSON (incl. opening_soon.json, may be empty) → guard on Just opened (refuse 0 rows or <50% of last run) → s3 exports/dt=…/<run_id>/
                → vercel build (REQUIRE_EXPORT=1) → check /api/ask ships the real export
                → vercel deploy --prebuilt --prod. Any failed step stops the job; nothing deploys.
   Vercel's own deploy-on-push is off for main (app/vercel.json); PRs still get previews.
@@ -78,7 +78,7 @@ The GitHub Actions failure email is the alert.
 | Map + "All N places" list | `app/` | built (SAN-39b/c) |
 | Capped question bar | `app/api/ask`, `app/components/AskBar.tsx` | built (SAN-40) |
 | Daily workflow + CI | `.github/workflows/` | built (SAN-41); live since 2026-11-19 (first classification run: 637 places, $0.13) |
-| Opening soon: LCB snapshot, staging and rules | `ingestion/sources/lcb_local_authority.py`, `transform/models/staging/lcb/`, `int_opening_soon_candidates` | built (SAN-44, SAN-46, SAN-47 rule matching); mart and app planned (SAN-48–49) |
+| Opening soon: LCB snapshot, staging and rules | `ingestion/sources/lcb_local_authority.py`, `transform/models/staging/lcb/`, `int_opening_soon_candidates` | built (SAN-44, SAN-46, SAN-47 rule matching, SAN-48 `mart_opening_soon` + export, schema v2); geocoding and app planned |
 
 ## 3. Sources
 
@@ -197,8 +197,8 @@ where it serves, so it can't be "near you".
   without a valid `kcne_session` cookie to `/login`. `/api/login` checks one shared
   passcode and sets the cookie (HMAC-signed with `SESSION_SECRET`, 30 days). Missing
   secrets fail closed. The JSON is served only through the app, never from a public URL.
-- **Data:** `openings.json` and `metrics.json` (plus `manifest.json`: row count, schema
-  version) are baked into each deploy. A dated copy of every published export stays in
+- **Data:** `openings.json`, `metrics.json` and `opening_soon.json` (plus `manifest.json`:
+  row count, Opening soon count, schema version 2) are baked into each deploy. A dated copy of every published export stays in
   `s3://$RAW_BUCKET/exports/dt=…/<run_id>/` (never overwritten); the guard compares with
   the newest one. Visitors never
   touch S3 or the pipeline. Per restaurant, the JSON carries the first and latest

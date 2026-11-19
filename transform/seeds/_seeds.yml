@@ -26,9 +26,9 @@ seeds:
   - name: score_params
     description: "Grain: one row. Scoring weights, window and Claude confidence threshold (ARCHITECTURE.md §6)."
   - name: lcb_privilege_rules
-    description: "Grain: one row per WSLCB privilege text (every value seen in the notice window on 2026-11-19). is_restaurant marks the ones Opening soon counts; a notice counts if any of its privileges does. Unseen privileges count as not a restaurant and are flagged by the lcb_unmapped_privileges test."
+    description: "Grain: one row per WSLCB privilege text (every value seen in the notice window on 2026-11-19). is_restaurant marks the ones Opening soon counts and label is how the app names the licence; a notice counts if any of its privileges does. Unseen privileges count as not a restaurant and are flagged by the lcb_unmapped_privileges test."
     config:
-      column_types: {privilege: varchar, is_restaurant: boolean, why: varchar}
+      column_types: {privilege: varchar, is_restaurant: boolean, label: varchar, why: varchar}
     columns:
       - name: privilege
         data_tests: [unique, not_null]
@@ -54,4 +54,7 @@ seeds:
     columns:
       - name: notice_id
         data_tests: [unique, not_null]
-
+  - name: opening_soon_params
+    description: "Grain: one row. max_pending_days: a licence application older than this that never matched a KC inspection drops off Opening soon (median licence-to-first-inspection lead time was 164 days; source card)."
+    config:
+      column_types: {max_pending_days: integer}
