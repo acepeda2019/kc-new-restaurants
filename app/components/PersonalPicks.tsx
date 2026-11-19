@@ -12,7 +12,7 @@ import { TopThree } from "@/components/TopThree";
 import type { Metrics as MetricsData, Opening } from "@/lib/data";
 import { requestLocation } from "@/lib/location";
 import { NEAR_RADIUS_MI, countNear, personalTopThree, type LatLon } from "@/lib/rank";
-import { subscribeTried, toggleTried, triedSnapshot } from "@/lib/tried";
+import { hiddenFromTop, nextJustMarked, subscribeTried, toggleTried, triedSnapshot } from "@/lib/tried";
 
 type Props = { openings: Opening[]; metrics: MetricsData };
 type LocationStatus = "idle" | "asking" | "found" | "unavailable";
@@ -29,6 +29,7 @@ export function PersonalPicks({ openings, metrics }: Props) {
   const [justMarked, setJustMarked] = useState<string | null>(null);
 
   async function locate() {
+    if (status === "asking") return; // aria-disabled (not disabled) keeps focus, so ignore clicks here
     setStatus("asking");
     const found = await requestLocation();
     setHere(found ?? undefined);
@@ -36,12 +37,10 @@ export function PersonalPicks({ openings, metrics }: Props) {
   }
 
   function toggle(id: string) {
-    const next = toggleTried(id);
-    setJustMarked(next.has(id) ? id : null);
+    setJustMarked(nextJustMarked(id, toggleTried(id)));
   }
 
-  const hidden = new Set([...tried].filter((id) => id !== justMarked));
-  const top = personalTopThree(openings, { here, tried: hidden });
+  const top = personalTopThree(openings, { here, tried: hiddenFromTop(tried, justMarked) });
   const near = here ? { count: countNear(openings, here), radiusMi: NEAR_RADIUS_MI } : undefined;
 
   return (
@@ -51,7 +50,7 @@ export function PersonalPicks({ openings, metrics }: Props) {
       <section aria-labelledby="top-three">
         <h2 id="top-three">Top 3 new openings</h2>
         <p className="locate">
-          <button type="button" onClick={locate} disabled={status === "asking"}>
+          <button type="button" onClick={locate} aria-disabled={status === "asking"}>
             {status === "asking" ? "Finding you…" : "Use my location"}
           </button>
           <span role="status">

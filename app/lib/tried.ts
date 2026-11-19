@@ -78,3 +78,16 @@ export function triedSnapshot(storage: KeyValueStore | undefined = browserStorag
   if (cached?.raw !== raw) cached = { raw, ids: parse(raw) };
   return cached.ids;
 }
+
+/**
+ * Ids to leave out of the top 3: every tried place except the one just marked, which stays
+ * on screen (button pressed) so it can be undone in place.
+ */
+export function hiddenFromTop(tried: Set<string>, justMarked: string | null): Set<string> {
+  return new Set([...tried].filter((id) => id !== justMarked));
+}
+
+/** After a click on `id`, the place to keep visible: `id` if it is now stored as tried, else none. */
+export function nextJustMarked(id: string, triedAfter: Set<string>): string | null {
+  return triedAfter.has(id) ? id : null;
+}

@@ -22,7 +22,7 @@ export function Metrics({ metrics, near }: Props) {
         <div>
           <dt>Near you (within {near.radiusMi} mi)</dt>
           <dd className="number">{near.count}</dd>
-          <dd className="note">Opened in the last 180 days</dd>
+          <dd className="note">Fixed-location places opened in the last 180 days</dd>
         </div>
       ) : (
         <div>

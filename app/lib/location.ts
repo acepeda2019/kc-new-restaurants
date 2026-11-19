@@ -4,8 +4,10 @@
  */
 import type { LatLon } from "@/lib/rank";
 
-/** Give up after 8 s, counting the time the permission prompt is open. */
+/** The browser's own timeout: it starts after permission is granted, so the prompt doesn't count. */
 export const LOCATION_TIMEOUT_MS = 8000;
+/** Backstop for browsers that never call back at all (e.g. a prompt left open). */
+export const SAFETY_TIMEOUT_MS = 30000;
 
 type Geo = Pick<Geolocation, "getCurrentPosition">;
 
@@ -13,7 +15,7 @@ function browserGeo(): Geo | undefined {
   return typeof navigator === "undefined" ? undefined : navigator.geolocation;
 }
 
-/** Resolves {lat, lon}, or null on deny, error, timeout, no geolocation or bad coordinates. Never rejects. */
+/** Resolves {lat, lon}, or null on deny, error, either timeout, no geolocation or bad coordinates. Never rejects. */
 export function requestLocation(geo: Geo | undefined = browserGeo()): Promise<LatLon | null> {
   if (!geo) return Promise.resolve(null);
   return new Promise((resolve) => {
@@ -24,7 +26,7 @@ export function requestLocation(geo: Geo | undefined = browserGeo()): Promise<La
       clearTimeout(timer);
       resolve(value);
     };
-    const timer = setTimeout(() => finish(null), LOCATION_TIMEOUT_MS);
+    const timer = setTimeout(() => finish(null), SAFETY_TIMEOUT_MS);
     try {
       geo.getCurrentPosition(
         ({ coords: { latitude: lat, longitude: lon } }) =>

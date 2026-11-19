@@ -204,10 +204,14 @@ where it serves, so it can't be "near you".
   when `REQUIRE_EXPORT=1` (to be set in the daily workflow's env by SAN-41, never as a
   Vercel env var): then the build fails, the job stops before deploying, and the last good
   deploy stays live.
-- **Location:** browser geolocation, asked on demand, never stored server-side. "Near me" is
-  a radius computed in the browser; "in [place]" uses ZIP and city.
+- **Location:** browser geolocation, asked when the visitor taps "Use my location" (8 s
+  browser timeout, not counting the permission prompt), never stored server-side. "Near me"
+  is a 2-mile radius (`NEAR_RADIUS_MI` in `app/lib/rank.ts`) of fixed-location places,
+  computed in the browser; once located, the "last 7 days" headline number becomes "N near
+  you". "In [place]" uses ZIP and city.
 - **"Tried it":** browser localStorage only (`kcne_tried`), sent with each question so
-  answers can skip those places.
+  answers can skip those places. Tried places drop out of the top 3; the one just marked
+  stays visible (pressed) so a mistaken tap can be undone in place.
 - **Map:** MapLibre GL with free tiles. Pin colours: top 3, other new places, red
   violations, you.
 - **`/api/ask`** (the only Claude call at request time):
