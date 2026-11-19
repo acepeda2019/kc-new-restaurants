@@ -287,7 +287,7 @@ where it serves, so it can't be "near you".
   tapping a name flies the map there, as in the lists. A cap hit or error shows the server's message instead.
 - **Answer style:** a one-sentence summary (under 25 words) plus at most 5 picks, each with a
   one-sentence blurb (under 15 words) on why it fits, not restating the fact bubbles. "Tried"
-  sits beside the name on every screen size. "Likely <cuisine>" for
+  sits on the name's line, right-aligned, on every screen size. "Likely <cuisine>" for
   inferred cuisine. "Wary" answers cite the inspection date and red points. Say plainly
   when the data can't answer (hours, price, ratings, opening soon).
 

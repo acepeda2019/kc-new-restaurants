@@ -937,12 +937,13 @@ button.link {
 .answer-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 
-/* A long name wraps inside its heading, so "Tried" never drops to its own line. */
+/* A long name wraps inside its heading, so "Tried" stays on the title line, right-aligned. */
 .answer-head h3 {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
