@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Opening } from "@/lib/data";
-import { countNear, haversineMi, personalTopThree } from "@/lib/rank";
+import { allPlaces, countNear, haversineMi, personalTopThree } from "@/lib/rank";
 import { requestLocation } from "@/lib/location";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
@@ -118,5 +118,42 @@ describe("countNear", () => {
 
   it("is zero for no openings", () => {
     expect(countNear([], SEATTLE)).toBe(0);
+  });
+});
+
+describe("allPlaces", () => {
+  const nearSeattle = { lat: 47.61, lon: -122.33 };
+  const rows = [
+    opening("far", 1, 90, BELLEVUE),
+    opening("truck", 2, 85, SEATTLE, "food_truck"),
+    opening("close", 3, 80, nearSeattle),
+    opening("unmapped", 4, 75),
+    opening("closest", 5, 70, SEATTLE),
+  ];
+
+  it("lists every opening, trucks and unmapped included, in rank order without a location", () => {
+    const all = allPlaces(rows, { tried: new Set() });
+    expect(ids(all)).toEqual(["far", "truck", "close", "unmapped", "closest"]);
+    expect(all.every((o) => o.distanceMi === undefined)).toBe(true);
+  });
+
+  it("with a location, puts fixed spots nearest first with distances, then trucks and unmapped in rank order", () => {
+    const all = allPlaces(rows, { here: SEATTLE, tried: new Set() });
+    expect(ids(all)).toEqual(["closest", "close", "far", "truck", "unmapped"]);
+    expect(all[0].distanceMi).toBe(0);
+    expect(all[2].distanceMi).toBeGreaterThan(6);
+    expect(all.find((o) => o.restaurant_id === "truck")?.distanceMi).toBeUndefined();
+  });
+
+  it("keeps tried places and flags them", () => {
+    const all = allPlaces(rows, { tried: new Set(["close", "truck"]) });
+    expect(all).toHaveLength(rows.length);
+    expect(Object.fromEntries(all.map((o) => [o.restaurant_id, o.tried]))).toEqual({
+      far: false, truck: true, close: true, unmapped: false, closest: false,
+    });
+  });
+
+  it("is empty for no openings", () => {
+    expect(allPlaces([], { here: SEATTLE, tried: new Set() })).toEqual([]);
   });
 });
