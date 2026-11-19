@@ -4,6 +4,12 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-18 — The question bar sends at most 100 places per question
+- **Context:** `/api/ask` sends the restaurant list to Haiku with every question. A real 180-day export could hold several hundred places, which is about 66k input tokens per question and roughly $1.40/day at the 200-question cap. That would use up the owner's prepaid $5 in a few days of heavy use.
+- **Decision (owner):** send at most 100 places: the nearest once located, else the top-ranked, after removing tried places. The prompt says the list may be a subset.
+- **Also decided:** a visitor can mint a new `kcne_visitor` cookie for a fresh 20 questions. That's accepted for a passcode-only friends app, because the 200/day global cap still bounds the total. The API key is checked before any question is counted, so a misconfigured deploy doesn't use up anyone's questions.
+- **Consequences:** about $0.0015 per question, $0.30/day worst case. A question about a far-off or low-ranked place may get "not in the current list".
+
 ## 2026-11-18 — A collapsed "All N places" list returns under the map
 - **Context:** SAN-38c dropped a full list as out of scope ("browse everything"). The SAN-39b review found keyboard and screen-reader users could reach only the top 3; every other place was a map pin.
 - **Decision (owner):** add an "All N places" list under the map, collapsed by default, with rows rendered only when opened. Once located, fixed-location places nearest first (ties by rank), then food trucks and places without coordinates in rank order; without a location, rank order. Tried places tagged, not hidden.

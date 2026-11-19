@@ -236,7 +236,12 @@ where it serves, so it can't be "near you".
     message, and the rest of the page keeps working;
   - `claude-haiku-5-5`, thinking disabled, effort low, `max_tokens` 400;
   - restaurant data goes in a delimited block marked as data, and the system prompt says to
-    answer only from it (prompt-injection defence).
+    answer only from it (prompt-injection defence). The block holds at most 100 places
+    (`MAX_DATA_ROWS`): the nearest once located, else the top-ranked, with tried places
+    removed first. Answers are plain text, never rendered as HTML;
+  - order in `app/app/api/ask/route.ts`: session → body (question ≤ 500 chars) → visitor
+    cookie → API key present → caps (visitor counter, then global; refused questions count)
+    → Claude. Questions and locations are never logged.
 - **Answer style:** at most 3 recommendations, one-line reason each. "Likely <cuisine>" for
   inferred cuisine. "Wary" answers cite the inspection date and red points. Say plainly
   when the data can't answer (hours, price, ratings, opening soon).
@@ -247,10 +252,10 @@ where it serves, so it can't be "near you".
   GitHub Actions on this repo's `main` can assume (OIDC). The owner runs `terraform apply`.
 - **Secrets** only in GitHub Actions secrets and Vercel env vars, never in the repo:
   `ANTHROPIC_API_KEY` (a dedicated key for this app), `APP_PASSCODE`, `SESSION_SECRET`,
-  `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
+  `KV_REST_API_URL`, `KV_REST_API_TOKEN` (set by Vercel's Upstash integration), `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
   `VERCEL_PROJECT_ID`. AWS is reached via the OIDC role (`AWS_ROLE_ARN` repo variable).
-- **Cost:** Haiku at about $0.002 per question, so the global cap bounds the worst case at
-  about $0.40/day. Classification is a few cents per day after the first run. Everything
+- **Cost:** each question sends at most 100 places (about 15k input tokens), so Haiku costs
+  about $0.0015 per question and the global cap bounds the worst case at about $0.30/day. Classification is a few cents per day after the first run. Everything
   else is on free tiers.
 
 ## 9. Open questions

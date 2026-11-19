@@ -9,8 +9,9 @@
  * or a row missing a mart column, so a broken export never ships.
  * Types mirror transform/models/marts/mart_new_openings.sql and mart_metrics.sql.
  *
- * Read only while prerendering static pages, so the fs calls opt out of Turbopack's
- * output tracing (it would otherwise ship the whole project as server code).
+ * Read while prerendering static pages and by /api/ask. The fs calls opt out of Turbopack's
+ * output tracing (it would otherwise ship the whole project as server code); next.config.ts
+ * includes the JSON in /api/ask's function instead.
  */
 import "server-only";
 import { existsSync, readFileSync } from "node:fs";
