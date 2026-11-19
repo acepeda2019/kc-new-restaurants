@@ -85,13 +85,17 @@ jobs:
           npx --yes vercel@65.11.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
           npx --yes vercel@65.11.0 build --prod --token="$VERCEL_TOKEN"
 
+      # vercel build may copy a function's files into its .func folder or only list them in
+      # .vc-config.json's filePathMap (uploaded at deploy); accept either, nothing else.
       - name: Check the question API ships the real export, not only the sample
         run: |
-          echo "Functions built:"; find .vercel/output/functions -maxdepth 4 -name '*.func' | sed 's/^/  /'
-          found=$(find -L .vercel/output/functions -name openings.json -path '*data/openings.json' -not -path '*sample*' | head -5)
-          echo "Real openings.json in function bundles:"; echo "${found:-  (none)}" | sed 's/^/  /'
-          if ! echo "$found" | grep -q 'api/ask'; then
-            echo "::error::/api/ask bundle has no real data/openings.json (see the lists above)"; exit 1
+          fn=.vercel/output/functions/api/ask.func
+          test -d "$fn" || { echo "::error::no $fn in the build output"; exit 1; }
+          copied=$(find -L "$fn" -path '*data/openings.json' -not -path '*sample*' | head -1)
+          mapped=$(grep -o '"[^"]*data/openings\.json"' "$fn/.vc-config.json" 2>/dev/null | grep -v sample | head -1)
+          echo "copied: ${copied:-none}"; echo "mapped: ${mapped:-none}"
+          if [ -z "$copied$mapped" ]; then
+            echo "::error::/api/ask bundle has no real data/openings.json"; exit 1
           fi
 
       - name: Deploy to production
