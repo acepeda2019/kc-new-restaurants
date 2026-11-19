@@ -29,14 +29,20 @@ import {
   triedSnapshot,
 } from "@/lib/tried";
 
-type Props = { openings: Opening[]; metrics: MetricsData; openingSoon: OpeningSoon[] };
+type Props = {
+  openings: Opening[];
+  metrics: MetricsData;
+  openingSoon: OpeningSoon[];
+  /** The brief as Claude worded it at build time, or null (the template is used). */
+  aiBrief: BriefPart[][] | null;
+};
 
 const NOTHING_TRIED = new Set<string>();
 const NO_PICKS: AnswerPick[] = [];
 const serverSnapshot = () => NOTHING_TRIED;
 const browserSnapshot = () => triedSnapshot();
 
-export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
+export function PersonalPicks({ openings, metrics, openingSoon, aiBrief }: Props) {
   const [here, setHere] = useState<LatLon | undefined>(undefined);
   const [status, setStatus] = useState<LocationStatus>("idle");
   const tried = useSyncExternalStore(subscribeTried, browserSnapshot, serverSnapshot);
@@ -75,6 +81,9 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
     () => todayBrief({ openings, openingSoon, metrics, here, near }),
     [openings, openingSoon, metrics, here, near],
   );
+  // Claude's wording until the visitor is located; then the template, which knows what's near them.
+  const useAi = aiBrief !== null && !here;
+  const briefSentences = useAi ? aiBrief : brief.sentences;
   // Cards and numbered pins: the last answer's picks; none before the first question.
   const picks = answerPicks ?? NO_PICKS;
   const pins = useMemo(
@@ -139,7 +148,8 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
       <div className="panels">
         <AskBar
           onAsk={(question) => askQuestion({ question, here, tried })}
-          intro={brief.sentences.map((sentence, i) => (
+          introLabel={useAi ? "AI summary" : "Today"}
+          intro={briefSentences.map((sentence, i) => (
             <p key={i}>{sentence.map((part, j) => briefPart(part, j))}</p>
           ))}
           chips={brief.chips}

@@ -17,6 +17,8 @@ type Props = {
   onAsk: (question: string) => Promise<AskResult>;
   /** The Today brief, shown as plain text under the bar until the first question. */
   intro: ReactNode;
+  /** Its label: "AI summary" when Claude wrote it, else "Today". */
+  introLabel: string;
   /** Question chips (the brief's follow-ups). */
   chips: string[];
   location: { status: LocationStatus; onLocate: () => void };
@@ -26,7 +28,7 @@ type Props = {
   children?: ReactNode;
 };
 
-export function AskBar({ onAsk, intro, chips, location, onPicks, children }: Props) {
+export function AskBar({ onAsk, intro, introLabel, chips, location, onPicks, children }: Props) {
   const [question, setQuestion] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
 
@@ -131,7 +133,7 @@ export function AskBar({ onAsk, intro, chips, location, onPicks, children }: Pro
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
               </svg>
-              Today
+              {introLabel}
             </span>
             {intro}
           </div>

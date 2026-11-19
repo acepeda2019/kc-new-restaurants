@@ -1,13 +1,20 @@
 import { MapLegend } from "@/components/MapLegend";
 import { PersonalPicks } from "@/components/PersonalPicks";
+import { aiBriefForBuild } from "@/lib/aiBrief";
+import { briefFacts } from "@/lib/brief";
 import { getMetrics, getOpeningSoon, getOpenings, isSampleData } from "@/lib/data";
 import { formatPlainDate } from "@/lib/format";
 
 // Data is baked in at build time; each daily deploy rebuilds the page.
 export const revalidate = false;
 
-export default function Home() {
+export default async function Home() {
   const metrics = getMetrics();
+  const openings = getOpenings();
+  const openingSoon = getOpeningSoon();
+  // Claude words the brief once per daily build (WRITE_AI_BRIEF=1); otherwise null and the
+  // browser uses the template. Never at request time: the page is static.
+  const aiBrief = await aiBriefForBuild(briefFacts({ openings, openingSoon, metrics }));
 
   // The map is a fixed layer behind everything; header, panels and footer float over it.
   return (
@@ -38,7 +45,7 @@ export default function Home() {
 
       <main className="home">
         {/* The full list goes to the browser (ARCHITECTURE.md §6) so location and "Tried it" never leave it. */}
-        <PersonalPicks openings={getOpenings()} metrics={metrics} openingSoon={getOpeningSoon()} />
+        <PersonalPicks openings={openings} metrics={metrics} openingSoon={openingSoon} aiBrief={aiBrief} />
       </main>
 
       <footer className="bottombar">
