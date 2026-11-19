@@ -8,6 +8,9 @@
  */
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AllPlaces } from "@/components/AllPlaces";
+import { AnswerPicks, type PickCard } from "@/components/AnswerPicks";
+import type { AnswerPick } from "@/lib/ask";
+import { openingFacts, openingSoonFacts } from "@/lib/format";
 import { AskBar } from "@/components/AskBar";
 import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
@@ -43,6 +46,8 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
   const tried = useSyncExternalStore(subscribeTried, browserSnapshot, serverSnapshot);
   // The place just marked stays on screen (button pressed) so it can be undone in place.
   const [justMarked, setJustMarked] = useState<string | null>(null);
+  // The last answer's picks: shown as cards and numbered on the map.
+  const [picks, setPicks] = useState<AnswerPick[]>([]);
   // The place shown on the map: a name clicked in a list, or a pin clicked on the map.
   const [focused, setFocused] = useState<FocusRequest | null>(null);
   // Once the map has failed there is nothing to show places on, so names stop being buttons.
@@ -72,12 +77,25 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
   );
   const near = here ? { count: countNear(openings, here), radiusMi: NEAR_RADIUS_MI } : undefined;
   const pins = useMemo(
-    () => toPins(openings, { topIds: new Set(top.map((o) => o.restaurant_id)), here, openingSoon }),
-    [openings, top, here, openingSoon],
+    () => {
+      // An answer's picks take over the numbered pins (in card order); otherwise the top 3.
+      const ids = picks.length ? picks.map((p) => p.id) : top.map((o) => o.restaurant_id);
+      return toPins(openings, { topIds: new Set(ids), here, openingSoon });
+    },
+    [openings, top, picks, here, openingSoon],
   );
   const everyPlace = useMemo(() => allPlaces(openings, { here, tried }), [openings, here, tried]);
+
   const soon = useMemo(() => rankOpeningSoon(openingSoon, here), [openingSoon, here]);
   const focus = useMemo(() => resolveFocus(focused, openings, openingSoon), [focused, openings, openingSoon]);
+  const cardById = useMemo(() => {
+    const m = new Map<string, PickCard>(everyPlace.map((o) => [o.restaurant_id, { place: o, facts: openingFacts(o) }]));
+    for (const s of soon) {
+      const place = { name: s.trade_name, category: "restaurant" as const, latitude: s.latitude, longitude: s.longitude };
+      m.set(s.notice_id, { place, facts: openingSoonFacts(s) });
+    }
+    return m;
+  }, [everyPlace, soon]);
   const focusedId = focus?.id ?? null;
   const showFromList = (id: string) => setFocused((now) => nextFocus(now, { id, from: "list" }));
   const showFromMap = (id: string | null) => setFocused((now) => nextFocus(now, id ? { id, from: "map" } : null));
@@ -106,7 +124,16 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
     <>
       <OpeningsMap pins={pins} focus={focus} onFocus={showFromMap} onUnavailable={mapUnavailable} />
       <div className="panels">
-        <AskBar onAsk={(question) => askQuestion({ question, here, tried })} />
+        <AskBar onAsk={(question) => askQuestion({ question, here, tried })} onPicks={setPicks}>
+          <AnswerPicks
+            picks={picks}
+            cards={cardById}
+            tried={tried}
+            onToggleTried={toggle}
+            onShow={onShow}
+            focusedId={focusedId}
+          />
+        </AskBar>
         <Metrics metrics={metrics} near={near} />
 
         <section aria-labelledby="top-three" className="panel picks">

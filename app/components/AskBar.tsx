@@ -5,12 +5,19 @@
  * to the visitor's location and "Tried it" marks; the API checks the caps before Claude.
  * Answers are plain text, rendered as text (never HTML).
  */
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
+import type { AnswerPick } from "@/lib/ask";
 import { ASK_CHIPS, MAX_QUESTION_CHARS, type AskResult } from "@/lib/askClient";
 
-type Props = { onAsk: (question: string) => Promise<AskResult> };
+type Props = {
+  onAsk: (question: string) => Promise<AskResult>;
+  /** Told the answer's picks (empty when a new question starts or fails), so the map can highlight them. */
+  onPicks?: (picks: AnswerPick[]) => void;
+  /** The answer cards, shown under the answer text. */
+  children?: ReactNode;
+};
 
-export function AskBar({ onAsk }: Props) {
+export function AskBar({ onAsk, onPicks, children }: Props) {
   const [question, setQuestion] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<AskResult | null>(null);
@@ -19,8 +26,10 @@ export function AskBar({ onAsk }: Props) {
   async function ask(q: string) {
     if (pending) return; // aria-disabled keeps focus on the button, so ignore repeat clicks here
     setPending(true);
+    onPicks?.([]);
     const r = await onAsk(q);
     setResult(r);
+    onPicks?.(r.ok ? r.picks : []);
     if (r.ok) setLeft(r.left);
     else if (r.outOfQuestions) setLeft(0);
     setPending(false);
@@ -79,6 +88,7 @@ export function AskBar({ onAsk }: Props) {
           <div className={result.ok ? "ask-answer" : "ask-answer ask-error"}>
             <span className="ask-label">{result.ok ? "Answer" : "Couldn't answer"}</span>
             <p>{result.ok ? result.answer : result.message}</p>
+            {result.ok && children}
           </div>
         )}
       </div>

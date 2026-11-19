@@ -31,6 +31,16 @@ const kinds = (fc: ReturnType<typeof toPins>) =>
   Object.fromEntries(fc.features.map((f) => [f.properties.id, f.properties.kind]));
 
 describe("toPins", () => {
+  it("numbers answer picks by card position, up to 5, even when an Opening soon pick sits between", () => {
+    const places = ["A", "B", "C", "D", "E", "F"].map((id) => opening(id, SEATTLE));
+    // Card order: A, a soon place (no number on the map), C, D, E.
+    const fc = toPins(places, { topIds: new Set(["A", "SOON-1", "C", "D", "E"]) });
+    const rank = Object.fromEntries(fc.features.map((f) => [f.properties.id, f.properties.rank]));
+    expect(rank).toMatchObject({ A: 1, C: 3, D: 4, E: 5 });
+    expect(rank.B).toBeUndefined();
+    expect(rank.F).toBeUndefined();
+  });
+
   it("marks the top 3 as top, red points as wary, the rest as new; top wins over wary", () => {
     const rows = [
       opening("a", SEATTLE),

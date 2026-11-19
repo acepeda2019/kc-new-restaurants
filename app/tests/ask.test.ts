@@ -198,6 +198,14 @@ describe("resolvePicks", () => {
   });
 });
 
+describe("educational first visits", () => {
+  it("sends no red points for an unscored visit, so 0 can't be read as clean", () => {
+    const edu = opening("E1", "Koshari", 1, { first_inspection_type: "Educational Inspection", first_inspection_red_points: 0 });
+    const [row] = JSON.parse(dataBlock(buildRequest("hi", [edu], { tried: [] })));
+    expect(row.first_inspection_red_points).toBeNull();
+  });
+});
+
 describe("Opening soon in the question bar", () => {
   const soon = (id: string, name: string, lat: number | null, rank: number): OpeningSoon => ({
     notice_id: id, trade_name: name, notice_type: "NEW LICENSE APPLICATION", application_date: "2026-11-04",
