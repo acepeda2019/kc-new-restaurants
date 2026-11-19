@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Opening } from "@/lib/data";
-import { haversineMi, personalTopThree } from "@/lib/rank";
+import { haversineMi, othersByRank, personalTopThree } from "@/lib/rank";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
 const BELLEVUE = { lat: 47.6101, lon: -122.2015 };
@@ -82,5 +82,13 @@ describe("personalTopThree", () => {
     const rows = [opening("a", 1, 90), opening("b", 2, 80)];
     expect(ids(personalTopThree(rows, { tried: new Set(["b"]) }))).toEqual(["a"]);
     expect(personalTopThree([], { tried: new Set() })).toEqual([]);
+  });
+});
+
+describe("othersByRank", () => {
+  it("lists every opening not in the top 3, in rank order", () => {
+    const rows = [opening("d", 4, 60), opening("a", 1, 90), opening("e", 5, 50), opening("b", 2, 80)];
+    const top = [opening("a", 1, 90), opening("d", 4, 60)];
+    expect(ids(othersByRank(rows, top))).toEqual(["b", "e"]);
   });
 });
