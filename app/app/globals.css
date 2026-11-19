@@ -110,6 +110,8 @@ input {
 }
 
 .logo {
+  flex: none;
+  white-space: nowrap;
   padding-left: 6px;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -208,6 +210,108 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.topbar-start {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ⓘ: a round pill the logo's height, opening the About panel. */
+.pill.about-button {
+  justify-content: center;
+  width: 40px;
+  padding: 0;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+/* The About panel: a native <dialog>, centred, scrolling inside on short screens. */
+dialog.about {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100svh - 48px);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 22px;
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    linear-gradient(120deg, rgba(212, 247, 90, 0.85), rgba(201, 182, 255, 0.85) 55%, rgba(127, 209, 255, 0.7)) border-box;
+  color: var(--text-2);
+  box-shadow: var(--shadow);
+}
+
+dialog.about::backdrop {
+  background: rgba(5, 7, 10, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.about-body {
+  padding: 20px 22px 22px;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.about-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.about-head h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.about-close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-2);
+}
+
+.about-body h3 {
+  margin: 16px 0 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lime);
+}
+
+.about-body p,
+.about-body ul {
+  margin: 0;
+}
+
+.about-body ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 1.1rem;
+}
+
+.about-body strong {
+  color: var(--text);
+}
+
+.about-body a {
+  display: inline-block;
+  margin-top: 16px;
+  color: var(--text);
+}
+
+.about-body .about-note {
+  margin-top: 16px;
+  font-size: 0.8125rem;
+  color: var(--muted);
 }
 
 /* Question bar (SAN-40b): top of the sheet on phones, top-centre over the map on desktop. */
