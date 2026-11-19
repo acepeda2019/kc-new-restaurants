@@ -87,9 +87,12 @@ jobs:
 
       - name: Check the question API ships the real export, not only the sample
         run: |
-          found=$(find .vercel/output/functions -path '*api/ask*' -name openings.json -not -path '*sample*' | head -1)
-          if [ -z "$found" ]; then echo "::error::/api/ask bundle has no real openings.json"; exit 1; fi
-          echo "ok: $found"
+          echo "Functions built:"; find .vercel/output/functions -maxdepth 4 -name '*.func' | sed 's/^/  /'
+          found=$(find -L .vercel/output/functions -name openings.json -path '*data/openings.json' -not -path '*sample*' | head -5)
+          echo "Real openings.json in function bundles:"; echo "${found:-  (none)}" | sed 's/^/  /'
+          if ! echo "$found" | grep -q 'api/ask'; then
+            echo "::error::/api/ask bundle has no real data/openings.json (see the lists above)"; exit 1
+          fi
 
       - name: Deploy to production
         env:
