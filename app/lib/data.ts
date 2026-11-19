@@ -2,6 +2,8 @@
  * The app's only data access. Reads the JSON written by transform/export.py
  * (openings.json, metrics.json, manifest.json) from app/data/ at build time, or the
  * tracked, labelled sample in app/data/sample/ when no real export is present.
+ * With REQUIRE_EXPORT=1 (set by the daily production build) there is no sample fallback:
+ * a missing export throws, so production never ships sample data.
  *
  * Throws (failing `next build`) on a partial export, an unknown manifest schema_version,
  * or a row missing a mart column, so a broken export never ships.
@@ -109,6 +111,9 @@ export function loadData(dataDir: string = path.join(process.cwd(), "data")): Ap
     throw new Error(`${dataDir}: partial export (found ${present.join(", ")}); re-run transform/export.py`);
   }
   const isSample = present.length === 0;
+  if (isSample && process.env.REQUIRE_EXPORT === "1") {
+    throw new Error(`${dataDir}: REQUIRE_EXPORT=1 but no real export found; the real export is required. Run transform/export.py to write openings.json, metrics.json and manifest.json here`);
+  }
   const dir = isSample ? path.join(dataDir, "sample") : dataDir;
 
   const manifest = readJson(dir, "manifest.json") as Manifest;
