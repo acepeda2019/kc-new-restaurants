@@ -74,11 +74,6 @@ export function toPins(
   return { type: "FeatureCollection", features };
 }
 
-/** Food trucks have no fixed spot to pin (their address is a base), so they are listed under the map. */
-export function trucksOf(openings: Opening[]): Opening[] {
-  return openings.filter((o) => o.category === "food_truck");
-}
-
 /** The box around every pin; King County when there are none. */
 export function boundsOf(features: PinFeature[]): Bounds {
   if (features.length === 0) return KING_COUNTY_BOUNDS;

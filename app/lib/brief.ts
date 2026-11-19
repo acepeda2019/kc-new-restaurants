@@ -1,57 +1,80 @@
 /**
- * The "Today" brief (ARCHITECTURE.md §7): what the answer area shows before anyone asks.
- * Built from the page's data, so it costs no Claude call; same shape as a question-bar answer,
- * so it renders as the same cards and numbered pins. Pure, safe on the server or in the browser.
+ * The "Today" brief (ARCHITECTURE.md §7): two or three plain sentences under the question bar
+ * about what's new, plus question chips that follow from them. Built from the page's data, so it
+ * costs no Claude call. Place names are `PlaceRef` parts, so the page can make them tappable.
+ * Pure, safe on the server or in the browser.
  */
-import type { AnswerPick } from "@/lib/ask";
 import type { Metrics, Opening, OpeningSoon } from "@/lib/data";
-import { personalTopThree, rankOpeningSoon, type LatLon } from "@/lib/rank";
+import { rankOpeningSoon, type LatLon } from "@/lib/rank";
 
-/** Opening soon cards in the brief, after the top open places. */
-export const BRIEF_SOON = 2;
+/** "This month" for the brief's highlights, matching metrics' opened_last_30_days. */
+const RECENT_DAYS = 30;
+/** Chips shown under the brief. */
+export const MAX_CHIPS = 4;
 
-export type Brief = { summary: string; picks: AnswerPick[] };
+export type PlaceRef = { id: string; name: string };
+/** A sentence is text and place names in reading order. */
+export type BriefPart = string | PlaceRef;
+export type Brief = { sentences: BriefPart[][]; chips: string[] };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const titleCity = (city: string) => city.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+const ref = (id: string, name: string): PlaceRef => ({ id, name });
 
-/** One line under the card name: only what the fact bubbles can't say. */
-function openBlurb(o: Opening): string {
-  return o.replaces_name ? `Took over the old ${o.replaces_name} space.` : "";
-}
-
-function soonBlurb(s: OpeningSoon): string {
-  return s.notice_type === "CHANGE OF LOCATION" ? "Moving here from another location." : "";
+/** "KOSHARI brings likely Egyptian food to Seattle" or "KOSHARI opened in Seattle". */
+function highlight(o: Opening): BriefPart[] {
+  if (o.category === "food_truck") return [ref(o.restaurant_id, o.name), ` started rolling out of ${titleCity(o.city)}`];
+  const cuisine = o.likely_cuisine ? ` brings likely ${o.likely_cuisine} food to ` : " opened in ";
+  return [ref(o.restaurant_id, o.name), `${cuisine}${titleCity(o.city)}`];
 }
 
 /**
- * The summary line and up to five picks: the visitor's top 3 open places (nearest-weighted once
- * located, tried places left out), then up to BRIEF_SOON Opening soon places (nearest or newest).
- * With `near` (places within a radius of the visitor) the line leads with that count.
+ * The brief: how many opened this week (or near the visitor, once located) and this month;
+ * the two best-ranked recent openings by name; then how many had red points at their latest
+ * inspection and the newest Opening soon place. Chips ask about whatever the sentences raise.
  */
 export function todayBrief(input: {
   openings: Opening[];
   openingSoon: OpeningSoon[];
   metrics: Pick<Metrics, "opened_last_7_days" | "opened_last_30_days">;
-  tried: Set<string>;
   here?: LatLon;
   near?: { count: number; radiusMi: number };
 }): Brief {
   const { metrics, near } = input;
-  const open = personalTopThree(input.openings, { here: input.here, tried: input.tried });
-  const soon = rankOpeningSoon(input.openingSoon, input.here).slice(0, BRIEF_SOON);
+  const recent = input.openings.filter((o) => o.days_open <= RECENT_DAYS).sort((a, b) => a.rank - b.rank);
+  const wary = recent.filter((o) => o.latest_red_points > 0);
+  const trucks = recent.filter((o) => o.category === "food_truck");
+  const [soon] = rankOpeningSoon(input.openingSoon, input.here);
 
-  const lead = near
-    ? `${plural(near.count, "new place", "new places")} within ${near.radiusMi} mi of you`
-    : `${plural(metrics.opened_last_7_days, "place", "places")} opened this week`;
-  const month = `${metrics.opened_last_30_days} this month`;
-  const coming = input.openingSoon.length
-    ? `, and ${plural(input.openingSoon.length, "more has", "more have")} applied to open`
-    : "";
-  const summary = `${lead}, ${month}${coming}. ${open.length || soon.length ? "Here's where to start:" : ""}`.trim();
-
-  const picks: AnswerPick[] = [
-    ...open.map((o) => ({ id: o.restaurant_id, kind: "open" as const, name: o.name, city: o.city, blurb: openBlurb(o) })),
-    ...soon.map((s) => ({ id: s.notice_id, kind: "soon" as const, name: s.trade_name, city: s.city, blurb: soonBlurb(s) })),
+  const sentences: BriefPart[][] = [
+    [
+      near
+        ? `${plural(near.count, "new place", "new places")} within ${near.radiusMi} mi of you, ${metrics.opened_last_30_days} across King County this month.`
+        : `${plural(metrics.opened_last_7_days, "place", "places")} opened this week and ${metrics.opened_last_30_days} this month.`,
+    ],
   ];
-  return { summary: summary.charAt(0).toUpperCase() + summary.slice(1), picks };
+  const [first, second] = recent;
+  if (first) sentences.push([...highlight(first), ...(second ? [", and ", ...highlight(second)] : []), "."]);
+
+  const last: BriefPart[] = [];
+  if (wary.length) last.push(`${plural(wary.length, "new place", "new places")} had red points at the latest inspection`);
+  if (soon) {
+    last.push(last.length ? "; " : "", ref(soon.notice_id, soon.trade_name), ` applied to open in ${titleCity(soon.city ?? "King County")}`);
+  }
+  if (last.length) sentences.push([...last.filter((p) => p !== ""), "."]);
+
+  const chips = [
+    near ? "What's newest near me?" : "What's new near me?",
+    trucks.length ? "Which food trucks are new?" : null,
+    wary.length ? "Which had red points?" : null,
+    soon ? "What's opening soon?" : null,
+    "Any new cafés?",
+  ].filter((c): c is string => c !== null);
+
+  return { sentences, chips: chips.slice(0, MAX_CHIPS) };
+}
+
+/** The brief as plain text, e.g. for tests. */
+export function briefText(brief: Brief): string {
+  return brief.sentences.map((s) => s.map((p) => (typeof p === "string" ? p : p.name)).join("")).join(" ");
 }

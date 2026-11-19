@@ -4,10 +4,10 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
-## 2026-11-19 — A "Today" brief replaces the top 3 panel and stat tiles
-- **Context:** the owner wants the app centred on the question bar, encouraging exploration by asking rather than browsing tiles and panels (the 2018 pattern).
-- **Decision:** before the first question the answer area shows a "Today" brief in the answer-card format: one summary line from the metrics (this week, this month, how many applied to open; "N within 2 mi of you" once located) plus the visitor's top 3 open places and two Opening soon places. It's built from the page's data in the browser, with no Claude call. The "Your top 3" panel and the three stat tiles are removed; "Use my location" becomes a pin button in the bar. On desktop the bar and answer move to the left column so the numbered pins stay visible.
-- **Consequences:** a visitor out of questions still gets the brief, map and lists. The 30-day comparison and clean-inspection count are no longer on screen (still in `metrics.json`). Next: follow-up question chips and data-driven starter chips; then removing the remaining panels.
+## 2026-11-19 — The page is the question bar: a Today brief replaces every panel
+- **Context:** the owner wants the app centred on the question bar, encouraging exploration by asking rather than browsing tiles, cards and lists (the 2018 pattern). A first version with cards on load still took too much space.
+- **Decision:** before the first question, a two- or three-sentence "Today" brief sits under the bar in a gradient-bordered panel, with tappable place names and up to four chips that follow from it. It's written by a template from the page's data (no Claude call) and labelled "Today", not "AI summary", until Claude writes it (next PR, publish-time). Removed: the top 3 panel, the three stat tiles, the Opening soon panel and the All places list. "Use my location" is a pin button in the bar. On desktop the bar is centred at the top.
+- **Consequences:** the page costs no Claude call until someone asks, and a visitor out of questions still has the brief and map. Food trucks (no pin) and places the brief doesn't name are found only by asking; the text list that was the keyboard and screen-reader route to the map is gone, so the question bar now carries that. The 30-day comparison and clean-inspection count leave the screen (still in `metrics.json`).
 
 ## 2026-11-19 — Question-bar answers return picks, not prose
 - **Context:** answers were a paragraph, so a visitor couldn't act on a suggested place (e.g. find Menya Muso on the map). The owner wants the bar to be the app's centre, with clickable answers.

@@ -7,25 +7,22 @@
  * tried (the server snapshot), so it matches the static HTML; stored marks apply after hydration.
  */
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { AllPlaces } from "@/components/AllPlaces";
 import { AnswerPicks, type PickCard } from "@/components/AnswerPicks";
 import type { AnswerPick } from "@/lib/ask";
 import { openingFacts, openingSoonFacts } from "@/lib/format";
 import { AskBar, type LocationStatus } from "@/components/AskBar";
-import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
-import { OpeningSoonPanel } from "@/components/OpeningSoonPanel";
 import { OpeningsMap } from "@/components/OpeningsMap";
+import { PlaceName } from "@/components/PlaceName";
 import type { Metrics as MetricsData, Opening, OpeningSoon } from "@/lib/data";
 import { askQuestion } from "@/lib/askClient";
 import { requestLocation } from "@/lib/location";
-import { nextFocus, resolveFocus, toPins, trucksOf, type FocusRequest } from "@/lib/pins";
-import { todayBrief } from "@/lib/brief";
+import { nextFocus, offMapNote, resolveFocus, toPins, type FocusRequest } from "@/lib/pins";
+import { todayBrief, type BriefPart } from "@/lib/brief";
 import { NEAR_RADIUS_MI, allPlaces, countNear, rankOpeningSoon, type LatLon } from "@/lib/rank";
 import {
   clearTried,
   hiddenCount,
-  hiddenFromTop,
   nextJustMarked,
   subscribeTried,
   toggleTried,
@@ -35,6 +32,7 @@ import {
 type Props = { openings: Opening[]; metrics: MetricsData; openingSoon: OpeningSoon[] };
 
 const NOTHING_TRIED = new Set<string>();
+const NO_PICKS: AnswerPick[] = [];
 const serverSnapshot = () => NOTHING_TRIED;
 const browserSnapshot = () => triedSnapshot();
 
@@ -74,11 +72,11 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
     [openings, here],
   );
   const brief = useMemo(
-    () => todayBrief({ openings, openingSoon, metrics, here, near, tried: hiddenFromTop(tried, justMarked) }),
-    [openings, openingSoon, metrics, here, near, tried, justMarked],
+    () => todayBrief({ openings, openingSoon, metrics, here, near }),
+    [openings, openingSoon, metrics, here, near],
   );
-  // Cards and numbered pins: the last answer's picks, or the brief's before any question.
-  const picks = answerPicks ?? brief.picks;
+  // Cards and numbered pins: the last answer's picks; none before the first question.
+  const picks = answerPicks ?? NO_PICKS;
   const pins = useMemo(
     () => {
       // The cards' places take the numbered pins, in card order.
@@ -102,6 +100,19 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
   const showFromList = (id: string) => setFocused((now) => nextFocus(now, { id, from: "list" }));
   const showFromMap = (id: string | null) => setFocused((now) => nextFocus(now, id ? { id, from: "map" } : null));
   const onShow = mapFailed ? undefined : showFromList;
+  /** Text as is; a place name as a button that shows it on the map (plain text without a pin). */
+  function briefPart(part: BriefPart, key: number) {
+    if (typeof part === "string") return part;
+    const card = cardById.get(part.id);
+    // No pin (or no map): plain bold, without PlaceName's "no fixed spot" note mid-sentence.
+    if (!card || !onShow || offMapNote(card.place)) return <strong key={key}>{part.name}</strong>;
+    return (
+      <strong key={key}>
+        <PlaceName place={card.place} onShow={onShow && (() => onShow(part.id))} />
+      </strong>
+    );
+  }
+
   function mapUnavailable() {
     setMapFailed(true);
     setFocused(null);
@@ -121,14 +132,17 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [focusedId]);
 
-  // DOM order is the phone order (question bar with the brief or answer, then lists); on wide screens CSS places them around the map.
+  // The question bar is the whole interface: brief or answer under it, the map behind it.
   return (
     <>
       <OpeningsMap pins={pins} focus={focus} onFocus={showFromMap} onUnavailable={mapUnavailable} />
       <div className="panels">
         <AskBar
           onAsk={(question) => askQuestion({ question, here, tried })}
-          brief={brief.summary}
+          intro={brief.sentences.map((sentence, i) => (
+            <p key={i}>{sentence.map((part, j) => briefPart(part, j))}</p>
+          ))}
+          chips={brief.chips}
           location={{ status, onLocate: locate }}
           onPicks={setAnswerPicks}
         >
@@ -142,13 +156,6 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
           />
           <HiddenTried count={hiddenCount(openings, tried, justMarked)} onClear={clear} />
         </AskBar>
-        <OpeningSoonPanel items={soon} onShow={onShow} focusedId={focusedId} />
-
-        <section aria-labelledby="map-heading" className="panel places">
-          <h2 id="map-heading">All places</h2>
-          <FoodTrucks trucks={trucksOf(openings)} />
-          <AllPlaces items={everyPlace} onShow={onShow} focusedId={focusedId} />
-        </section>
       </div>
     </>
   );

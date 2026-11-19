@@ -20,10 +20,10 @@ yet (Linear ticket in brackets).
 A private web app for the owner and a few friends that answers:
 *"What restaurants just opened near me, and why is each worth a look?"*
 
-One screen, built around the question bar: a map of new openings, the bar, and an answer
-area that shows a **"Today" brief** before the first question (one summary line plus cards
-for the visitor's top 3 and two Opening soon places) and Claude's answer cards after it, an
-"Opening soon" list (from liquor licence applications), and a collapsed "All N places" list. UI mockup (private artifact):
+One screen that is the question bar: a map of new openings behind it, a **"Today" brief**
+under it before the first question (two or three plain sentences about what's new, with
+tappable place names and question chips that follow from them), and Claude's answer cards
+after a question. There are no browse lists; everything else is found by asking or on the map. UI mockup (private artifact):
 https://claude.ai/artifact/DtEGBA9Zv91zrdhsophvgB
 
 **In scope:** "Just opened" restaurants in King County, from KC food inspections, refreshed
@@ -75,10 +75,10 @@ The GitHub Actions failure email is the alert.
 | Marts | `transform/models/marts/` | built (SAN-36) |
 | Export + publish guard | `transform/export.py` | built (SAN-37) |
 | App shell + passcode gate | `app/` | built (SAN-38a) |
-| App data + personal top 3 ranking | `app/lib/data.ts`, `app/lib/rank.ts` | built (SAN-38b) |
+| App data, ranking and Today brief | `app/lib/data.ts`, `app/lib/rank.ts`, `app/lib/brief.ts` | built (SAN-38b) |
 | Home page | `app/` | built (SAN-38c) |
 | Location, "Tried it" | `app/lib/location.ts`, `app/lib/tried.ts`, `app/components/PersonalPicks.tsx` | built (SAN-39a) |
-| Map + "All N places" list | `app/` | built (SAN-39b/c) |
+| Map | `app/` | built (SAN-39b/c) |
 | Capped question bar | `app/api/ask`, `app/components/AskBar.tsx` | built (SAN-40) |
 | Daily workflow + CI | `.github/workflows/` | built (SAN-41); live since 2026-11-19 (first classification run: 637 places, $0.13) |
 | Opening soon: LCB snapshot, staging and rules | `ingestion/sources/lcb_local_authority.py`, `transform/models/staging/lcb/`, `int_opening_soon_candidates` | built (SAN-44, SAN-46, SAN-47 rule matching, SAN-48 `mart_opening_soon` + export, schema v2, SAN-50 geocoded, SAN-49 app panel, pins, question bar) |
@@ -188,13 +188,12 @@ match the dbt key. Source freshness.
 This ranks the *newest* openings with a boost for a clean first inspection. It does not
 claim food quality.
 
-**Personal top 3** (the first three cards of the Today brief, `todayBrief` in
-`app/lib/brief.ts`, which adds up to two Opening soon places and a summary line from
-`metrics.json`; no Claude call): computed in the browser as `score − 10 × distance_mi`, dropping places
-marked "Tried it". Without location it falls back to score order with no distances.
-With a location, food trucks and places without coordinates rank after every place that
-has a fixed spot (in rank order, highest score first; no distance shown): a truck's address is a base, not
-where it serves, so it can't be "near you".
+**Today brief** (`todayBrief` in `app/lib/brief.ts`, built in the browser from the page's data,
+no Claude call): how many opened this week (or "N within 2 mi of you" once located) and this
+month; the two best-ranked openings of the last 30 days by name (with "likely <cuisine>");
+how many recent openings had red points at their latest inspection; and the newest Opening
+soon place. Up to four chips ask about what it raised (trucks, red points, opening soon,
+near me). Named places with a pin are buttons that fly the map there.
 
 ## 7. App (`app/`, Next.js on Vercel)
 
@@ -228,34 +227,29 @@ where it serves, so it can't be "near you".
 - **Layout and look:** a dark theme (ground `#0B0E13`, one lime accent `#D4F75A`, Geist)
   following the owner's UI mockup. On screens 1100px and wider the map fills the window and
   everything floats over it in dark panels: header (logo and the "Sample data ·
-  not today's list" pill), the question bar and its brief or answer on the left (so the numbered pins mid-map stay
-  visible), Opening soon on the right, "All places" under the answer, the legend and data source at the bottom. Below 1100px (phones, tablets, small
+  not today's list" pill), the question bar centred at the top with the brief or answer under it, the legend and data source at the bottom.
+  The brief sits in a gradient-bordered panel (lime to lavender) labelled "✦ Today". Below 1100px (phones, tablets, small
   laptops) the map takes the top of the screen and one scrolling sheet below holds the
-  question bar, brief or answer, and lists; there, "Tried it" shows a visible "Tried" label.
+  question bar and the brief or answer; there, "Tried it" shows a visible "Tried" label.
 - **Map:** MapLibre GL with OpenFreeMap's `dark` style (free, no key);
   `NEXT_PUBLIC_MAP_STYLE_URL` overrides it. Every opening with a fixed location is pinned,
   including ones marked "Tried it"; pin logic is in `app/lib/pins.ts`. Pins: the cards' open places lime,
   numbered to match the cards (brief or answer), larger, drawn on top (winning over red) and labelled with
   the name; red points at latest inspection orange with a light ring; other new places light
   grey; you blue. After "Use my location" the map recenters on the visitor. Clicking a
-  place's name on a card or in "All N places" flies the map to its pin, opens its popup
+  place's name on a card or in the brief flies the map to its pin, opens its popup
   (name · why, as text) and highlights the pin and the card; clicking the name again or
   pressing Escape clears it, and clicking a pin highlights its card. On desktop, hovering a
   pin shows its name. The camera pads around the floating panels so pins never land under
-  them. Food trucks get no pin and are listed as "Food trucks (no fixed spot)". If the map or
+  them. Food trucks get no pin; they come up by asking. If the map or
   its style fails to load, a "Map unavailable" note shows on the plain dark ground, names
-  are plain text, and the panels still work. A collapsed "All N places" list (closed by
-  default; rows render only when opened) gives every opening as text. Once located:
-  fixed-location places nearest first (ties by rank), then food trucks and places without
-  coordinates in rank order; without a location, rank order. Tried places are tagged, not
-  hidden. It is the keyboard and screen-reader route to what the map shows.
+  are plain text, and the question bar still works. The question bar is the keyboard and
+  screen-reader route to what the map shows.
   Visitors' browsers fetch tiles from OpenFreeMap, which sees their IP and the area viewed;
   after "Use my location" that area is near the visitor. Coordinates themselves are never
   sent to this app or anyone else.
-- **Opening soon** (`app/components/OpeningSoonPanel.tsx`): King County restaurant licence
-  applications not yet inspected (`opening_soon.json`), labelled "From liquor licence
-  applications", newest first or nearest first once located (`rankOpeningSoon`), first five
-  shown and the rest one tap away. On the map they are **hollow rings** (not open yet, told
+- **Opening soon:** King County restaurant licence applications not yet inspected
+  (`opening_soon.json`). The brief names the newest; answers cover the rest. On the map they are **hollow rings** (not open yet, told
   apart by shape) with their own legend entry; names and rings focus the map like other
   places. The question bar gets them in a separate `<opening_soon>` block (at most 30) and is
   told never to call them open.

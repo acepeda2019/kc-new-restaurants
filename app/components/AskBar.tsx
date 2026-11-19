@@ -1,22 +1,24 @@
 "use client";
 
 /**
- * The question bar (SAN-40b): input, location button, example chips and the answer. Before
- * the first question the answer area shows the caller's "Today" brief (`brief` plus the cards
- * in `children`). The caller binds `onAsk` to the visitor's location and "Tried it" marks; the
+ * The question bar (SAN-40b): input, location button, chips and the answer. Before the
+ * first question it shows the caller's "Today" brief (`intro`) as plain text under the bar,
+ * with chips that follow from it; an answer's cards come in as `children`. The caller binds `onAsk` to the visitor's location and "Tried it" marks; the
  * API checks the caps before Claude.
  * Answers are plain text, rendered as text (never HTML).
  */
 import { useState, type FormEvent, type ReactNode } from "react";
 import type { AnswerPick } from "@/lib/ask";
-import { ASK_CHIPS, MAX_QUESTION_CHARS, type AskResult } from "@/lib/askClient";
+import { MAX_QUESTION_CHARS, type AskResult } from "@/lib/askClient";
 
 export type LocationStatus = "idle" | "asking" | "found" | "unavailable";
 
 type Props = {
   onAsk: (question: string) => Promise<AskResult>;
-  /** The Today brief's summary line, shown until the first question. */
-  brief: string;
+  /** The Today brief, shown as plain text under the bar until the first question. */
+  intro: ReactNode;
+  /** Question chips (the brief's follow-ups). */
+  chips: string[];
   location: { status: LocationStatus; onLocate: () => void };
   /** Told the answer's picks (empty when a new question starts or fails), so the map can highlight them. */
   onPicks?: (picks: AnswerPick[]) => void;
@@ -24,7 +26,7 @@ type Props = {
   children?: ReactNode;
 };
 
-export function AskBar({ onAsk, brief, location, onPicks, children }: Props) {
+export function AskBar({ onAsk, intro, chips, location, onPicks, children }: Props) {
   const [question, setQuestion] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<AskResult | null>(null);
@@ -94,16 +96,6 @@ export function AskBar({ onAsk, brief, location, onPicks, children }: Props) {
         </button>
       </form>
 
-      <ul className="ask-chips" aria-label="Example questions">
-        {ASK_CHIPS.map((text) => (
-          <li key={text}>
-            <button type="button" className="chip" onClick={() => chip(text)} aria-disabled={pending}>
-              {text}
-            </button>
-          </li>
-        ))}
-      </ul>
-
       <p role="status" className="locate-status">
         {location.status === "asking" && "Finding you…"}
         {location.status === "unavailable" && "Location unavailable — showing the default order"}
@@ -113,10 +105,15 @@ export function AskBar({ onAsk, brief, location, onPicks, children }: Props) {
       <div role="status" aria-live="polite" className="ask-answer-wrap">
         {pending && <p className="ask-pending">Thinking…</p>}
         {!pending && !result && (
-          <div className="ask-answer">
-            <span className="ask-label">Today</span>
-            <p>{brief}</p>
-            {children}
+          <div className="ask-brief">
+            <span className="ask-brief-label">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+              </svg>
+              Today
+            </span>
+            {intro}
           </div>
         )}
         {!pending && result && (
@@ -127,6 +124,16 @@ export function AskBar({ onAsk, brief, location, onPicks, children }: Props) {
           </div>
         )}
       </div>
+
+      <ul className="ask-chips" aria-label="Example questions">
+        {chips.map((text) => (
+          <li key={text}>
+            <button type="button" className="chip" onClick={() => chip(text)} aria-disabled={pending}>
+              {text}
+            </button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
