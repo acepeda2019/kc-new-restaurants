@@ -272,8 +272,9 @@ near me). Named places with a pin are buttons that fly the map there.
     cookie → API key present → caps (visitor counter, then global; refused questions count)
     → Claude (no SDK retries). A missing API key returns 503 without counting; Redis
     missing or down returns 429. Questions and locations are never logged.
-- **Question bar** (`app/components/AskBar.tsx`, `app/lib/askClient.ts`): an input (500
-  characters max) and four example chips. The browser sends the question with the visitor's
+- **Question bar** (`app/components/AskBar.tsx`, `app/lib/askClient.ts`): a text box (500
+  characters max) that grows with the question up to six lines, so it stays readable on a
+  phone (Enter sends), and up to four chips from the Today brief. The browser sends the question with the visitor's
   location and "Tried it" ids; the reply is `{answer, picks, left}`, and the bar shows the answer as
   plain text and "N left today", then one card per pick (`app/components/AnswerPicks.tsx`):
   number, name, city, up to four fact bubbles built from our data (`openingFacts` /
