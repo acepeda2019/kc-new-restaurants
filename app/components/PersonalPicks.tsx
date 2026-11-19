@@ -6,7 +6,7 @@
  * from lib/pins; Metrics, OpeningsMap and TopThree stay presentational. The first render has no location and nothing
  * tried (the server snapshot), so it matches the static HTML; stored marks apply after hydration.
  */
-import { useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
 import { Metrics } from "@/components/Metrics";
@@ -57,10 +57,16 @@ export function PersonalPicks({ openings, metrics }: Props) {
     if (clearTried()) setJustMarked(null);
   }
 
-  const top = personalTopThree(openings, { here, tried: hiddenFromTop(tried, justMarked) });
+  // Memoised so `pins` below only changes (and the map only updates) when an input changes.
+  const top = useMemo(
+    () => personalTopThree(openings, { here, tried: hiddenFromTop(tried, justMarked) }),
+    [openings, here, tried, justMarked],
+  );
   const near = here ? { count: countNear(openings, here), radiusMi: NEAR_RADIUS_MI } : undefined;
-  // Rebuilt each render (renders are rare: a click); the map swaps the data without rebuilding.
-  const pins = toPins(openings, { topIds: new Set(top.map((o) => o.restaurant_id)), here });
+  const pins = useMemo(
+    () => toPins(openings, { topIds: new Set(top.map((o) => o.restaurant_id)), here }),
+    [openings, top, here],
+  );
 
   return (
     <>

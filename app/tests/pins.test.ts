@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Opening } from "@/lib/data";
-import { KING_COUNTY_BOUNDS, boundsOf, popupText, toPins, trucksOf } from "@/lib/pins";
+import { KING_COUNTY_BOUNDS, YOU_ZOOM, boundsOf, cameraTarget, popupText, toPins, trucksOf } from "@/lib/pins";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
 const BELLEVUE = { lat: 47.6101, lon: -122.2015 };
@@ -117,5 +117,29 @@ describe("toPins and Tried it", () => {
     const rows = [opening("top", SEATTLE), opening("tried", BELLEVUE)];
     // "tried" was dropped from the top 3 by ranking; the map still shows it as a new place.
     expect(kinds(toPins(rows, { topIds: new Set(["top"]) }))).toEqual({ top: "top", tried: "new" });
+  });
+});
+
+describe("cameraTarget", () => {
+  const rows = [opening("a", SEATTLE)];
+
+  it("is nothing without a location, so the map keeps its view", () => {
+    expect(cameraTarget(toPins(rows, { topIds: new Set() }), null)).toBeNull();
+  });
+
+  it("centres on the visitor at street-ish zoom when the location is new", () => {
+    const pins = toPins(rows, { topIds: new Set(), here: BELLEVUE });
+    expect(cameraTarget(pins, null)).toEqual({ center: [BELLEVUE.lon, BELLEVUE.lat], zoom: YOU_ZOOM });
+    expect(YOU_ZOOM).toBe(12);
+  });
+
+  it("does not move again for the same location (e.g. after a Tried it click)", () => {
+    const pins = toPins(rows, { topIds: new Set(["a"]), here: BELLEVUE });
+    expect(cameraTarget(pins, [BELLEVUE.lon, BELLEVUE.lat])).toBeNull();
+  });
+
+  it("moves again when the visitor is found somewhere else", () => {
+    const pins = toPins(rows, { topIds: new Set(), here: SEATTLE });
+    expect(cameraTarget(pins, [BELLEVUE.lon, BELLEVUE.lat])?.center).toEqual([SEATTLE.lon, SEATTLE.lat]);
   });
 });

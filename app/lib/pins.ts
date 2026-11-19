@@ -68,3 +68,20 @@ export function boundsOf(features: PinFeature[]): Bounds {
 export function popupText(p: Pick<PinProps, "name" | "why">): string {
   return p.why ? `${p.name} · ${p.why}` : p.name;
 }
+
+/** Zoom for centring on the visitor: a few neighbourhoods across. */
+export const YOU_ZOOM = 12;
+type LonLat = [lon: number, lat: number];
+
+/**
+ * Where to move the camera after the pins change: onto the "you" pin when it is at a
+ * different spot from `lastCentered` (the last location centred on), else nowhere (null),
+ * so a top 3 or "Tried it" change never moves the map.
+ */
+export function cameraTarget(pins: Pins, lastCentered: LonLat | null): { center: LonLat; zoom: number } | null {
+  const you = pins.features.find((f) => f.properties.kind === "you");
+  if (!you) return null;
+  const [lon, lat] = you.geometry.coordinates;
+  if (lastCentered && lastCentered[0] === lon && lastCentered[1] === lat) return null;
+  return { center: [lon, lat], zoom: YOU_ZOOM };
+}

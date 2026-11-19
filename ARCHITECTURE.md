@@ -215,7 +215,15 @@ where it serves, so it can't be "near you".
   tried · Clear" link resets them (N = tried places still listed, other than the one
   just marked).
 - **Map:** MapLibre GL with OpenFreeMap tiles (free, no key); `NEXT_PUBLIC_MAP_STYLE_URL`
-  overrides the style URL. Pin colours: top 3, other new places, red violations, you.
+  overrides the style URL. Every opening with a fixed location is pinned, including ones
+  marked "Tried it"; pin logic is in `app/lib/pins.ts`. Pin colours: top 3 (larger,
+  outlined, drawn on top, and winning over red), red points at latest inspection, other
+  new places, you. After "Use my location" the map recenters on the visitor. Food trucks
+  get no pin and are listed under the map as "Food trucks (no fixed spot)". If the map or
+  its style fails to load, a "Map unavailable" note replaces it and the cards still work.
+  Visitors' browsers fetch tiles from OpenFreeMap, which sees their IP and the area viewed;
+  after "Use my location" that area is near the visitor. Coordinates themselves are never
+  sent to this app or anyone else.
 - **`/api/ask`** (the only Claude call at request time):
   - caps checked *before* calling Claude, in Upstash Redis: 200 questions/day in total and
     20 per visitor (`ask:g:<date>`, `ask:v:<visitor>:<date>`, Pacific date). Questions are

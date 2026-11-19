@@ -9,7 +9,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
-import { boundsOf, popupText, type PinKind, type PinProps, type Pins } from "@/lib/pins";
+import { boundsOf, cameraTarget, popupText, type PinKind, type PinProps, type Pins } from "@/lib/pins";
 
 // OpenFreeMap: free, no key. Override with any MapLibre style URL.
 const STYLE_URL = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
@@ -29,21 +29,32 @@ export function OpeningsMap({ pins }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const latestPins = useRef(pins);
+  const lastCentered = useRef<[number, number] | null>(null);
   const [failed, setFailed] = useState(false);
+
+  // A new location moves the camera onto the visitor once; nothing else moves it.
+  function recenter(map: MapLibreMap) {
+    const target = cameraTarget(latestPins.current, lastCentered.current);
+    if (!target) return;
+    lastCentered.current = target.center;
+    map.easeTo(target);
+  }
 
   // New top 3 or location: swap the data in place rather than rebuilding the map.
   useEffect(() => {
     latestPins.current = pins;
-    const source = mapRef.current?.getSource<GeoJSONSource>(SOURCE_ID);
-    source?.setData(pins).catch(() => {}); // a failed update keeps the old pins; nothing to tell the visitor
+    const map = mapRef.current;
+    if (!map) return; // not built yet: setup reads latestPins
+    map.getSource<GeoJSONSource>(SOURCE_ID)?.setData(pins).catch(() => {}); // a failed update keeps the old pins
+    recenter(map);
   }, [pins]);
 
   useEffect(() => {
     let map: MapLibreMap | undefined;
     let cancelled = false;
-    let loaded = false;
+    let styleLoaded = false;
     const fail = () => {
-      if (loaded || cancelled) return;
+      if (styleLoaded || cancelled) return;
       map?.remove(); // its box is about to be replaced by the note
       mapRef.current = null;
       setFailed(true);
@@ -63,10 +74,14 @@ export function OpeningsMap({ pins }: Props) {
           attributionControl: { compact: false }, // OpenStreetMap / OpenFreeMap credit stays visible
         });
         mapRef.current = map;
-        // Before "load", an error means no usable map (style or worker failed); after, it is one tile.
+        recenter(map); // the location may have arrived while MapLibre was downloading
+        // Before the style loads, an error means no usable map (style or worker failed);
+        // after, it is one tile, even during first paint, and the map stays.
         map.on("error", fail);
+        map.on("style.load", () => {
+          styleLoaded = true;
+        });
         map.on("load", () => {
-          loaded = true;
           map!.addSource(SOURCE_ID, { type: "geojson", data: latestPins.current });
           map!.addLayer({
             id: SOURCE_ID,
@@ -81,8 +96,9 @@ export function OpeningsMap({ pins }: Props) {
                 colorOf("new"),
               ],
               "circle-radius": ["match", ["get", "kind"], "top", 11, "you", 7, 6],
-              "circle-stroke-color": "#fff",
-              "circle-stroke-width": ["match", ["get", "kind"], "top", 3, 1.5],
+              // Wary pins get a thick dark ring so they differ by more than colour too.
+              "circle-stroke-color": ["match", ["get", "kind"], "wary", "#1a1a1a", "#fff"],
+              "circle-stroke-width": ["match", ["get", "kind"], "top", 3, "wary", 2.5, 1.5],
             },
           });
         });
