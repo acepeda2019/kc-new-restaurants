@@ -4,6 +4,16 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-19 — Opening soon uses LCB licence notices only
+- **Context:** "Opening soon" needs a signal before a business's first health inspection. The candidates were WSLCB licence notices, building permits (Seattle, MyBuildingPermit.com, other city portals, King County Accela) and Public Health food plan review. King County is 39 cities; two-thirds of our live openings are outside Seattle. Full research: `docs/research/2026-11-19-opening-soon-sources.md`.
+- **Decision (owner):**
+  - Use the WSLCB Local Authority Letters dataset (data.wa.gov `vgcw-qfjm`): statewide, daily and machine-readable.
+  - Start landing a daily snapshot now, because it is a rolling window with no history. Profile it after about two weeks, before building models or UI.
+  - Not used:
+    - Building permits: Seattle-only open data; elsewhere a patchwork of portals without data feeds.
+    - Plan review: not published. A records request is manual and periodic; scraping is fragile and likely against the portal's terms.
+- **Consequences:** Opening soon covers only businesses applying for alcohol, and is labelled with its source. Non-alcohol places still appear in "Just opened" at their first inspection. Revisit if King County publishes plan-review data.
+
 ## 2026-11-19 — Only the daily job deploys production
 - **Context:** Vercel's git integration built production on every merge to `main`, from the repo alone, so it could only ever show the sample. SAN-41 adds the daily job that builds with the real export.
 - **Decision:** `app/vercel.json` turns off git deploys for `main`; PR previews stay. Production deploys only from `daily.yml` (`vercel build` with `REQUIRE_EXPORT=1`, then `deploy --prebuilt --prod`). After the build, the job checks that the `/api/ask` bundle contains the real `openings.json` and fails otherwise. The first dbt pass builds only up to `int_candidates`, because classifications don't exist until the classify step runs.

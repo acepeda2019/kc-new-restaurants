@@ -15,6 +15,7 @@ usable app, in a form a reviewer grasps quickly.
 | Why was something chosen? | `docs/decisions.md`: dated log, newest first |
 | How did we get here? | `docs/superpowers/`: dated designs and plans. **Frozen history, not current.** |
 | What does a source look like? | `docs/source_cards/` |
+| What sources did we consider, and reject? | `docs/research/`: dated research notes |
 
 Read `ARCHITECTURE.md` before any non-trivial task. If a request conflicts with it, say so
 and ask; never change scope silently. A PR that changes behaviour described there updates
