@@ -69,7 +69,8 @@ The GitHub Actions failure email is the alert.
 | App shell + passcode gate | `app/` | built (SAN-38a) |
 | App data + personal top 3 ranking | `app/lib/data.ts`, `app/lib/rank.ts` | built (SAN-38b) |
 | Home page | `app/` | built (SAN-38c) |
-| Map, location, "Tried it" | `app/` | planned (SAN-39) |
+| Location, "Tried it" | `app/lib/location.ts`, `app/lib/tried.ts`, `app/components/PersonalPicks.tsx` | built (SAN-39a) |
+| Map | `app/` | planned (SAN-39b) |
 | Capped question bar | `app/api/ask` | planned (SAN-40) |
 | Daily workflow + CI | `.github/workflows/` | planned (SAN-41) |
 

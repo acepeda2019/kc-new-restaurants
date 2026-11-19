@@ -10,6 +10,8 @@ export type RankedOpening = Opening & { distanceMi?: number };
 const EARTH_RADIUS_MI = 3958.8;
 const POINTS_PER_MILE = 10;
 const TOP_N = 3;
+/** Radius for the "near you" headline number. */
+export const NEAR_RADIUS_MI = 2;
 
 /** Great-circle distance in miles. */
 export function haversineMi(a: LatLon, b: LatLon): number {
@@ -50,4 +52,12 @@ export function personalTopThree(
   const personal = (o: { score: number; distanceMi: number }) => o.score - POINTS_PER_MILE * o.distanceMi;
   mapped.sort((a, b) => personal(b) - personal(a) || byRank(a, b));
   return [...mapped, ...unmapped.sort(byRank)].slice(0, TOP_N);
+}
+
+/** How many openings have a fixed spot within `radiusMi` of `here`; trucks and unmapped rows never count. */
+export function countNear(openings: Opening[], here: LatLon, radiusMi = NEAR_RADIUS_MI): number {
+  return openings.filter((o) => {
+    const at = spot(o);
+    return at !== null && haversineMi(here, at) <= radiusMi;
+  }).length;
 }

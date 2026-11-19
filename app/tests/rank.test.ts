@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Opening } from "@/lib/data";
-import { haversineMi, personalTopThree } from "@/lib/rank";
+import { countNear, haversineMi, personalTopThree } from "@/lib/rank";
+import { requestLocation } from "@/lib/location";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
 const BELLEVUE = { lat: 47.6101, lon: -122.2015 };
@@ -82,5 +83,40 @@ describe("personalTopThree", () => {
     const rows = [opening("a", 1, 90), opening("b", 2, 80)];
     expect(ids(personalTopThree(rows, { tried: new Set(["b"]) }))).toEqual(["a"]);
     expect(personalTopThree([], { tried: new Set() })).toEqual([]);
+  });
+});
+
+describe("personalTopThree after a location is denied", () => {
+  it("treats here = undefined (denied) the same as no location", async () => {
+    const here = (await requestLocation({ getCurrentPosition: (_ok, fail) => fail?.({ code: 1 } as GeolocationPositionError) })) ?? undefined;
+    const rows = [opening("b", 2, 80, BELLEVUE), opening("a", 1, 90, SEATTLE), opening("t", 3, 70, undefined, "food_truck")];
+    const denied = personalTopThree(rows, { here, tried: new Set() });
+    expect(denied).toEqual(personalTopThree(rows, { tried: new Set() }));
+    expect(ids(denied)).toEqual(["a", "b", "t"]);
+    expect(denied.every((r) => r.distanceMi === undefined)).toBe(true);
+  });
+});
+
+describe("countNear", () => {
+  const near = { lat: 47.6076, lon: -122.3321 }; // ~0.1 mi from SEATTLE
+
+  it("counts mappable places within 2 miles by default", () => {
+    const rows = [opening("a", 1, 90, SEATTLE), opening("b", 2, 80, near), opening("far", 3, 70, BELLEVUE)];
+    expect(countNear(rows, SEATTLE)).toBe(2);
+  });
+
+  it("never counts food trucks or rows without coordinates", () => {
+    const rows = [opening("truck", 1, 90, SEATTLE, "food_truck"), opening("unmapped", 2, 80)];
+    expect(countNear(rows, SEATTLE)).toBe(0);
+  });
+
+  it("takes a custom radius, inclusive at the edge", () => {
+    const rows = [opening("far", 1, 90, BELLEVUE)];
+    expect(countNear(rows, SEATTLE, 6)).toBe(0);
+    expect(countNear(rows, SEATTLE, haversineMi(SEATTLE, BELLEVUE))).toBe(1);
+  });
+
+  it("is zero for no openings", () => {
+    expect(countNear([], SEATTLE)).toBe(0);
   });
 });
