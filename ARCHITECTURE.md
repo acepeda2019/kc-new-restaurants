@@ -262,11 +262,14 @@ where it serves, so it can't be "near you".
     limited to 500 characters;
   - **fails closed:** if Redis is unreachable or a cap is hit, it returns 429 with a friendly
     message, and the rest of the page keeps working;
-  - `claude-haiku-5-5`, thinking disabled, effort low, `max_tokens` 400;
+  - `claude-haiku-5-5`, thinking disabled, effort low, `max_tokens` 600, structured output (`ANSWER_SCHEMA`: `summary` + `picks` of `{id, blurb}`);
   - restaurant data goes in a delimited block marked as data, and the system prompt says to
     answer only from it (prompt-injection defence). The block holds at most 100 places
     (`MAX_DATA_ROWS`): the nearest once located, else the top-ranked, with tried places
-    removed first. Answers are plain text, never rendered as HTML; an answer built from the
+    removed first. Every row carries its place `id`; `resolvePicks` keeps only picks whose id
+    is a real place (open or opening soon), at most 5 (`MAX_PICKS`), with name, city and kind
+    taken from our data, so a card can never show an invented place. A cut-off or unreadable
+    reply returns a fixed message and no picks. Text is never rendered as HTML; an answer built from the
     labelled sample ends with "(Answered from sample data, not today's list.)";
   - order in `app/app/api/ask/route.ts`: session → body (question ≤ 500 chars) → visitor
     cookie → API key present → caps (visitor counter, then global; refused questions count)
@@ -274,9 +277,10 @@ where it serves, so it can't be "near you".
     missing or down returns 429. Questions and locations are never logged.
 - **Question bar** (`app/components/AskBar.tsx`, `app/lib/askClient.ts`): an input (500
   characters max) and four example chips. The browser sends the question with the visitor's
-  location and "Tried it" ids; the reply is `{answer, left}`, and the bar shows the answer as
+  location and "Tried it" ids; the reply is `{answer, picks, left}`, and the bar shows the answer as
   plain text and "N left today". A cap hit or error shows the server's message instead.
-- **Answer style:** at most 3 recommendations, one-line reason each. "Likely <cuisine>" for
+- **Answer style:** a one- or two-sentence summary plus at most 5 picks, each with a one- or
+  two-sentence blurb of useful facts. "Likely <cuisine>" for
   inferred cuisine. "Wary" answers cite the inspection date and red points. Say plainly
   when the data can't answer (hours, price, ratings, opening soon).
 

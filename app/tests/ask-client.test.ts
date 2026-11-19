@@ -7,12 +7,13 @@ function fakeFetch(status: number, body: unknown) {
 
 describe("askQuestion", () => {
   it("posts the question, location and tried ids, and returns the answer and questions left", async () => {
-    const fetchFn = fakeFetch(200, { answer: "Try KOSHARI.", left: 12 });
+    const pick = { id: "C1", kind: "open", name: "KOSHARI", city: "SEATTLE", blurb: "Clean." };
+    const fetchFn = fakeFetch(200, { answer: "Try KOSHARI.", picks: [pick], left: 12 });
     const result = await askQuestion(
       { question: "  newest near me  ", here: { lat: 47.6, lon: -122.3 }, tried: new Set(["a", "b"]) },
       fetchFn,
     );
-    expect(result).toEqual({ ok: true, answer: "Try KOSHARI.", left: 12 });
+    expect(result).toEqual({ ok: true, answer: "Try KOSHARI.", picks: [pick], left: 12 });
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/api/ask");
     expect(init.method).toBe("POST");

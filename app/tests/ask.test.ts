@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Opening, OpeningSoon } from "@/lib/data";
-import { answer, buildRequest, MAX_DATA_ROWS, REFUSAL_ANSWER, type AskClient } from "@/lib/ask";
+import {
+  ANSWER_SCHEMA, answer, buildRequest, MAX_DATA_ROWS, MAX_PICKS, REFUSAL_ANSWER, resolvePicks, UNREADABLE_ANSWER, type AskClient,
+} from "@/lib/ask";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
 
@@ -34,9 +36,9 @@ describe("buildRequest", () => {
     const p = buildRequest("Anything new?", OPENINGS, { tried: [] });
     expect(p).toMatchObject({
       model: "claude-haiku-5-5",
-      max_tokens: 400,
+      max_tokens: 600,
       thinking: { type: "disabled" },
-      output_config: { effort: "low" },
+      output_config: { effort: "low", format: { type: "json_schema", schema: ANSWER_SCHEMA } },
     });
     expect(p.messages).toHaveLength(1);
     expect(p.messages[0].role).toBe("user");
@@ -67,7 +69,7 @@ describe("buildRequest", () => {
     const [row] = JSON.parse(dataBlock(buildRequest("hi", OPENINGS.slice(0, 1), { tried: [] })));
     expect(Object.keys(row).sort()).toEqual([
       "category", "city", "days_open", "first_inspection_date", "first_inspection_red_points",
-      "first_inspection_result", "latest_inspection_date", "latest_red_points", "likely_cuisine",
+      "first_inspection_result", "id", "latest_inspection_date", "latest_red_points", "likely_cuisine",
       "name", "red_violations", "replaces_name", "why",
     ]);
   });
@@ -128,7 +130,7 @@ describe("buildRequest", () => {
 
   it("states the answer rules in the system prompt", () => {
     const system = String(buildRequest("hi", OPENINGS, { tried: [] }).system);
-    for (const rule of ["only from the DATA block", "at most 3", "likely", "red points", "hours", "price", "ratings"]) {
+    for (const rule of ["only from the DATA block", "at most 5", "by their \"id\"", "Use only ids", "likely", "red points", "hours", "price", "ratings"]) {
       expect(system).toContain(rule);
     }
   });
@@ -142,20 +144,57 @@ function fakeClient(reply: Partial<Anthropic.Message>): AskClient & { create: Re
 describe("answer", () => {
   const params = buildRequest("hi", OPENINGS, { tried: [] });
 
-  it("returns the text blocks", async () => {
-    const client = fakeClient({ content: [{ type: "text", text: "Try Pho Real.", citations: null }] });
-    expect(await answer(client, params)).toBe("Try Pho Real.");
+  const json = (o: unknown) => fakeClient({ content: [{ type: "text", text: JSON.stringify(o), citations: null }] });
+
+  it("parses the structured reply", async () => {
+    const client = json({ summary: "One new pho spot.", picks: [{ id: "C1", blurb: "Clean first inspection." }] });
+    expect(await answer(client, params)).toEqual({
+      summary: "One new pho spot.",
+      picks: [{ id: "C1", blurb: "Clean first inspection." }],
+    });
     expect(client.create).toHaveBeenCalledWith(params);
   });
 
   it("gives a friendly line on a refusal", async () => {
     const client = fakeClient({ stop_reason: "refusal", content: [] });
-    expect(await answer(client, params)).toBe(REFUSAL_ANSWER);
+    expect(await answer(client, params)).toEqual({ summary: REFUSAL_ANSWER, picks: [] });
   });
 
-  it("marks a cut-off answer with an ellipsis", async () => {
-    const client = fakeClient({ stop_reason: "max_tokens", content: [{ type: "text", text: "Try Pho", citations: null }] });
-    expect(await answer(client, params)).toBe("Try Pho…");
+  it("falls back when the reply is cut off or isn't the expected JSON", async () => {
+    const cut = fakeClient({ stop_reason: "max_tokens", content: [{ type: "text", text: '{"summary":"Try', citations: null }] });
+    expect(await answer(cut, params)).toEqual({ summary: UNREADABLE_ANSWER, picks: [] });
+    const prose = fakeClient({ content: [{ type: "text", text: "Try Pho Real.", citations: null }] });
+    expect(await answer(prose, params)).toEqual({ summary: UNREADABLE_ANSWER, picks: [] });
+  });
+
+  it("drops malformed picks", async () => {
+    const client = json({ summary: "Here.", picks: [{ id: "C1" }, { id: 7, blurb: "x" }, { id: "C2", blurb: "ok" }] });
+    expect((await answer(client, params)).picks).toEqual([{ id: "C2", blurb: "ok" }]);
+  });
+});
+
+describe("resolvePicks", () => {
+  const soon: OpeningSoon = {
+    notice_id: "N1", trade_name: "DANTINI DELLO", notice_type: "NEW LICENSE APPLICATION",
+    application_date: "2026-11-04", street_address: "704 NW 65TH ST", city: "SEATTLE", zip5: "98117",
+    latitude: null, longitude: null, licence_label: "full-bar restaurant", days_since_application: 15,
+    why: "Applied …", rank: 1,
+  };
+
+  it("keeps only real places, takes names from our data, caps at MAX_PICKS and drops repeats", () => {
+    const raw = [
+      { id: "A1", blurb: " Clean first inspection. " },
+      { id: "MADE-UP", blurb: "A place Claude invented" },
+      { id: "N1", blurb: "Applied Nov 4." },
+      { id: "A1", blurb: "again" },
+      ...OPENINGS.map((o) => ({ id: o.restaurant_id, blurb: "more" })),
+    ];
+    const picks = resolvePicks(raw, OPENINGS, [soon]);
+    expect(picks.length).toBeLessThanOrEqual(MAX_PICKS);
+    expect(picks[0]).toEqual({ id: "A1", kind: "open", name: OPENINGS.find((o) => o.restaurant_id === "A1")!.name, city: OPENINGS.find((o) => o.restaurant_id === "A1")!.city, blurb: "Clean first inspection." });
+    expect(picks[1]).toMatchObject({ id: "N1", kind: "soon", name: "DANTINI DELLO" });
+    expect(picks.map((p) => p.id)).not.toContain("MADE-UP");
+    expect(new Set(picks.map((p) => p.id)).size).toBe(picks.length);
   });
 });
 
