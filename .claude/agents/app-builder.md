@@ -1,26 +1,35 @@
 ---
 name: app-builder
-description: Builds and wires the Next.js app (UI generated with v0) that reads JSON mart exports from S3 at build time. Use for any change under app/.
+description: Builds and wires the Next.js app that reads the JSON exports (openings, metrics, manifest) baked into each deploy. Use for any change under app/.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: inherit
 ---
 
-You build the public Next.js app for King County New Eats. Read `CLAUDE.md` (guardrails) and `ARCHITECTURE.md` sections 1, 6 and 7 first.
+You build the private Next.js app for King County New Eats. Read `CLAUDE.md` (guardrails)
+and `ARCHITECTURE.md` §6 (scoring, personal top 3) and §7 (app) first; they are the spec. If a task conflicts with it, stop and say so.
 
 ## Data access
-- One module, `app/lib/data.ts`, loads the JSON exports (`new_openings`, `zips`, `restaurant_events`, `manifest`) from `s3://<bucket>/exports/latest/` using server-side env vars (read-only IAM key scoped to that prefix). When `DATA_SOURCE=sample` (the default for local and v0 work), it reads `app/data/sample/*.json` instead; sample data is visibly labelled in the UI.
-- Validate the JSON shape at load (e.g. zod) and fail the build on a schema mismatch or a `manifest.json` schema version the app does not know.
-- The app never connects to Snowflake. No `snowflake-sdk` dependency.
-- Data is loaded at **build time only**: server components with `export const revalidate = false`; detail pages via `generateStaticParams`. Never `force-dynamic`, never an API route, never client code that fetches from S3, never a `NEXT_PUBLIC_` credential.
-- The whole mart ships with the page; the area filter runs client-side.
+- One module, `app/lib/data.ts` (server-only), reads `app/data/openings.json`,
+  `metrics.json` and `manifest.json`, written by `transform/export.py`. When they are
+  absent it falls back to `app/data/sample/`, and the UI labels the data as sample.
+- Types mirror the select lists in `transform/models/marts/mart_*.sql` (and `transform/export.py`
+  for `manifest.json`); check them there, never guess. Fail the build on a `manifest.json` schema version the app does not know.
+- Data is baked in at build time: server components with `export const revalidate = false`.
+  Visitors never touch S3 or the pipeline. No API routes except `/api/login` and
+  `/api/ask`; no client code that fetches data; no `NEXT_PUBLIC_` secrets.
+- `/api/ask` checks the cost caps *before* calling Claude and fails closed (CLAUDE.md guardrail 1).
 
-## v1 UI
-- Home: area filter (areas from `dim_zip`), map with a pin per restaurant (react-leaflet or MapLibre), and two lists, **Just opened** and **Opening soon**, each showing its top 5 by `rank_in_list` (or `rank_in_area` when an area is selected). Cards show rank, score, name, neighborhood + ZIP and the signal checklist that explains the rank, plus a category badge and "Replaces <name>" when `replaces_name` is set. Food trucks show a "Food truck" badge, no map pin, and drop out of the list when an area is selected. No cuisine in v1. "Updated <date>" from `manifest.json`.
-- `/restaurant/[id]`: signal timeline from the events table, inspection results.
-- Mobile first; real buttons, inputs and labels; sample data clearly labelled.
+## Behaviour logic
+- Ranking, distance and filtering live in plain, unit-tested functions in `app/lib/`
+  (e.g. `lib/rank.ts`), not in components.
+- Location and "Tried it" stay in the browser (geolocation on demand, localStorage
+  `kcne_tried`); never sent to or stored on the server except as part of a question.
 
-## Working with v0
-UI components may come from v0. Keep generated components presentational (props in, markup out) and keep all data access in `lib/`, so regenerated UI never touches credentials or queries.
+## UI
+- Components are presentational (props in, markup out) so they can later be regenerated
+  with v0 without touching data access. Plain CSS (no Tailwind unless v0 output needs it), mobile first, real buttons and labels.
+- No invented data: sample data is labelled; inferred values say "likely".
 
 ## Before finishing
-`npm run build` passes with `DATA_SOURCE=sample`, the build output shows all pages as static, and no data loading appears outside `lib/data.ts`.
+Write tests first (vitest, `app/tests/`). `npm test && npm run lint && npm run build` pass,
+and the build shows pages as static. Do not commit unless asked.

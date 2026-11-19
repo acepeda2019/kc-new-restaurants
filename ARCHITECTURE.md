@@ -67,7 +67,8 @@ The GitHub Actions failure email is the alert.
 | Marts | `transform/models/marts/` | built (SAN-36) |
 | Export + publish guard | `transform/export.py` | built (SAN-37) |
 | App shell + passcode gate | `app/` | built (SAN-38a) |
-| App data, ranking, home page | `app/` | planned (SAN-38b/c) |
+| App data + personal top 3 ranking | `app/lib/data.ts`, `app/lib/rank.ts` | built (SAN-38b) |
+| Home page | `app/` | planned (SAN-38c) |
 | Map, location, "Tried it" | `app/` | planned (SAN-39) |
 | Capped question bar | `app/api/ask` | planned (SAN-40) |
 | Daily workflow + CI | `.github/workflows/` | planned (SAN-41) |
