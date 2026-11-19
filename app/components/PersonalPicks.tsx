@@ -7,6 +7,7 @@
  * tried (the server snapshot), so it matches the static HTML; stored marks apply after hydration.
  */
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { AllPlaces } from "@/components/AllPlaces";
 import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
 import { Metrics } from "@/components/Metrics";
@@ -15,7 +16,7 @@ import { TopThree } from "@/components/TopThree";
 import type { Metrics as MetricsData, Opening } from "@/lib/data";
 import { requestLocation } from "@/lib/location";
 import { toPins, trucksOf } from "@/lib/pins";
-import { NEAR_RADIUS_MI, countNear, personalTopThree, type LatLon } from "@/lib/rank";
+import { NEAR_RADIUS_MI, allPlaces, countNear, personalTopThree, type LatLon } from "@/lib/rank";
 import {
   clearTried,
   hiddenCount,
@@ -67,6 +68,7 @@ export function PersonalPicks({ openings, metrics }: Props) {
     () => toPins(openings, { topIds: new Set(top.map((o) => o.restaurant_id)), here }),
     [openings, top, here],
   );
+  const everyPlace = useMemo(() => allPlaces(openings, { here, tried }), [openings, here, tried]);
 
   return (
     <>
@@ -76,6 +78,7 @@ export function PersonalPicks({ openings, metrics }: Props) {
         <h2 id="map-heading">Where they are</h2>
         <OpeningsMap pins={pins} />
         <FoodTrucks trucks={trucksOf(openings)} />
+        <AllPlaces items={everyPlace} />
       </section>
 
       <section aria-labelledby="top-three">

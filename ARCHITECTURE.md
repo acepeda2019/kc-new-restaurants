@@ -20,8 +20,8 @@ yet (Linear ticket in brackets).
 A private web app for the owner and a few friends that answers:
 *"What restaurants just opened near me, and why is each worth a look?"*
 
-One screen: a question bar, a map of new openings, three headline numbers and a personal
-top 3 with one-line reasons. UI mockup (private artifact):
+One screen: a question bar, a map of new openings, three headline numbers, a personal
+top 3 with one-line reasons, and a collapsed "All N places" list under the map. UI mockup (private artifact):
 https://claude.ai/artifact/DtEGBA9Zv91zrdhsophvgB
 
 **In scope:** "Just opened" restaurants in King County, from KC food inspections, refreshed
@@ -221,6 +221,9 @@ where it serves, so it can't be "near you".
   new places, you. After "Use my location" the map recenters on the visitor. Food trucks
   get no pin and are listed under the map as "Food trucks (no fixed spot)". If the map or
   its style fails to load, a "Map unavailable" note replaces it and the cards still work.
+  Under the map, a collapsed "All N places" list (closed by default; rows render only when
+  opened) gives every opening as text: nearest first once located, else rank order, with
+  tried places tagged. It is the keyboard and screen-reader route to what the map shows.
   Visitors' browsers fetch tiles from OpenFreeMap, which sees their IP and the area viewed;
   after "Use my location" that area is near the visitor. Coordinates themselves are never
   sent to this app or anyone else.

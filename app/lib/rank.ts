@@ -61,3 +61,27 @@ export function countNear(openings: Opening[], here: LatLon, radiusMi = NEAR_RAD
     return at !== null && haversineMi(here, at) <= radiusMi;
   }).length;
 }
+
+export type PlaceListItem = RankedOpening & { tried: boolean };
+
+/**
+ * Every opening, tried or not, for the full list. With `here`: fixed spots nearest first
+ * (distanceMi attached, ties by rank), then trucks and unmapped rows in rank order. Without:
+ * rank order, no distances. Each item says whether it is marked tried.
+ */
+export function allPlaces(openings: Opening[], opts: { here?: LatLon; tried: Set<string> }): PlaceListItem[] {
+  const byRank = (a: Opening, b: Opening) => a.rank - b.rank;
+  const withTried = (o: RankedOpening): PlaceListItem => ({ ...o, tried: opts.tried.has(o.restaurant_id) });
+  const { here } = opts;
+  if (!here) return [...openings].sort(byRank).map(withTried);
+
+  const mapped: (RankedOpening & { distanceMi: number })[] = [];
+  const unmapped: Opening[] = [];
+  for (const o of openings) {
+    const at = spot(o);
+    if (at) mapped.push({ ...o, distanceMi: haversineMi(here, at) });
+    else unmapped.push(o);
+  }
+  mapped.sort((a, b) => a.distanceMi - b.distanceMi || byRank(a, b));
+  return [...mapped, ...unmapped.sort(byRank)].map(withTried);
+}
