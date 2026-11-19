@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
-import type { Opening } from "@/lib/data";
+import type { Opening, OpeningSoon } from "@/lib/data";
 import { answer, buildRequest, MAX_DATA_ROWS, REFUSAL_ANSWER, type AskClient } from "@/lib/ask";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
@@ -156,5 +156,32 @@ describe("answer", () => {
   it("marks a cut-off answer with an ellipsis", async () => {
     const client = fakeClient({ stop_reason: "max_tokens", content: [{ type: "text", text: "Try Pho", citations: null }] });
     expect(await answer(client, params)).toBe("Try Pho…");
+  });
+});
+
+describe("Opening soon in the question bar", () => {
+  const soon = (id: string, name: string, lat: number | null, rank: number): OpeningSoon => ({
+    notice_id: id, trade_name: name, notice_type: "NEW LICENSE APPLICATION", application_date: "2026-11-04",
+    street_address: "1 MAIN ST", city: "SEATTLE", zip5: "98101", latitude: lat, longitude: lat === null ? null : -122.33,
+    licence_label: "beer/wine restaurant", days_since_application: 15, why: "Applied …", rank,
+  });
+  const content = (p: ReturnType<typeof buildRequest>) => String(p.messages[0].content);
+
+  it("adds no block when there is nothing opening soon", () => {
+    expect(content(buildRequest("hi", OPENINGS, { tried: [] }))).not.toContain("<opening_soon>");
+  });
+
+  it("adds a separate, escaped block, nearest first once located", () => {
+    const p = buildRequest("What's opening soon near me?", OPENINGS, {
+      tried: [],
+      here: { lat: 47.6062, lon: -122.3321 },
+      openingSoon: [soon("FAR", "FAR PLACE", 47.7, 1), soon("NEAR", "NEAR <PLACE>", 47.607, 2)],
+    });
+    const block = content(p).split("<opening_soon>\n")[1].split("\n</opening_soon>")[0];
+    const rows = JSON.parse(block);
+    expect(rows.map((r: { name: string }) => r.name)).toEqual(["NEAR <PLACE>", "FAR PLACE"]);
+    expect(rows[0].distance_mi).toBeLessThan(1);
+    expect(block).not.toContain("<PLACE>"); // "<" is escaped so a name can't close the block
+    expect(String(p.system)).toContain("have NOT opened");
   });
 });

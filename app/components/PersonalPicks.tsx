@@ -12,13 +12,14 @@ import { AskBar } from "@/components/AskBar";
 import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
 import { Metrics } from "@/components/Metrics";
+import { OpeningSoonPanel } from "@/components/OpeningSoonPanel";
 import { OpeningsMap } from "@/components/OpeningsMap";
 import { TopThree } from "@/components/TopThree";
-import type { Metrics as MetricsData, Opening } from "@/lib/data";
+import type { Metrics as MetricsData, Opening, OpeningSoon } from "@/lib/data";
 import { askQuestion } from "@/lib/askClient";
 import { requestLocation } from "@/lib/location";
 import { nextFocus, resolveFocus, toPins, trucksOf, type FocusRequest } from "@/lib/pins";
-import { NEAR_RADIUS_MI, allPlaces, countNear, personalTopThree, type LatLon } from "@/lib/rank";
+import { NEAR_RADIUS_MI, allPlaces, countNear, personalTopThree, rankOpeningSoon, type LatLon } from "@/lib/rank";
 import {
   clearTried,
   hiddenCount,
@@ -29,14 +30,14 @@ import {
   triedSnapshot,
 } from "@/lib/tried";
 
-type Props = { openings: Opening[]; metrics: MetricsData };
+type Props = { openings: Opening[]; metrics: MetricsData; openingSoon: OpeningSoon[] };
 type LocationStatus = "idle" | "asking" | "found" | "unavailable";
 
 const NOTHING_TRIED = new Set<string>();
 const serverSnapshot = () => NOTHING_TRIED;
 const browserSnapshot = () => triedSnapshot();
 
-export function PersonalPicks({ openings, metrics }: Props) {
+export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
   const [here, setHere] = useState<LatLon | undefined>(undefined);
   const [status, setStatus] = useState<LocationStatus>("idle");
   const tried = useSyncExternalStore(subscribeTried, browserSnapshot, serverSnapshot);
@@ -71,11 +72,12 @@ export function PersonalPicks({ openings, metrics }: Props) {
   );
   const near = here ? { count: countNear(openings, here), radiusMi: NEAR_RADIUS_MI } : undefined;
   const pins = useMemo(
-    () => toPins(openings, { topIds: new Set(top.map((o) => o.restaurant_id)), here }),
-    [openings, top, here],
+    () => toPins(openings, { topIds: new Set(top.map((o) => o.restaurant_id)), here, openingSoon }),
+    [openings, top, here, openingSoon],
   );
   const everyPlace = useMemo(() => allPlaces(openings, { here, tried }), [openings, here, tried]);
-  const focus = useMemo(() => resolveFocus(focused, openings), [focused, openings]);
+  const soon = useMemo(() => rankOpeningSoon(openingSoon, here), [openingSoon, here]);
+  const focus = useMemo(() => resolveFocus(focused, openings, openingSoon), [focused, openings, openingSoon]);
   const focusedId = focus?.id ?? null;
   const showFromList = (id: string) => setFocused((now) => nextFocus(now, { id, from: "list" }));
   const showFromMap = (id: string | null) => setFocused((now) => nextFocus(now, id ? { id, from: "map" } : null));
@@ -121,6 +123,8 @@ export function PersonalPicks({ openings, metrics }: Props) {
           <TopThree items={top} tried={tried} onToggleTried={toggle} onShow={onShow} focusedId={focusedId} />
           <HiddenTried count={hiddenCount(openings, tried, justMarked)} onClear={clear} />
         </section>
+
+        <OpeningSoonPanel items={soon} onShow={onShow} focusedId={focusedId} />
 
         <section aria-labelledby="map-heading" className="panel places">
           <h2 id="map-heading">All places</h2>

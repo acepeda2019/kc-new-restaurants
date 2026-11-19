@@ -1,6 +1,6 @@
 import { MapLegend } from "@/components/MapLegend";
 import { PersonalPicks } from "@/components/PersonalPicks";
-import { getMetrics, getOpenings, isSampleData } from "@/lib/data";
+import { getMetrics, getOpeningSoon, getOpenings, isSampleData } from "@/lib/data";
 import { formatPlainDate } from "@/lib/format";
 
 // Data is baked in at build time; each daily deploy rebuilds the page.
@@ -38,7 +38,7 @@ export default function Home() {
 
       <main className="home">
         {/* The full list goes to the browser (ARCHITECTURE.md §6) so location and "Tried it" never leave it. */}
-        <PersonalPicks openings={getOpenings()} metrics={metrics} />
+        <PersonalPicks openings={getOpenings()} metrics={metrics} openingSoon={getOpeningSoon()} />
       </main>
 
       <footer className="bottombar">

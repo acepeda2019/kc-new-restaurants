@@ -157,7 +157,7 @@ export function OpeningsMap({ pins, focus, onFocus, onUnavailable }: Props) {
             id: `${SOURCE_ID}-halo`,
             type: "circle",
             source: SOURCE_ID,
-            filter: ["!=", ["get", "kind"], "new"],
+            filter: ["!", ["in", ["get", "kind"], ["literal", ["new", "soon"]]]],
             paint: {
               "circle-color": ["match", ["get", "kind"], "top", HALO.top, "you", HALO.you, HALO.wary],
               "circle-radius": ["match", ["get", "kind"], "top", 22, "you", 16, 11],
@@ -173,13 +173,15 @@ export function OpeningsMap({ pins, focus, onFocus, onUnavailable }: Props) {
               "circle-color": [
                 "match", ["get", "kind"],
                 "top", PIN_COLORS.top, "wary", PIN_COLORS.wary, "you", PIN_COLORS.you,
-                PIN_COLORS.new,
+                "soon", PIN_COLORS.soon, PIN_COLORS.new,
               ],
-              "circle-radius": ["match", ["get", "kind"], "top", 14, "you", 7, "wary", 6.5, 5],
+              // Opening soon pins are hollow rings: not open yet, told apart by shape, not colour.
+              "circle-opacity": ["match", ["get", "kind"], "soon", 0, 1],
+              "circle-radius": ["match", ["get", "kind"], "top", 14, "you", 7, "wary", 6.5, "soon", 6, 5],
               // Wary pins get a light ring (and are bigger) so they differ from new ones by more
               // than colour; a dark ring would vanish on the dark map.
-              "circle-stroke-color": ["match", ["get", "kind"], "wary", LIGHT, GROUND],
-              "circle-stroke-width": ["match", ["get", "kind"], "you", 3, "wary", 2, "top", 2, 1],
+              "circle-stroke-color": ["match", ["get", "kind"], "wary", LIGHT, "soon", PIN_COLORS.soon, GROUND],
+              "circle-stroke-width": ["match", ["get", "kind"], "you", 3, "wary", 2, "top", 2, "soon", 2.5, 1],
             },
           });
           // A light ring around the focused pin; the filter is set by showFocus.

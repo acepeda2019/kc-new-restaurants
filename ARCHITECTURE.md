@@ -21,7 +21,8 @@ A private web app for the owner and a few friends that answers:
 *"What restaurants just opened near me, and why is each worth a look?"*
 
 One screen: a question bar, a map of new openings, three headline numbers, a personal
-top 3 with one-line reasons, and a collapsed "All N places" list under the map. UI mockup (private artifact):
+top 3 with one-line reasons, an "Opening soon" list (from liquor licence applications), and
+a collapsed "All N places" list under the map. UI mockup (private artifact):
 https://claude.ai/artifact/DtEGBA9Zv91zrdhsophvgB
 
 **In scope:** "Just opened" restaurants in King County, from KC food inspections, refreshed
@@ -79,7 +80,7 @@ The GitHub Actions failure email is the alert.
 | Map + "All N places" list | `app/` | built (SAN-39b/c) |
 | Capped question bar | `app/api/ask`, `app/components/AskBar.tsx` | built (SAN-40) |
 | Daily workflow + CI | `.github/workflows/` | built (SAN-41); live since 2026-11-19 (first classification run: 637 places, $0.13) |
-| Opening soon: LCB snapshot, staging and rules | `ingestion/sources/lcb_local_authority.py`, `transform/models/staging/lcb/`, `int_opening_soon_candidates` | built (SAN-44, SAN-46, SAN-47 rule matching, SAN-48 `mart_opening_soon` + export, schema v2, SAN-50 geocoded); app planned (SAN-49) |
+| Opening soon: LCB snapshot, staging and rules | `ingestion/sources/lcb_local_authority.py`, `transform/models/staging/lcb/`, `int_opening_soon_candidates` | built (SAN-44, SAN-46, SAN-47 rule matching, SAN-48 `mart_opening_soon` + export, schema v2, SAN-50 geocoded, SAN-49 app panel, pins, question bar) |
 
 ## 3. Sources
 
@@ -248,6 +249,13 @@ where it serves, so it can't be "near you".
   Visitors' browsers fetch tiles from OpenFreeMap, which sees their IP and the area viewed;
   after "Use my location" that area is near the visitor. Coordinates themselves are never
   sent to this app or anyone else.
+- **Opening soon** (`app/components/OpeningSoonPanel.tsx`): King County restaurant licence
+  applications not yet inspected (`opening_soon.json`), labelled "From liquor licence
+  applications", newest first or nearest first once located (`rankOpeningSoon`), first five
+  shown and the rest one tap away. On the map they are **hollow rings** (not open yet, told
+  apart by shape) with their own legend entry; names and rings focus the map like other
+  places. The question bar gets them in a separate `<opening_soon>` block (at most 30) and is
+  told never to call them open.
 - **`/api/ask`** (the only Claude call at request time):
   - caps checked *before* calling Claude, in Upstash Redis: 200 questions/day in total and
     20 per visitor (`ask:g:<date>`, `ask:v:<visitor>:<date>`, Pacific date). Questions are
