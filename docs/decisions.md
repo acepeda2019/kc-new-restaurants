@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-19 — Claude words the Today brief once per daily build
+- **Context:** the template brief is correct but flat; the owner wanted the brief in plain English, the way Claude would say it.
+- **Decision:** the daily build makes one Haiku call (`WRITE_AI_BRIEF=1`, set only in `daily.yml`) that words the same facts the template uses. Claude names places only as `{{id}}` tokens; the build accepts the text only if every id is a place in the facts, it's under 500 characters and has no HTML, else it uses the template. Labelled "AI summary". Not a request-time call, so the guardrail that `/api/ask` is the only request-time Claude call still holds.
+- **Consequences:** about one Haiku call a day (well under a cent). Preview and local builds never call Claude. Once a visitor shares their location the template brief takes over, since only it knows what's near them.
+
 ## 2026-11-19 — A public link-preview image
 - **Context:** a shared link showed a plain grey bubble with the default Next.js icon; the owner wants a picture, like other apps (SAN-54).
 - **Decision:** a generated 1200×630 preview image, an SVG icon and a phone home-screen icon, with Open Graph and Twitter tags in the root layout. Link previews can't pass the passcode, so they see `/login`, which carries the tags; the three image paths are added to the proxy's public list.

@@ -1,8 +1,10 @@
 /**
  * The "Today" brief (ARCHITECTURE.md §7): two or three plain sentences under the question bar
- * about what's new, plus question chips that follow from them. Built from the page's data, so it
- * costs no Claude call. Place names are `PlaceRef` parts, so the page can make them tappable.
- * Pure, safe on the server or in the browser.
+ * about what's new, plus question chips that follow from them. `briefFacts` picks the facts;
+ * `todayBrief` words them with a template (free, used in the browser and as the fallback), and
+ * `app/lib/aiBrief.ts` can have Claude word the same facts once per daily build. Place names
+ * are `PlaceRef` parts, so the page can make them tappable. Pure, safe on the server or in the
+ * browser.
  */
 import type { Metrics, Opening, OpeningSoon } from "@/lib/data";
 import { rankOpeningSoon, type LatLon } from "@/lib/rank";
@@ -17,64 +19,116 @@ export type PlaceRef = { id: string; name: string };
 export type BriefPart = string | PlaceRef;
 export type Brief = { sentences: BriefPart[][]; chips: string[] };
 
+/** A place the brief may name: an opening of the last 30 days, or the newest Opening soon. */
+export type BriefPlace = PlaceRef & {
+  kind: "open" | "soon";
+  city: string;
+  food_truck: boolean;
+  likely_cuisine: string | null;
+};
+
+/** What the brief says, before wording: counts and the places worth naming. */
+export type BriefFacts = {
+  opened_this_week: number;
+  opened_this_month: number;
+  near?: { count: number; radiusMi: number };
+  /** The two best-ranked openings of the last 30 days. */
+  highlights: BriefPlace[];
+  /** Openings of the last 30 days with red points at their latest inspection. */
+  red_points_count: number;
+  food_trucks_count: number;
+  opening_soon: BriefPlace | null;
+};
+
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const titleCity = (city: string) => city.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-const ref = (id: string, name: string): PlaceRef => ({ id, name });
+const ref = (p: PlaceRef): PlaceRef => ({ id: p.id, name: p.name });
 
-/** "KOSHARI brings likely Egyptian food to Seattle" or "KOSHARI opened in Seattle". */
-function highlight(o: Opening): BriefPart[] {
-  if (o.category === "food_truck") return [ref(o.restaurant_id, o.name), ` started rolling out of ${titleCity(o.city)}`];
-  const cuisine = o.likely_cuisine ? ` brings likely ${o.likely_cuisine} food to ` : " opened in ";
-  return [ref(o.restaurant_id, o.name), `${cuisine}${titleCity(o.city)}`];
-}
-
-/**
- * The brief: how many opened this week (or near the visitor, once located) and this month;
- * the two best-ranked recent openings by name; then how many had red points at their latest
- * inspection and the newest Opening soon place. Chips ask about whatever the sentences raise.
- */
-export function todayBrief(input: {
+export function briefFacts(input: {
   openings: Opening[];
   openingSoon: OpeningSoon[];
   metrics: Pick<Metrics, "opened_last_7_days" | "opened_last_30_days">;
   here?: LatLon;
   near?: { count: number; radiusMi: number };
-}): Brief {
-  const { metrics, near } = input;
+}): BriefFacts {
   const recent = input.openings.filter((o) => o.days_open <= RECENT_DAYS).sort((a, b) => a.rank - b.rank);
-  const wary = recent.filter((o) => o.latest_red_points > 0);
-  const trucks = recent.filter((o) => o.category === "food_truck");
   const [soon] = rankOpeningSoon(input.openingSoon, input.here);
+  return {
+    opened_this_week: input.metrics.opened_last_7_days,
+    opened_this_month: input.metrics.opened_last_30_days,
+    ...(input.near ? { near: input.near } : {}),
+    highlights: recent.slice(0, 2).map((o) => ({
+      id: o.restaurant_id,
+      name: o.name,
+      kind: "open",
+      city: titleCity(o.city),
+      food_truck: o.category === "food_truck",
+      likely_cuisine: o.likely_cuisine,
+    })),
+    red_points_count: recent.filter((o) => o.latest_red_points > 0).length,
+    food_trucks_count: recent.filter((o) => o.category === "food_truck").length,
+    opening_soon: soon
+      ? {
+          id: soon.notice_id,
+          name: soon.trade_name,
+          kind: "soon",
+          city: titleCity(soon.city ?? "King County"),
+          food_truck: false,
+          likely_cuisine: null,
+        }
+      : null,
+  };
+}
 
+/** The question chips: whatever the facts raise, at most MAX_CHIPS. */
+export function briefChips(f: BriefFacts): string[] {
+  return [
+    f.near ? "What's newest near me?" : "What's new near me?",
+    f.food_trucks_count ? "Which food trucks are new?" : null,
+    f.red_points_count ? "Which had red points?" : null,
+    f.opening_soon ? "What's opening soon?" : null,
+    "Any new cafés?",
+  ]
+    .filter((c): c is string => c !== null)
+    .slice(0, MAX_CHIPS);
+}
+
+/** "KOSHARI brings likely Egyptian food to Seattle" or "KOSHARI opened in Seattle". */
+function highlight(p: BriefPlace): BriefPart[] {
+  if (p.food_truck) return [ref(p), ` started rolling out of ${p.city}`];
+  const cuisine = p.likely_cuisine ? ` brings likely ${p.likely_cuisine} food to ` : " opened in ";
+  return [ref(p), `${cuisine}${p.city}`];
+}
+
+/** The template wording of `facts`: one to three sentences. */
+export function templateSentences(f: BriefFacts): BriefPart[][] {
   const sentences: BriefPart[][] = [
     [
-      near
-        ? `${plural(near.count, "new place", "new places")} within ${near.radiusMi} mi of you, ${metrics.opened_last_30_days} across King County this month.`
-        : `${plural(metrics.opened_last_7_days, "place", "places")} opened this week and ${metrics.opened_last_30_days} this month.`,
+      f.near
+        ? `${plural(f.near.count, "new place", "new places")} within ${f.near.radiusMi} mi of you, ${f.opened_this_month} across King County this month.`
+        : `${plural(f.opened_this_week, "place", "places")} opened this week and ${f.opened_this_month} this month.`,
     ],
   ];
-  const [first, second] = recent;
+  const [first, second] = f.highlights;
   if (first) sentences.push([...highlight(first), ...(second ? [", and ", ...highlight(second)] : []), "."]);
 
   const last: BriefPart[] = [];
-  if (wary.length) last.push(`${plural(wary.length, "new place", "new places")} had red points at the latest inspection`);
-  if (soon) {
-    last.push(last.length ? "; " : "", ref(soon.notice_id, soon.trade_name), ` applied to open in ${titleCity(soon.city ?? "King County")}`);
+  if (f.red_points_count) last.push(`${plural(f.red_points_count, "new place", "new places")} had red points at the latest inspection`);
+  if (f.opening_soon) {
+    if (last.length) last.push("; ");
+    last.push(ref(f.opening_soon), ` applied to open in ${f.opening_soon.city}`);
   }
-  if (last.length) sentences.push([...last.filter((p) => p !== ""), "."]);
+  if (last.length) sentences.push([...last, "."]);
+  return sentences;
+}
 
-  const chips = [
-    near ? "What's newest near me?" : "What's new near me?",
-    trucks.length ? "Which food trucks are new?" : null,
-    wary.length ? "Which had red points?" : null,
-    soon ? "What's opening soon?" : null,
-    "Any new cafés?",
-  ].filter((c): c is string => c !== null);
-
-  return { sentences, chips: chips.slice(0, MAX_CHIPS) };
+/** The brief worded by the template, with its chips. */
+export function todayBrief(input: Parameters<typeof briefFacts>[0]): Brief {
+  const facts = briefFacts(input);
+  return { sentences: templateSentences(facts), chips: briefChips(facts) };
 }
 
 /** The brief as plain text, e.g. for tests. */
-export function briefText(brief: Brief): string {
+export function briefText(brief: Pick<Brief, "sentences">): string {
   return brief.sentences.map((s) => s.map((p) => (typeof p === "string" ? p : p.name)).join("")).join(" ");
 }

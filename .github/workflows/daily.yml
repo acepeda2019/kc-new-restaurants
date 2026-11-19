@@ -81,13 +81,17 @@ jobs:
           node-version: 20
 
       # REQUIRE_EXPORT=1: a missing export fails the build instead of shipping sample data
-      # (ARCHITECTURE.md §7). Set here only, never as a Vercel env var.
+      # (ARCHITECTURE.md §7). WRITE_AI_BRIEF=1: Claude words the Today brief once for this
+      # build (one capped Haiku call; any failure falls back to the template). Both are set
+      # here only, never as Vercel env vars, so preview and local builds never call Claude.
       - name: Build for Vercel
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           REQUIRE_EXPORT: "1"
+          WRITE_AI_BRIEF: "1"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           npx --yes vercel@65.11.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
           npx --yes vercel@65.11.0 build --prod --token="$VERCEL_TOKEN"

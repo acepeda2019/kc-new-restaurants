@@ -188,8 +188,13 @@ match the dbt key. Source freshness.
 This ranks the *newest* openings with a boost for a clean first inspection. It does not
 claim food quality.
 
-**Today brief** (`todayBrief` in `app/lib/brief.ts`, built in the browser from the page's data,
-no Claude call): how many opened this week (or "N within 2 mi of you" once located) and this
+**Today brief** (`app/lib/brief.ts`: `briefFacts` picks the facts, `todayBrief` words them with
+a template in the browser). Once per daily build, Claude words the same facts instead
+(`app/lib/aiBrief.ts`, only when the build sets `WRITE_AI_BRIEF=1`, which only `daily.yml` does:
+one Haiku call, `max_tokens` 300, places named only as `{{id}}` tokens checked against the facts;
+anything off falls back to the template and never blocks the deploy). The page labels it
+"✦ AI summary", or "✦ Today" for the template, which also takes over once the visitor is
+located (it knows what's near them). The facts: how many opened this week (or "N within 2 mi of you" once located) and this
 month; the two best-ranked openings of the last 30 days by name (with "likely <cuisine>");
 how many recent openings had red points at their latest inspection; and the newest Opening
 soon place. Up to four chips ask about what it raised (trucks, red points, opening soon,
