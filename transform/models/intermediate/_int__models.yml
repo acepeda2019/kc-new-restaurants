@@ -27,3 +27,12 @@ models:
               arguments: {values: [food_truck, needs_judgment]}
       - name: prior_businesses_at_address
         description: JSON list of other businesses at the same address key whose last inspection fell within 12 months before (to 30 days after) this one's first inspection. Lets Claude tell new_opening, new_concept and ownership_transfer apart.
+  - name: int_opening_soon_candidates
+    description: "Grain: one row per King County WSLCB notice that counts as a restaurant about to open (counted notice type, any restaurant privilege). Not yet matched to inspections (SAN-47)."
+    columns:
+      - name: notice_id
+        data_tests: [unique, not_null]
+      - name: notice_type
+        data_tests:
+          - accepted_values:
+              arguments: {values: ["NEW LICENSE APPLICATION", "CHANGE OF LOCATION"]}

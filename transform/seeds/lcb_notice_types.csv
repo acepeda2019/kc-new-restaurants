@@ -1,0 +1,4 @@
+notice_type,counts_as_opening,why
+NEW LICENSE APPLICATION,true,a business applying to open
+CHANGE OF LOCATION,true,an existing business opening at a new address
+ASSUMPTION OF A LICENSE,false,ownership change at the same place

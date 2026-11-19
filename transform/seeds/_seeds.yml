@@ -25,3 +25,21 @@ seeds:
         data_tests: [unique, not_null]
   - name: score_params
     description: "Grain: one row. Scoring weights, window and Claude confidence threshold (ARCHITECTURE.md §6)."
+  - name: lcb_privilege_rules
+    description: "Grain: one row per WSLCB privilege text (every value seen in the notice window on 2026-11-19). is_restaurant marks the ones Opening soon counts; a notice counts if any of its privileges does. Unseen privileges count as not a restaurant and are flagged by the lcb_unmapped_privileges test."
+    config:
+      column_types: {privilege: varchar, is_restaurant: boolean, why: varchar}
+    columns:
+      - name: privilege
+        data_tests: [unique, not_null]
+      - name: is_restaurant
+        data_tests: [not_null]
+  - name: lcb_notice_types
+    description: "Grain: one row per WSLCB notice type (l_a_type). counts_as_opening: new applications and changes of location yes; assumptions (ownership changes) no. Unseen types don't count and are flagged by the lcb_unmapped_notice_types test."
+    config:
+      column_types: {notice_type: varchar, counts_as_opening: boolean, why: varchar}
+    columns:
+      - name: notice_type
+        data_tests: [unique, not_null]
+      - name: counts_as_opening
+        data_tests: [not_null]

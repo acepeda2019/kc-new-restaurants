@@ -4,6 +4,14 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-19 — Which licence notices count for Opening soon
+- **Context:** WSLCB notices cover every licence type (restaurants, bars, shops, cannabis, tobacco, shipping) and several notice types. Source card: `docs/source_cards/lcb_local_authority.md`.
+- **Decision:**
+  - A King County notice counts when its notice type is a new application or a change of location, and **any** of its seven privileges is a restaurant licence (`S/B/W RESTAURANT LOUNGE (+)`/`(-)`, `B/W RESTAURANT - BEER/WINE`).
+  - Assumptions (ownership changes), taverns, snack bars, shops, takeout add-ons, catering, cannabis, tobacco and shipping don't count. Taverns and snack bars are judgement calls, marked in the seed.
+  - Rules live in `seeds/lcb_privilege_rules.csv` and `seeds/lcb_notice_types.csv`. A value not in the seeds doesn't count, and a warn-level test flags it for review.
+- **Consequences:** on 2026-11-19 three King County notices qualify (Dantini Dello, Taurus Karaoke & Lounge, 67 Pizza). Flipping a judgement call is a one-line seed edit.
+
 ## 2026-11-19 — Opening soon uses LCB licence notices only
 - **Context:** "Opening soon" needs a signal before a business's first health inspection. The candidates were WSLCB licence notices, building permits (Seattle, MyBuildingPermit.com, other city portals, King County Accela) and Public Health food plan review. King County is 39 cities; two-thirds of our live openings are outside Seattle. Full research: `docs/research/2026-11-19-opening-soon-sources.md`.
 - **Decision (owner):**
