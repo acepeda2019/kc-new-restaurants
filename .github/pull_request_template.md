@@ -10,4 +10,5 @@
 
 - **Review because:** (delete if auto-mergeable)
 - **Tests:**
+- **Screenshots:** (UI changes only: desktop and phone, posted as a PR comment)
 - Linear:

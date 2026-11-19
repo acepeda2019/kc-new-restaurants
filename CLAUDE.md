@@ -123,3 +123,9 @@ auto-merges, it says so in its reply, with the PR link and size.
 - Extractors have a unit test with a recorded sample response; app logic has unit tests.
 - `data-qa` and `spec-reviewer` reports have no open blocking issues.
 - Docs updated: source card, model YAML descriptions, README if user-facing.
+- **UI changes have screenshots on the PR:** desktop (≥ 1100px wide) and phone (390px), of the
+  changed part, before merge. Push them to the orphan `pr-assets` branch under `pr-<number>/`
+  (never merged into `main`) and post a PR comment that embeds them with
+  `https://github.com/acepeda2019/kc-new-restaurants/blob/pr-assets/pr-<number>/<file>?raw=true`.
+  The local Chrome window can't reach 1100px, so render the page in a scaled same-origin
+  iframe of the target width.
