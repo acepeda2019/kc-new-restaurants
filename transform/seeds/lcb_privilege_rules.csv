@@ -1,21 +1,21 @@
-privilege,is_restaurant,why
-S/B/W RESTAURANT LOUNGE (+),true,spirits/beer/wine restaurant with lounge
-S/B/W RESTAURANT LOUNGE (-),true,spirits/beer/wine restaurant without lounge
-B/W RESTAURANT - BEER/WINE,true,beer/wine restaurant
-SNACK BAR,false,limited food; owner may flip
-TAVERN - BEER/WINE,false,bar; food not required; owner may flip
-CATERING,false,add-on to an existing licence
-OFF PREMISES,false,retail sale to take away
-OFF-PREMISES SALE WINE,false,retail sale to take away
-FACTORY SEALED CONTAINERS TAKEOUT,false,takeout add-on
-PREMIXED COCKTAILS/ WINE TO- GO,false,takeout add-on
-GROWLERS TAKEOUT,false,takeout add-on
-B/W SPECIALTY SHOP,false,retail shop
-BEER/WINE SPECIALTY SHOP GROWLERS,false,retail shop
-GROCERY STORE - BEER/WINE,false,grocery
-DIRECT SHIPMENT RECEIVER- IN WA ONLY,false,shipping
-DIRECT SHIPMENT RECEIVER- IN/OUT WA,false,shipping
-CANNABIS PROCESSOR,false,cannabis
-CANNABIS PRODUCER TIER 2,false,cannabis
-CIGARETTE RETAILER,false,tobacco
-NO FEE TOBACCO PRODUCT RETAILER,false,tobacco
+privilege,is_restaurant,label,why
+S/B/W RESTAURANT LOUNGE (+),true,full-bar restaurant,spirits/beer/wine restaurant with lounge
+S/B/W RESTAURANT LOUNGE (-),true,full-bar restaurant,spirits/beer/wine restaurant without lounge
+B/W RESTAURANT - BEER/WINE,true,beer/wine restaurant,beer/wine restaurant
+SNACK BAR,false,,limited food; owner may flip
+TAVERN - BEER/WINE,false,,bar; food not required; owner may flip
+CATERING,false,,add-on to an existing licence
+OFF PREMISES,false,,retail sale to take away
+OFF-PREMISES SALE WINE,false,,retail sale to take away
+FACTORY SEALED CONTAINERS TAKEOUT,false,,takeout add-on
+PREMIXED COCKTAILS/ WINE TO- GO,false,,takeout add-on
+GROWLERS TAKEOUT,false,,takeout add-on
+B/W SPECIALTY SHOP,false,,retail shop
+BEER/WINE SPECIALTY SHOP GROWLERS,false,,retail shop
+GROCERY STORE - BEER/WINE,false,,grocery
+DIRECT SHIPMENT RECEIVER- IN WA ONLY,false,,shipping
+DIRECT SHIPMENT RECEIVER- IN/OUT WA,false,,shipping
+CANNABIS PROCESSOR,false,,cannabis
+CANNABIS PRODUCER TIER 2,false,,cannabis
+CIGARETTE RETAILER,false,,tobacco
+NO FEE TOBACCO PRODUCT RETAILER,false,,tobacco

@@ -51,6 +51,25 @@ models:
           - accepted_values:
               arguments: {values: [accepted, rejected, pending]}
 
+  - name: mart_opening_soon
+    description: "Grain: one row per King County restaurant licence application (notice_id) not yet matched to a KC inspection and younger than opening_soon_params.max_pending_days. Ranked newest application first. Exported as opening_soon.json. No licensee name."
+    columns:
+      - name: notice_id
+        data_tests: [unique, not_null]
+      - name: rank
+        data_tests: [unique, not_null]
+      - name: trade_name
+        data_tests: [not_null]
+      - name: licence_label
+        data_tests:
+          - accepted_values:
+              arguments: {values: ["full-bar restaurant", "beer/wine restaurant"]}
+      - name: why
+        data_tests: [not_null]
+      - name: days_since_application
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "days_since_application >= 0"}
 unit_tests:
   - name: override_beats_claude
     description: An owner override wins over Claude, even over a confident answer; no override and low confidence stays pending.

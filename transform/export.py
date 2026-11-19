@@ -3,13 +3,14 @@
     uv run python export.py --db kcne.duckdb --out ../app/data [--run-date YYYY-MM-DD] [--run-id ID]
 
 Writes ``openings.json`` (array of ``mart_new_openings`` rows, by rank), ``metrics.json``
-(the one ``mart_metrics`` row) and ``manifest.json`` (built_at, row_count, schema_version).
+(the one ``mart_metrics`` row), ``opening_soon.json`` (``mart_opening_soon`` rows, by rank; may
+be empty) and ``manifest.json`` (built_at, row_count, opening_soon_count, schema_version).
 
 Guard: the export is refused (exit 1, nothing written) when there are 0 openings, or fewer
-than half of the previous published run, which usually means a bad or partial KC pull. The
+than half of the previous published run (Opening soon is not guarded: an empty list is fine), which usually means a bad or partial KC pull. The
 site then keeps serving the last good deploy.
 
-With ``RAW_BUCKET`` set (the daily job), the three files are also kept in
+With ``RAW_BUCKET`` set (the daily job), the files are also kept in
 ``s3://$RAW_BUCKET/exports/dt=YYYY-MM-DD/<run_id>/`` (never overwritten), and the previous
 run's count is read from the newest manifest there. Without it, only the empty check applies.
 """
@@ -28,7 +29,7 @@ from zoneinfo import ZoneInfo
 
 import duckdb
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2: adds opening_soon.json and manifest.opening_soon_count
 MIN_SHARE_OF_PREVIOUS = 0.5
 EXPORTS_PREFIX = "exports/"
 
@@ -47,17 +48,20 @@ def check_publishable(new_count: int, previous_count: int | None) -> None:
         )
 
 
-def read_marts(db_path: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def read_marts(
+    db_path: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
     """The app's rows as plain JSON values (dates as ISO strings), via DuckDB's to_json."""
+
+    def rows(con: Any, table: str) -> list[dict[str, Any]]:
+        sql = f"select to_json(t) from {table} as t order by t.rank"
+        return [json.loads(row[0]) for row in con.execute(sql).fetchall()]
+
     with duckdb.connect(db_path, read_only=True) as con:
-        openings = [
-            json.loads(row[0])
-            for row in con.execute(
-                "select to_json(t) from mart_new_openings as t order by t.rank"
-            ).fetchall()
-        ]
+        openings = rows(con, "mart_new_openings")
         metrics = json.loads(con.execute("select to_json(t) from mart_metrics as t").fetchone()[0])
-    return openings, metrics
+        opening_soon = rows(con, "mart_opening_soon")
+    return openings, metrics, opening_soon
 
 
 def previous_count(s3: Any, bucket: str) -> int | None:
@@ -82,8 +86,8 @@ def export(
     s3: Any = None,
     bucket: str | None = None,
 ) -> dict[str, Any]:
-    """Guard, then write the three files to out_dir (and S3 when given). Returns a summary."""
-    openings, metrics = read_marts(db_path)
+    """Guard, then write the files to out_dir (and S3 when given). Returns a summary."""
+    openings, metrics, opening_soon = read_marts(db_path)
     previous = previous_count(s3, bucket) if s3 is not None and bucket else None
     check_publishable(len(openings), previous)
 
@@ -93,9 +97,15 @@ def export(
         "run_date": run_date,
         "run_id": run_id,
         "row_count": len(openings),
+        "opening_soon_count": len(opening_soon),
         "schema_version": SCHEMA_VERSION,
     }
-    files = {"openings.json": openings, "metrics.json": metrics, "manifest.json": manifest}
+    files = {
+        "openings.json": openings,
+        "metrics.json": metrics,
+        "opening_soon.json": opening_soon,
+        "manifest.json": manifest,  # last, so a manifest only exists for a complete export
+    }
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, payload in files.items():
         (out_dir / name).write_text(json.dumps(payload, ensure_ascii=False, indent=1))

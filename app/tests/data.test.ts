@@ -23,7 +23,7 @@ function sampleOnlyDir(): string {
 /** A data dir with a "real" export (copied from the sample) next to the sample. */
 function realExportDir(manifestPatch: Record<string, unknown> = {}): string {
   const dir = sampleOnlyDir();
-  for (const name of ["openings.json", "metrics.json"]) cpSync(path.join(SAMPLE_DIR, name), path.join(dir, name));
+  for (const name of ["openings.json", "metrics.json", "opening_soon.json"]) cpSync(path.join(SAMPLE_DIR, name), path.join(dir, name));
   const manifest = JSON.parse(readFileSync(path.join(SAMPLE_DIR, "manifest.json"), "utf8"));
   writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ ...manifest, ...manifestPatch }));
   return dir;
@@ -86,6 +86,29 @@ describe("loadData", () => {
     expect(() => loadData(dir)).toThrow(new RegExp(`row 0: null ${column}`));
   });
 
+  it("rejects an old schema v1 export (before opening_soon.json)", () => {
+    expect(() => loadData(realExportDir({ schema_version: 1 }))).toThrow(/schema_version 1 is unknown/);
+  });
+
+  it("rejects opening_soon.json that disagrees with the manifest count", () => {
+    expect(() => loadData(realExportDir({ opening_soon_count: 99 }))).toThrow(/opening_soon\.json has 3 rows, manifest says 99/);
+  });
+
+  it("rejects an Opening soon row missing a mart column", () => {
+    const dir = realExportDir();
+    const file = path.join(dir, "opening_soon.json");
+    const rows = JSON.parse(readFileSync(file, "utf8"));
+    delete rows[0].why;
+    writeFileSync(file, JSON.stringify(rows));
+    expect(() => loadData(dir)).toThrow(/opening_soon\.json row 0: missing column\(s\) why/);
+  });
+
+  it("accepts an empty Opening soon list", () => {
+    const dir = realExportDir({ opening_soon_count: 0 });
+    writeFileSync(path.join(dir, "opening_soon.json"), "[]");
+    expect(loadData(dir).openingSoon).toEqual([]);
+  });
+
   it("rejects openings that disagree with the manifest row_count", () => {
     const dir = realExportDir();
     patchOpenings(dir, (rows) => rows.slice(1));
@@ -121,5 +144,20 @@ describe("sample openings", () => {
   it("has metrics consistent with the openings", () => {
     expect(metrics.opened_last_180_days).toBe(openings.length);
     expect(typeof metrics.opened_last_30_days).toBe("number");
+  });
+});
+
+describe("sample Opening soon", () => {
+  const { openingSoon } = loadData(sampleOnlyDir());
+  afterAll(removeTempDirs);
+
+  it("is ranked newest application first, with the app-facing columns only", () => {
+    expect(openingSoon.map((o) => o.rank)).toEqual(openingSoon.map((_, i) => i + 1));
+    const dates = openingSoon.map((o) => o.application_date);
+    expect([...dates].sort().reverse()).toEqual(dates);
+    for (const o of openingSoon) {
+      expect(o.why).toMatch(/licence on /);
+      expect(Object.keys(o).some((k) => k.includes("licensee"))).toBe(false); // owner decision
+    }
   });
 });

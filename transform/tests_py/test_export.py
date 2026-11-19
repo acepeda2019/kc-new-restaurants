@@ -11,9 +11,14 @@ import export
 BUCKET = "test-bucket"
 
 
-def make_db(path: Path, rows: int) -> str:
+def make_db(path: Path, rows: int, soon: int = 1) -> str:
     db = str(path / "kcne.duckdb")
     with duckdb.connect(db) as con:
+        con.execute(
+            "create table mart_opening_soon as select i as rank, 'N' || i as notice_id, "
+            "date '2026-11-04' as application_date "
+            f"from range(1, {soon + 1}) t(i)"
+        )
         con.execute(
             "create table mart_new_openings as select i as rank, 'R' || i as restaurant_id, "
             "date '2026-11-10' as first_inspection_date, "
@@ -55,7 +60,7 @@ def test_allows_normal() -> None:
     export.check_publishable(95, 100)
 
 
-def test_writes_three_files(tmp_path: Path) -> None:
+def test_writes_the_four_files(tmp_path: Path) -> None:
     out = tmp_path / "out"
     result = export.export(
         db_path=make_db(tmp_path, 2), out_dir=out, run_date="2026-11-17", run_id="r1"
@@ -63,12 +68,24 @@ def test_writes_three_files(tmp_path: Path) -> None:
     openings = json.loads((out / "openings.json").read_text())
     metrics = json.loads((out / "metrics.json").read_text())
     manifest = json.loads((out / "manifest.json").read_text())
+    soon = json.loads((out / "opening_soon.json").read_text())
     assert [o["rank"] for o in openings] == [1, 2]
     assert openings[0]["first_inspection_date"] == "2026-11-10"
     assert openings[0]["red_violations"][0]["points"] == 5
     assert metrics["by_city"][0]["city"] == "SEATTLE"
-    assert manifest["row_count"] == 2 and manifest["schema_version"] == 1
+    assert manifest["row_count"] == 2 and manifest["schema_version"] == 2
+    assert soon == [{"rank": 1, "notice_id": "N1", "application_date": "2026-11-04"}]
+    assert manifest["opening_soon_count"] == 1
     assert result["s3_keys"] == []
+
+
+def test_empty_opening_soon_still_publishes(tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    export.export(
+        db_path=make_db(tmp_path, 2, soon=0), out_dir=out, run_date="2026-11-17", run_id="r1"
+    )
+    assert json.loads((out / "opening_soon.json").read_text()) == []
+    assert json.loads((out / "manifest.json").read_text())["opening_soon_count"] == 0
 
 
 def test_uploads_dated_copy_and_compares_with_previous(tmp_path: Path, s3) -> None:
