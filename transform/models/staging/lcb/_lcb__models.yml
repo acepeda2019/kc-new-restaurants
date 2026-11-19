@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: stg_lcb__notices
+    description: "Grain: one row per WSLCB licence notice (licence number + notice type + application date), across every daily snapshot. Values from the latest snapshot; first_seen_on/last_seen_on from the snapshot dates. No personal fields."
+    columns:
+      - name: notice_id
+        description: "license_number|notice_type|application date (YYYYMMDD)."
+        data_tests: [unique, not_null]
+      - name: license_number
+        data_tests: [not_null]
+      - name: notice_type
+        data_tests: [not_null]
+      - name: application_date
+        data_tests: [not_null]
+      - name: zip5
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "zip5 is null or regexp_matches(zip5, '^[0-9]{5}$')"}
+      - name: first_seen_on
+        data_tests:
+          - not_null
+          - expression_is_true:
+              arguments: {expression: "first_seen_on <= last_seen_on"}
+
+unit_tests:
+  - name: notice_seen_on_two_days_keeps_first_and_last_and_latest_values
+    model: stg_lcb__notices
+    given:
+      - input: source('lcb', 'notices_raw')
+        format: sql
+        rows: |
+          select '{"license":"455695","l_a_type":"NEW LICENSE APPLICATION","applicationdate":"20261104","la_posted_date":"2026-11-18","tradename":"DANTINI","zipcode":"981175049","countyname":"KING","privdesc01":"S/B/W RESTAURANT LOUNGE (+)","contact":"PRIVATE"}'::json as json,
+                 'raw/lcb_local_authority/dt=2026-11-19/a.jsonl.gz' as filename
+          union all
+          select '{"license":"455695","l_a_type":"NEW LICENSE APPLICATION","applicationdate":"20261104","la_posted_date":"2026-11-18","tradename":"DANTINI DELLO","zipcode":"981175049","countyname":"KING","privdesc01":"S/B/W RESTAURANT LOUNGE (+)","contact":"PRIVATE"}'::json,
+                 'raw/lcb_local_authority/dt=2026-11-20/b.jsonl.gz'
+    expect:
+      rows:
+        - {notice_id: "455695|NEW LICENSE APPLICATION|20261104", trade_name: "DANTINI DELLO", zip5: "98117", first_seen_on: "2026-11-19", last_seen_on: "2026-11-20"}

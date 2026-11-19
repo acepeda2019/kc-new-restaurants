@@ -19,3 +19,7 @@ Nothing is invented.
   (`model: "sample-hand-labelled"`): 18 of the 19 candidates, labelled from their KC records so the
   marts have input before the first live Haiku run. `input_hash` comes from the real code. One
   candidate is left unclassified and one is below 0.8, so the review list has entries.
+- `lcb_local_authority/dt=2026-11-19/…jsonl.gz`: the real WSLCB notice snapshot landed by the daily
+  job on 2026-11-19 (14 notices statewide, 7 King County), with personal fields (`contact`,
+  `dayphone`, `applicants`, `designatedsignee`, `licenseename`, `mailaddress`, `mailcity`,
+  `mailzip`) replaced by `SAMPLE …` values. Business fields are as received.

@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: lcb
+    description: WSLCB Local Authority Letters (data.wa.gov `vgcw-qfjm`), landed daily as received by `ingestion/sources/lcb_local_authority.py`. Each file is one day's snapshot of the latest notice batches. Source card `docs/source_cards/lcb_local_authority.md`.
+    tables:
+      - name: notices_raw
+        description: One row per notice per daily snapshot; one JSON object per row in `json` and the file path (with `dt=`) in `filename`. Holds applicants' personal details; staging drops them.
+        config:
+          freshness:
+            warn_after: {count: 3, period: day}
+          loaded_at_field: "cast(json ->> 'la_posted_date' as timestamp)"
+        meta:
+          external_location: >-
+            read_json_objects('{{ var("raw_root") }}/lcb_local_authority/*/*.jsonl.gz', format = 'newline_delimited', filename = true)
