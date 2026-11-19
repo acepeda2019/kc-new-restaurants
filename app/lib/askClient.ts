@@ -3,6 +3,7 @@
  * and "Tried it" marks (both stay in the browser otherwise; ARCHITECTURE.md §7) and turns
  * every outcome into something the bar can show. Never throws.
  */
+import type { AnswerPick } from "@/lib/ask";
 import type { LatLon } from "@/lib/rank";
 
 /** Matches the server's limit in app/app/api/ask/route.ts. */
@@ -13,7 +14,7 @@ export const ASK_CHIPS = ["Newest near me", "Skip ones I've tried", "Any to be w
 
 export type AskInput = { question: string; here?: LatLon; tried: Set<string> };
 export type AskResult =
-  | { ok: true; answer: string; left: number }
+  | { ok: true; answer: string; picks: AnswerPick[]; left: number }
   | { ok: false; message: string; outOfQuestions?: true };
 
 const NETWORK_ERROR = "Couldn't reach the server. Try again.";
@@ -27,7 +28,7 @@ export async function askQuestion(input: AskInput, fetchFn: typeof fetch = fetch
 
   const body = { question, ...(input.here ? { here: input.here } : {}), tried: [...input.tried] };
   let res: Response;
-  let data: { answer?: unknown; left?: unknown; message?: unknown };
+  let data: { answer?: unknown; picks?: unknown; left?: unknown; message?: unknown };
   try {
     res = await fetchFn("/api/ask", {
       method: "POST",
@@ -40,7 +41,12 @@ export async function askQuestion(input: AskInput, fetchFn: typeof fetch = fetch
   }
 
   if (res.ok && typeof data.answer === "string") {
-    return { ok: true, answer: data.answer, left: typeof data.left === "number" ? data.left : 0 };
+    return {
+      ok: true,
+      answer: data.answer,
+      picks: Array.isArray(data.picks) ? (data.picks as AnswerPick[]) : [],
+      left: typeof data.left === "number" ? data.left : 0,
+    };
   }
   const message = typeof data.message === "string" ? data.message : NETWORK_ERROR;
   return res.status === 429 ? { ok: false, message, outOfQuestions: true } : { ok: false, message };

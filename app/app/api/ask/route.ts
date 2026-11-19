@@ -4,7 +4,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic, { APIError, AuthenticationError, BadRequestError, RateLimitError } from "@anthropic-ai/sdk";
 import { Redis } from "@upstash/redis";
-import { answer, buildRequest, SAMPLE_NOTE } from "@/lib/ask";
+import { answer, buildRequest, resolvePicks, SAMPLE_NOTE } from "@/lib/ask";
 import { SESSION_COOKIE, VISITOR_COOKIE, verifySession } from "@/lib/auth";
 import { checkAndCount } from "@/lib/caps";
 import { getOpeningSoon, getOpenings, isSampleData } from "@/lib/data";
@@ -89,9 +89,11 @@ export async function POST(request: NextRequest) {
       tried: body.tried,
       openingSoon: getOpeningSoon(),
     });
-    const text = await answer(client, params);
+    const raw = await answer(client, params);
+    const picks = resolvePicks(raw.picks, getOpenings(), getOpeningSoon());
     // Guardrail 5: an answer built from the labelled sample says so.
-    return NextResponse.json({ answer: isSampleData() ? `${text}\n\n${SAMPLE_NOTE}` : text, left });
+    const summary = isSampleData() ? `${raw.summary}\n\n${SAMPLE_NOTE}`.trim() : raw.summary;
+    return NextResponse.json({ answer: summary, picks, left });
   } catch (err) {
     logFailure(err);
     return reply(503, UNAVAILABLE);

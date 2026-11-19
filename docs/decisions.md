@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-19 — Question-bar answers return picks, not prose
+- **Context:** answers were a paragraph, so a visitor couldn't act on a suggested place (e.g. find Menya Muso on the map). The owner wants the bar to be the app's centre, with clickable answers.
+- **Decision:** Claude replies through structured output with a short summary and up to 5 picks (owner: five, not three), each a place id from the data plus a one- or two-sentence blurb. The server drops ids that aren't real places and takes names from our data. `max_tokens` rises from 400 to 600 to fit five blurbs.
+- **Consequences:** cards and tap-to-zoom can be built on the picks (next PR). Cost per question rises slightly (more output tokens, still within the existing caps). A reply that isn't valid JSON shows a fixed message instead of partial text.
+
 ## 2026-11-19 — How Opening soon appears in the app
 - **Context:** the Opening soon data (SAN-48/50) needed a place on the one-screen app (SAN-49).
 - **Decision:**
