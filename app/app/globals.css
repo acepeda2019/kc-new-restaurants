@@ -900,11 +900,35 @@ button.link {
   margin-top: 12px;
 }
 
-.soon-badge {
-  margin-left: 8px;
-  padding: 1px 8px;
-  border: 1px solid #c9b6ff;
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fact {
+  padding: 2px 10px;
+  border: 1px solid transparent;
   border-radius: 999px;
+  background: var(--tile);
+  color: var(--text-2);
   font-size: 0.75rem;
+}
+
+.fact.good {
+  color: #d4f75a;
+  border-color: rgba(212, 247, 90, 0.4);
+}
+
+.fact.warn {
+  color: #ff8a3d;
+  border-color: rgba(255, 138, 61, 0.5);
+}
+
+.fact.soon {
   color: #c9b6ff;
+  border-color: #c9b6ff;
 }

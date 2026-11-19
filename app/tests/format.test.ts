@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { categoryTag, formatDistance, formatPlainDate, likelyCuisine, placeLabel } from "@/lib/format";
+import type { Opening, OpeningSoon } from "@/lib/data";
+import {
+  categoryTag, formatDistance, formatPlainDate, likelyCuisine, openingFacts, openingSoonFacts, placeLabel,
+} from "@/lib/format";
 
 describe("formatPlainDate", () => {
   it("keeps a YYYY-MM-DD date on its own day", () => {
@@ -68,5 +71,44 @@ describe("placeLabel", () => {
 
   it("says a truck is only based in its city", () => {
     expect(placeLabel("WOODINVILLE", "food_truck")).toBe("based in WOODINVILLE");
+  });
+});
+
+describe("answer-card facts", () => {
+  const base = {
+    category: "restaurant", likely_cuisine: "Egyptian", first_inspection_date: "2026-11-13",
+    first_inspection_type: "Routine Inspection/Field Review", first_inspection_red_points: 0,
+    latest_inspection_date: "2026-11-13", latest_red_points: 0,
+  } as Opening;
+  const labels = (o: Partial<Opening> & { distanceMi?: number }) => openingFacts({ ...base, ...o }).map((f) => f.label);
+
+  it("shows cuisine, opened date, a clean result and distance", () => {
+    expect(openingFacts({ ...base, distanceMi: 3.94 })).toEqual([
+      { label: "likely Egyptian", tone: "plain" },
+      { label: "opened Nov 13", tone: "plain" },
+      { label: "clean first inspection", tone: "good" },
+      { label: "3.9 mi", tone: "plain" },
+    ]);
+  });
+
+  it("never calls an educational first visit clean", () => {
+    expect(labels({ first_inspection_type: "Educational Inspection" })).toContain("first visit: educational");
+    expect(labels({ first_inspection_type: "Educational Inspection" })).not.toContain("clean first inspection");
+  });
+
+  it("flags red points, a later inspection's first", () => {
+    expect(labels({ first_inspection_red_points: 15, latest_red_points: 15 })).toContain("15 red points");
+    expect(labels({ latest_inspection_date: "2026-11-18", latest_red_points: 10 })).toContain("10 red points (Nov 18)");
+  });
+
+  it("labels food trucks and keeps at most four bubbles", () => {
+    const truck = labels({ category: "food_truck", distanceMi: 1 });
+    expect(truck[0]).toBe("food truck");
+    expect(truck).toHaveLength(4);
+  });
+
+  it("marks Opening soon places as not open, with the applied date and licence", () => {
+    const s = { application_date: "2026-11-04", licence_label: "full-bar restaurant" } as OpeningSoon;
+    expect(openingSoonFacts(s).map((f) => f.label)).toEqual(["opening soon", "applied Nov 4", "full-bar restaurant"]);
   });
 });

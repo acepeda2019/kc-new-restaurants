@@ -279,11 +279,14 @@ where it serves, so it can't be "near you".
   characters max) and four example chips. The browser sends the question with the visitor's
   location and "Tried it" ids; the reply is `{answer, picks, left}`, and the bar shows the answer as
   plain text and "N left today", then one card per pick (`app/components/AnswerPicks.tsx`):
-  number, name, city, an "Opening soon" badge where it applies, the blurb, and "Tried" for open
-  places. The picks take over the numbered map pins (card order) until the next question;
+  number, name, city, up to four fact bubbles built from our data (`openingFacts` /
+  `openingSoonFacts` in `lib/format.ts`: likely cuisine, opened or applied date, inspection
+  result coloured clean/red points, distance), Claude's blurb on why it fits, and "Tried" for
+  open places. Facts never come from Claude; an educational first visit is sent with no red
+  points so it can't be called clean. The picks take over the numbered map pins (card order) until the next question;
   tapping a name flies the map there, as in the lists. A cap hit or error shows the server's message instead.
-- **Answer style:** a one- or two-sentence summary plus at most 5 picks, each with a one- or
-  two-sentence blurb of useful facts. "Likely <cuisine>" for
+- **Answer style:** a short summary (under 40 words) plus at most 5 picks, each with a blurb
+  (under 25 words) on why it fits, not restating the fact bubbles. "Likely <cuisine>" for
   inferred cuisine. "Wary" answers cite the inspection date and red points. Say plainly
   when the data can't answer (hours, price, ratings, opening soon).
 

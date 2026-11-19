@@ -1,14 +1,17 @@
 import { PlaceName } from "@/components/PlaceName";
 import type { AnswerPick } from "@/lib/ask";
 import type { Opening } from "@/lib/data";
+import type { Fact } from "@/lib/format";
 
 /** Where a picked place is, for its name button (food trucks and ungeocoded places get a note instead). */
 export type PickPlace = Pick<Opening, "name" | "category" | "latitude" | "longitude">;
+/** What a card shows besides Claude's blurb, all from our data. */
+export type PickCard = { place: PickPlace; facts: Fact[] };
 
 type Props = {
   picks: AnswerPick[];
-  /** Pick id → where it is; built by the caller from openings and Opening soon. */
-  places: ReadonlyMap<string, PickPlace>;
+  /** Pick id → where it is and its fact bubbles; built by the caller from openings and Opening soon. */
+  cards: ReadonlyMap<string, PickCard>;
   tried: ReadonlySet<string>;
   onToggleTried: (id: string) => void;
   /** Absent when the map is unavailable. */
@@ -18,23 +21,29 @@ type Props = {
 
 /**
  * The question bar's answer as cards: one per pick, best first, numbered like their map pins.
- * Tapping a name shows the place on the map; open places can be marked "Tried".
+ * Facts are bubbles from our data; Claude's blurb says why it fits the question. Tapping a name
+ * shows the place on the map; open places can be marked "Tried".
  */
-export function AnswerPicks({ picks, places, tried, onToggleTried, onShow, focusedId }: Props) {
+export function AnswerPicks({ picks, cards, tried, onToggleTried, onShow, focusedId }: Props) {
   if (picks.length === 0) return null;
   return (
     <ol className="top-three answer-picks">
       {picks.map((p, i) => {
-        const place = places.get(p.id);
+        const card = cards.get(p.id);
+        const place = card?.place;
         return (
           <li key={p.id} className={p.id === focusedId ? "focused" : undefined}>
             <span className="rank" aria-hidden="true">{i + 1}</span>
             <div className="pick">
               <h3>{place ? <PlaceName place={place} onShow={onShow && (() => onShow(p.id))} /> : p.name}</h3>
-              <p className="where">
-                {p.city ?? "King County"}
-                {p.kind === "soon" && <span className="badge soon-badge">Opening soon</span>}
-              </p>
+              <p className="where">{p.city ?? "King County"}</p>
+              {card && card.facts.length > 0 && (
+                <ul className="facts" aria-label="Facts">
+                  {card.facts.map((f) => (
+                    <li key={f.label} className={`fact ${f.tone}`}>{f.label}</li>
+                  ))}
+                </ul>
+              )}
               <p className="why">{p.blurb}</p>
             </div>
             {p.kind === "open" && (

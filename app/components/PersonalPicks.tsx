@@ -8,8 +8,9 @@
  */
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AllPlaces } from "@/components/AllPlaces";
-import { AnswerPicks, type PickPlace } from "@/components/AnswerPicks";
+import { AnswerPicks, type PickCard } from "@/components/AnswerPicks";
 import type { AnswerPick } from "@/lib/ask";
+import { openingFacts, openingSoonFacts } from "@/lib/format";
 import { AskBar } from "@/components/AskBar";
 import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
@@ -84,15 +85,17 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
     [openings, top, picks, here, openingSoon],
   );
   const everyPlace = useMemo(() => allPlaces(openings, { here, tried }), [openings, here, tried]);
-  const placeById = useMemo(() => {
-    const m = new Map<string, PickPlace>(openings.map((o) => [o.restaurant_id, o]));
-    for (const s of openingSoon) {
-      m.set(s.notice_id, { name: s.trade_name, category: "restaurant", latitude: s.latitude, longitude: s.longitude });
-    }
-    return m;
-  }, [openings, openingSoon]);
+
   const soon = useMemo(() => rankOpeningSoon(openingSoon, here), [openingSoon, here]);
   const focus = useMemo(() => resolveFocus(focused, openings, openingSoon), [focused, openings, openingSoon]);
+  const cardById = useMemo(() => {
+    const m = new Map<string, PickCard>(everyPlace.map((o) => [o.restaurant_id, { place: o, facts: openingFacts(o) }]));
+    for (const s of soon) {
+      const place = { name: s.trade_name, category: "restaurant" as const, latitude: s.latitude, longitude: s.longitude };
+      m.set(s.notice_id, { place, facts: openingSoonFacts(s) });
+    }
+    return m;
+  }, [everyPlace, soon]);
   const focusedId = focus?.id ?? null;
   const showFromList = (id: string) => setFocused((now) => nextFocus(now, { id, from: "list" }));
   const showFromMap = (id: string | null) => setFocused((now) => nextFocus(now, id ? { id, from: "map" } : null));
@@ -124,7 +127,7 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
         <AskBar onAsk={(question) => askQuestion({ question, here, tried })} onPicks={setPicks}>
           <AnswerPicks
             picks={picks}
-            places={placeById}
+            cards={cardById}
             tried={tried}
             onToggleTried={toggle}
             onShow={onShow}
