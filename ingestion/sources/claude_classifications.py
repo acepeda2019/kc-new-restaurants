@@ -125,9 +125,31 @@ def candidate_input(row: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+#: Prior-business fields that change without changing the answer: a neighbour being
+#: re-inspected moves its latest date daily. Left out of the fingerprint (not the prompt).
+_VOLATILE_PRIOR_FIELDS = ("latest_inspection_date",)
+
+
 def input_hash(row: dict[str, Any]) -> str:
-    """sha256 of the candidate's classification inputs (sorted-key JSON)."""
-    payload = json.dumps(candidate_input(row), sort_keys=True, default=str)
+    """sha256 of the candidate's classification inputs (sorted-key JSON).
+
+    Stable across runs: prior businesses are sorted (ties on date have no fixed order
+    upstream) and their volatile fields dropped, so only a real change re-classifies.
+    A candidate with no prior businesses hashes exactly as before this rule.
+    """
+    data = candidate_input(row)
+    priors = data.get("prior_businesses_at_address")
+    if isinstance(priors, list) and priors:
+        stable = [
+            {k: v for k, v in p.items() if k not in _VOLATILE_PRIOR_FIELDS}
+            if isinstance(p, dict)
+            else p
+            for p in priors
+        ]
+        data["prior_businesses_at_address"] = sorted(
+            stable, key=lambda p: json.dumps(p, sort_keys=True, default=str)
+        )
+    payload = json.dumps(data, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode()).hexdigest()
 
 

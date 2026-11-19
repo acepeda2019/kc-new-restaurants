@@ -1,4 +1,5 @@
 import gzip
+import hashlib
 import json
 from types import SimpleNamespace
 from typing import Any
@@ -108,6 +109,37 @@ def test_changed_inputs_are_resent() -> None:
 
 def test_hash_ignores_the_pull_date() -> None:
     assert cc.input_hash(PANINO) == cc.input_hash({**PANINO, "pulled_on": "2026-11-18"})
+
+
+def _with_priors(*priors: dict) -> dict:
+    return {**PANINO, "prior_businesses_at_address": json.dumps(list(priors))}
+
+
+A = {"business_id": "PFE-1", "name": "CANNOLO", "latest_inspection_date": "2026-07-01"}
+B = {"business_id": "PFE-2", "name": "OLD DELI", "latest_inspection_date": "2026-07-01"}
+
+
+def test_hash_ignores_the_order_of_prior_businesses() -> None:
+    # Ties on latest_inspection_date have no fixed order upstream.
+    assert cc.input_hash(_with_priors(A, B)) == cc.input_hash(_with_priors(B, A))
+
+
+def test_hash_ignores_a_prior_business_being_reinspected() -> None:
+    assert cc.input_hash(_with_priors(A)) == cc.input_hash(
+        _with_priors({**A, "latest_inspection_date": "2026-11-18"})
+    )
+
+
+def test_hash_changes_when_a_prior_business_appears_or_changes() -> None:
+    assert cc.input_hash(_with_priors(A)) != cc.input_hash(_with_priors(A, B))
+    assert cc.input_hash(_with_priors(A)) != cc.input_hash(_with_priors({**A, "name": "CANNOLO 2"}))
+
+
+def test_hash_unchanged_for_a_candidate_without_priors() -> None:
+    # Keeps existing fingerprints valid for places with no prior businesses (no re-check).
+    no_priors = {**PANINO, "prior_businesses_at_address": "[]"}
+    legacy = json.dumps(cc.candidate_input(no_priors), sort_keys=True, default=str)
+    assert cc.input_hash(no_priors) == hashlib.sha256(legacy.encode()).hexdigest()
 
 
 def test_record_fields_and_enums() -> None:
