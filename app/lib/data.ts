@@ -69,8 +69,8 @@ export type Metrics = {
 
 /**
  * One row of mart_opening_soon: a King County restaurant licence application (WSLCB) not yet
- * matched to a KC inspection. No coordinates yet (addresses aren't geocoded) and never the
- * licensee name.
+ * matched to a KC inspection. Coordinates come from the Census geocoder (null until matched).
+ * Never the licensee name.
  */
 export type OpeningSoon = {
   notice_id: string;
@@ -80,6 +80,8 @@ export type OpeningSoon = {
   street_address: string | null;
   city: string | null;
   zip5: string | null;
+  latitude: number | null;
+  longitude: number | null;
   licence_label: "full-bar restaurant" | "beer/wine restaurant";
   days_since_application: number;
   why: string;
@@ -120,7 +122,7 @@ const METRICS_KEYS: (keyof Metrics)[] = [
 ];
 const OPENING_SOON_KEYS: (keyof OpeningSoon)[] = [
   "notice_id", "trade_name", "notice_type", "application_date", "street_address", "city", "zip5",
-  "licence_label", "days_since_application", "why", "rank",
+  "latitude", "longitude", "licence_label", "days_since_application", "why", "rank",
 ];
 const MANIFEST_KEYS: (keyof Manifest)[] = [
   "built_at", "run_date", "run_id", "row_count", "opening_soon_count", "schema_version",

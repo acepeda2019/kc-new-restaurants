@@ -6,7 +6,7 @@
 
 extract: KC inspections, then the Census geocoder on that pull's files.
 classify: Claude Haiku on new or changed rows of dbt's int_candidates (needs ANTHROPIC_API_KEY).
-snapshot-lcb: today's WSLCB licence-notice window (Opening soon; not yet used by dbt).
+snapshot-lcb: today's WSLCB notice window (Opening soon), then geocode its King County addresses.
 Each prints one JSON line per step result and exits 1 if a step raises, so the job stops.
 """
 
@@ -65,13 +65,20 @@ def run_classify(run_date: str, run_id: str, db: str, limit: int | None, s3: Any
 
 
 def run_snapshot_lcb(run_date: str, run_id: str, force: bool, s3: Any) -> list[dict]:
-    """Land today's WSLCB licence-notice snapshot (history builds up in raw)."""
+    """Land today's WSLCB licence-notice snapshot, then geocode its new King County addresses."""
     bucket = env("RAW_BUCKET", required=True)
-    return [
-        lcb_local_authority.extract(
-            bucket=bucket, run_date=run_date, run_id=run_id, s3=s3, force=force
-        )
-    ]
+    snapshot = lcb_local_authority.extract(
+        bucket=bucket, run_date=run_date, run_id=run_id, s3=s3, force=force
+    )
+    geo = census_geocoder.extract(
+        bucket=bucket,
+        run_date=run_date,
+        run_id=run_id,
+        kc_keys=[],
+        lcb_keys=snapshot["s3_keys"],
+        s3=s3,
+    )
+    return [snapshot, geo]
 
 
 def main(argv: list[str] | None = None) -> None:

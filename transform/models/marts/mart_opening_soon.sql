@@ -13,6 +13,10 @@ params as (
     select * from {{ ref('opening_soon_params') }}
 ),
 
+geocodes as (
+    select geocode_key, latitude, longitude from {{ ref('stg_census__geocodes') }}
+),
+
 -- "As of" = the newest snapshot, so the cutoff doesn't move with the build machine's clock.
 as_of as (
     select max(last_seen_on) as as_of_date from {{ ref('stg_lcb__notices') }}
@@ -39,9 +43,12 @@ pending as (
         o.city,
         o.zip5,
         coalesce(l.full_bar, l.any_label) as licence_label,
+        g.latitude,
+        g.longitude,
         a.as_of_date - o.application_date as days_since_application
     from opening_soon as o
     join labels as l using (notice_id)
+    left join geocodes as g on g.geocode_key = o.geocode_key
     cross join as_of as a
     cross join params as p
     where o.opened_business_id is null
@@ -56,6 +63,8 @@ select
     street_address,
     city,
     zip5,
+    latitude,   -- null until the geocoder has matched the address
+    longitude,
     licence_label,
     days_since_application,
     case notice_type

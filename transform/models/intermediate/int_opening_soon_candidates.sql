@@ -31,6 +31,8 @@ select
     n.street_address,
     n.city,
     n.zip5,
+    -- Same key rule as KC addresses, so licences join to the shared geocoder responses.
+    {{ geocode_key(street_clean('n.street_address'), 'n.zip5') }} as geocode_key,
     n.privileges,
     n.first_seen_on,
     n.last_seen_on

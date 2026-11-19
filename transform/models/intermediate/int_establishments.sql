@@ -42,11 +42,8 @@ businesses as (
 keyed as (
     select
         *,
-        trim(regexp_replace(
-            trim(regexp_replace(split_part(upper(coalesce(address, '')), ',', 1), '[ \t\n\r\f\v]+', ' ', 'g')),
-            ' (#|STE\.) ?[^ ]+$| (STE|SUITE|UNIT|SPACE|BLDG) [^ ]+$', ''
-        ))                                                                as street_clean,
-        left(trim(coalesce(zip_code, '')), 5)                            as zip5,
+        {{ street_clean('address') }}                                     as street_clean,
+        {{ zip5('zip_code') }}                                            as zip5,
         trim(regexp_replace(upper(coalesce(city, '')), '[ \t\n\r\f\v]+', ' ', 'g')) as city_normalized
     from businesses
 ),
@@ -77,7 +74,7 @@ joined as (
         keyed.address,
         keyed.city_normalized,
         keyed.zip5,
-        case when keyed.street_clean <> '' then md5(keyed.street_clean || '|' || keyed.zip5) end as geocode_key,
+        {{ geocode_key('keyed.street_clean', 'keyed.zip5') }} as geocode_key,
         inspection_summary.* exclude (business_id),
         pulled.pulled_on
     from keyed

@@ -41,8 +41,9 @@ can push cost past the caps.
 GitHub Actions, daily cron + manual run                        .github/workflows/daily.yml
   1. extract   KC inspections, full pull        → s3 raw/kc_inspections/dt=…/<run_id>.jsonl.gz
   2. geocode   new addresses only → Census      → s3 raw/census_geocoder/dt=…/<run_id>/
-  2b. lcb     WSLCB licence-notice window (Opening soon, not yet modelled; may fail without
-              stopping the job) → s3 raw/lcb_local_authority/dt=…/<run_id>.jsonl.gz
+  2b. lcb     WSLCB licence-notice window (Opening soon; may fail without stopping the job)
+              → s3 raw/lcb_local_authority/dt=…/<run_id>.jsonl.gz, then its new King County
+              addresses → Census geocoder (same key rule and cache as KC)
   3. dbt build up to int_candidates (DuckDB, reads raw from S3)    → candidates
   4. classify  candidates never seen before → Claude Haiku → s3 raw/claude_classifications/…
   5. dbt build everything + tests              → mart_new_openings, mart_metrics
@@ -78,7 +79,7 @@ The GitHub Actions failure email is the alert.
 | Map + "All N places" list | `app/` | built (SAN-39b/c) |
 | Capped question bar | `app/api/ask`, `app/components/AskBar.tsx` | built (SAN-40) |
 | Daily workflow + CI | `.github/workflows/` | built (SAN-41); live since 2026-11-19 (first classification run: 637 places, $0.13) |
-| Opening soon: LCB snapshot, staging and rules | `ingestion/sources/lcb_local_authority.py`, `transform/models/staging/lcb/`, `int_opening_soon_candidates` | built (SAN-44, SAN-46, SAN-47 rule matching, SAN-48 `mart_opening_soon` + export, schema v2); geocoding and app planned |
+| Opening soon: LCB snapshot, staging and rules | `ingestion/sources/lcb_local_authority.py`, `transform/models/staging/lcb/`, `int_opening_soon_candidates` | built (SAN-44, SAN-46, SAN-47 rule matching, SAN-48 `mart_opening_soon` + export, schema v2, SAN-50 geocoded); app planned (SAN-49) |
 
 ## 3. Sources
 

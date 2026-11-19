@@ -1,4 +1,4 @@
-"""US Census batch geocoder: geocode KC addresses not yet in raw geocode results.
+"""US Census batch geocoder: geocode KC and WSLCB addresses not yet in raw geocode results.
 
 Source card: ``docs/source_cards/census_geocoder.md``.
 
@@ -120,6 +120,22 @@ def iter_kc_rows(s3: Any, bucket: str, key: str) -> Iterator[dict[str, Any]]:
         for line in io.TextIOWrapper(gz, encoding="utf-8"):
             if line.strip():
                 yield json.loads(line)
+
+
+def iter_lcb_address_rows(s3: Any, bucket: str, key: str) -> Iterator[dict[str, Any]]:
+    """King County addresses from one WSLCB snapshot, shaped like KC rows for ``build_inputs``.
+
+    Same key rule as KC, so both sources share one geocode cache (Opening soon pins, SAN-50).
+    Other counties are skipped: the app is King County only.
+    """
+    for row in iter_kc_rows(s3, bucket, key):
+        if str(row.get("countyname", "")).strip().upper() != "KING":
+            continue
+        yield {
+            "address": row.get("streetaddress"),
+            "city": row.get("city"),
+            "zip_code": row.get("zipcode"),
+        }
 
 
 def build_inputs(rows: Iterable[Mapping[str, Any]]) -> tuple[list[GeocodeInput], InputStats]:
@@ -545,6 +561,7 @@ def extract(
     run_id: str,
     kc_keys: list[str],
     s3: Any,
+    lcb_keys: list[str] | None = None,
     session: requests.Session | None = None,
     benchmark: str = BENCHMARK,
     chunk_size: int = MAX_CHUNK_SIZE,
@@ -552,10 +569,11 @@ def extract(
     sleep: Callable[[float], None] = time.sleep,
     chunk_pause_s: float = CHUNK_PAUSE_S,
 ) -> dict[str, Any]:
-    """Geocode new addresses from the given KC raw files. Returns the step result dict."""
+    """Geocode new addresses from the given KC (and WSLCB) raw files. Returns the step result."""
     validate_run_id(run_id)
-    if not kc_keys:
-        raise ExtractError("no KC raw keys given to the geocoder")
+    lcb_keys = lcb_keys or []
+    if not kc_keys and not lcb_keys:
+        raise ExtractError("no raw keys given to the geocoder")
     if not 1 <= chunk_size <= 10_000:
         raise ValueError("chunk_size must be between 1 and 10,000")
     started_at = utc_now_iso()
@@ -564,6 +582,8 @@ def extract(
     def all_rows() -> Iterator[dict[str, Any]]:
         for key in kc_keys:
             yield from iter_kc_rows(s3, bucket, key)
+        for key in lcb_keys:
+            yield from iter_lcb_address_rows(s3, bucket, key)
 
     inputs, stats = build_inputs(all_rows())
     prior = load_prior_status(s3, bucket)
@@ -600,6 +620,7 @@ def extract(
         "key_rule_version": KEY_RULE_VERSION,
         "started_at": started_at,
         "kc_input_keys": kc_keys,
+        "lcb_input_keys": lcb_keys,
         "counts": counts,
     }
     written: list[str] = []

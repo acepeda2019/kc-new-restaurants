@@ -10,7 +10,7 @@ import responses
 
 from sources import census_geocoder as geo
 from sources.common import STATUS_SUCCEEDED, ExtractError
-from sources.geocode_key import KEY_RULE_VERSION
+from sources.geocode_key import KEY_RULE_VERSION, key_from_parts, normalize_street
 from tests.conftest import (
     BUCKET,
     all_keys,
@@ -417,3 +417,61 @@ def test_find_kc_keys_prefers_run_id_then_latest(s3) -> None:
     assert geo.find_kc_keys(s3, BUCKET, RUN_DATE) == [other]
     with pytest.raises(ExtractError):
         geo.find_kc_keys(s3, BUCKET, "2026-01-01")
+
+
+# --------------------------------------------------------------------------- WSLCB addresses
+
+
+def test_lcb_king_addresses_share_the_kc_key_rule_and_other_counties_are_skipped(
+    s3, http, no_sleep
+) -> None:
+    lcb_key = f"raw/lcb_local_authority/dt={RUN_DATE}/{RUN_ID}.jsonl.gz"
+    seed(
+        s3,
+        lcb_key,
+        gz_jsonl(
+            [
+                {
+                    "streetaddress": "18230 E VALLEY HWY STE 136",
+                    "city": "KENT",
+                    "zipcode": "980321294",
+                    "countyname": "KING",
+                },
+                {
+                    "streetaddress": "32420 RAINIER AVE NE STE 100",
+                    "city": "PORT GAMBLE",
+                    "zipcode": "983641204",
+                    "countyname": "KITSAP",
+                },
+            ]
+        ),
+    )
+    expected = key_from_parts(normalize_street("18230 E VALLEY HWY STE 136"), "98032")
+
+    def callback(request: Any) -> tuple[int, dict[str, str], bytes]:
+        ids = request_ids(multipart_file(request))
+        addr = "18230 E VALLEY HWY, KENT, WA, 98032"
+        line = f'"{ids[0]}","{addr}","Match","Exact","{addr}","-122.2,47.4","1","L"'
+        return 200, {"Content-Type": "text/csv"}, (line + "\n").encode()
+
+    http.add_callback(responses.POST, geo.BATCH_URL, callback=callback)
+    result = geo.extract(
+        bucket=BUCKET,
+        run_date=RUN_DATE,
+        run_id=RUN_ID,
+        kc_keys=[],
+        lcb_keys=[lcb_key],
+        s3=s3,
+        sleep=no_sleep.append,
+    )
+
+    sent = request_ids(multipart_file(http.calls[0].request))
+    assert sent == [expected]  # Kitsap skipped; STE 136 and ZIP+4 normalised like KC
+    assert result["match_counts"] == {"Match": 1}
+    manifest = json.loads(object_body(s3, result["s3_keys"][-1]))
+    assert manifest["lcb_input_keys"] == [lcb_key] and manifest["kc_input_keys"] == []
+
+
+def test_geocoder_needs_some_input(s3) -> None:
+    with pytest.raises(ExtractError, match="no raw keys"):
+        geo.extract(bucket=BUCKET, run_date=RUN_DATE, run_id=RUN_ID, kc_keys=[], s3=s3)

@@ -60,6 +60,11 @@ models:
         data_tests: [unique, not_null]
       - name: trade_name
         data_tests: [not_null]
+      - name: latitude
+        description: "From the Census geocoder (same address key rule as KC); null until matched."
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "latitude is null or latitude between 47.0 and 48.0"}
       - name: licence_label
         data_tests:
           - accepted_values:
