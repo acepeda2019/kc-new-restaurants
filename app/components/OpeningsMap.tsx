@@ -12,7 +12,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, Map as MapLibreMap, Popup } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import { PIN_COLORS } from "@/components/MapLegend";
-import { boundsOf, cameraTarget, homeView, popupText, type MapFocus, type PinProps, type Pins } from "@/lib/pins";
+import {
+  TAP_RADIUS_PX, boundsOf, cameraTarget, homeView, nearestPin, popupText, type MapFocus, type PinProps, type Pins,
+} from "@/lib/pins";
 
 // OpenFreeMap: free, no key. Override with any MapLibre style URL.
 const STYLE_URL = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/dark";
@@ -247,10 +249,30 @@ export function OpeningsMap({ pins, focus, onFocus, onUnavailable }: Props) {
         });
         // Hovering a pin names it (mouse only; touch has no hover).
         const hover = new maplibre.Popup({ closeButton: false, closeOnClick: false, className: "pin-hover", offset: 12 });
-        map.on("click", SOURCE_ID, (e) => {
+        // A tap anywhere within TAP_RADIUS_PX of pins picks the nearest one, so small pins
+        // don't need a pixel-perfect finger (SAN-52).
+        map.on("click", (e) => {
+          if (!map) return;
+          const r = TAP_RADIUS_PX;
+          const { x, y } = e.point;
+          const near = map.queryRenderedFeatures(
+            [
+              [x - r, y - r],
+              [x + r, y + r],
+            ],
+            { layers: [SOURCE_ID] },
+          );
+          const hit = nearestPin(
+            near.flatMap((f) => {
+              if (f.geometry.type !== "Point") return [];
+              const at = map!.project(f.geometry.coordinates as [number, number]);
+              return [{ item: f, x: at.x, y: at.y }];
+            }),
+            e.point,
+          );
           hover.remove(); // the click's own popup replaces it
-          const props = e.features?.[0]?.properties as PinProps | undefined;
-          if (!props || !map) return;
+          const props = hit?.properties as PinProps | undefined;
+          if (!props) return;
           if (props.kind === "you") {
             new maplibre.Popup().setLngLat(e.lngLat).setText(popupText(props)).addTo(map);
             return;
