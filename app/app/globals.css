@@ -295,6 +295,41 @@ button.link {
   margin: 1rem 0 0.25rem;
 }
 
+.all-places {
+  margin-top: 1rem;
+}
+
+.all-places summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.all-places ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.5rem;
+}
+
+.all-places li {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.all-places p {
+  margin: 0;
+}
+
+.all-places .why {
+  font-size: 0.9rem;
+}
+
+.tried-tag {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: #eee;
+  font-size: 0.75rem;
+}
+
 .food-trucks ul {
   margin: 0;
   padding-left: 1.25rem;
@@ -313,5 +348,11 @@ button.link {
   }
   .map-unavailable {
     color: #aaa;
+  }
+  .all-places li {
+    border-color: #333;
+  }
+  .tried-tag {
+    background: #2a2a2a;
   }
 }
