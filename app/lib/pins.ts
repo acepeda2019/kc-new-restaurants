@@ -11,8 +11,8 @@ import type { LatLon } from "@/lib/rank";
  */
 export type PinKind = "top" | "wary" | "new" | "soon" | "you";
 /**
- * Top pins only: `rank` (1-3) is the place's position in the personal top 3, the number on its
- * card, and `label` is its name for the map's text layer.
+ * Top pins only: `rank` (1-5) is the place's position in the answer's picks or the personal top 3,
+ * the number on its card, and `label` is its name for the map's text layer.
  */
 export type PinProps = { id: string; kind: PinKind; name: string; why: string; rank?: number; label?: string };
 export type PinFeature = {

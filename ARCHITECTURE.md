@@ -278,7 +278,10 @@ where it serves, so it can't be "near you".
 - **Question bar** (`app/components/AskBar.tsx`, `app/lib/askClient.ts`): an input (500
   characters max) and four example chips. The browser sends the question with the visitor's
   location and "Tried it" ids; the reply is `{answer, picks, left}`, and the bar shows the answer as
-  plain text and "N left today". A cap hit or error shows the server's message instead.
+  plain text and "N left today", then one card per pick (`app/components/AnswerPicks.tsx`):
+  number, name, city, an "Opening soon" badge where it applies, the blurb, and "Tried" for open
+  places. The picks take over the numbered map pins (card order) until the next question;
+  tapping a name flies the map there, as in the lists. A cap hit or error shows the server's message instead.
 - **Answer style:** a one- or two-sentence summary plus at most 5 picks, each with a one- or
   two-sentence blurb of useful facts. "Likely <cuisine>" for
   inferred cuisine. "Wary" answers cite the inspection date and red points. Say plainly

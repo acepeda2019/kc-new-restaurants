@@ -10,7 +10,7 @@ export const PIN_COLORS: Record<PinKind, string> = {
 };
 
 const LABELS: { kind: PinKind; label: string }[] = [
-  { kind: "top", label: "Your top 3" },
+  { kind: "top", label: "Top picks" },
   { kind: "new", label: "Other new places" },
   { kind: "wary", label: "Red points at latest inspection" },
   { kind: "soon", label: "Opening soon" },

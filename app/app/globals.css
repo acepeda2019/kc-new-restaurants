@@ -894,3 +894,17 @@ button.link {
     background: none;
   }
 }
+
+/* Answer cards (question bar): reuse the top-3 card styles inside the answer box. */
+.answer-picks {
+  margin-top: 12px;
+}
+
+.soon-badge {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1px solid #c9b6ff;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: #c9b6ff;
+}
