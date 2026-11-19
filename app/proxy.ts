@@ -3,7 +3,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth";
 
-const PUBLIC_PATHS = new Set(["/login", "/api/login"]);
+// The link preview image and icons (SAN-54) are public so link previews can fetch them; they
+// carry the brand only, never restaurant data.
+const PUBLIC_PATHS = new Set(["/login", "/api/login", "/opengraph-image", "/icon.svg", "/apple-icon"]);
 
 export async function proxy(request: NextRequest) {
   if (PUBLIC_PATHS.has(request.nextUrl.pathname)) return NextResponse.next();

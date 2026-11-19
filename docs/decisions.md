@@ -9,6 +9,11 @@ This is the *why*. The current system is described in `ARCHITECTURE.md`; an entr
 - **Decision:** the daily build makes one Haiku call (`WRITE_AI_BRIEF=1`, set only in `daily.yml`) that words the same facts the template uses. Claude names places only as `{{id}}` tokens; the build accepts the text only if every id is a place in the facts, it's under 500 characters and has no HTML, else it uses the template. Labelled "AI summary". Not a request-time call, so the guardrail that `/api/ask` is the only request-time Claude call still holds.
 - **Consequences:** about one Haiku call a day (well under a cent). Preview and local builds never call Claude. Once a visitor shares their location the template brief takes over, since only it knows what's near them.
 
+## 2026-11-19 — A public link-preview image
+- **Context:** a shared link showed a plain grey bubble with the default Next.js icon; the owner wants a picture, like other apps (SAN-54).
+- **Decision:** a generated 1200×630 preview image, an SVG icon and a phone home-screen icon, with Open Graph and Twitter tags in the root layout. Link previews can't pass the passcode, so they see `/login`, which carries the tags; the three image paths are added to the proxy's public list.
+- **Consequences:** three paths are public, by exact match, and show the brand only; restaurant data stays behind the passcode. The preview image's URL is fixed to the production domain (`metadataBase`).
+
 ## 2026-11-19 — The page is the question bar: a Today brief replaces every panel
 - **Context:** the owner wants the app centred on the question bar, encouraging exploration by asking rather than browsing tiles, cards and lists (the 2018 pattern). A first version with cards on load still took too much space.
 - **Decision:** before the first question, a two- or three-sentence "Today" brief sits under the bar in a gradient-bordered panel, with tappable place names and up to four chips that follow from it. It's written by a template from the page's data (no Claude call) and labelled "Today", not "AI summary", until Claude writes it (next PR, publish-time). Removed: the top 3 panel, the three stat tiles, the Opening soon panel and the All places list. "Use my location" is a pin button in the bar. On desktop the bar is centred at the top.

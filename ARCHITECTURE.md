@@ -206,6 +206,10 @@ near me). Named places with a pin are buttons that fly the map there.
   without a valid `kcne_session` cookie to `/login`. `/api/login` checks one shared
   passcode and sets the cookie (HMAC-signed with `SESSION_SECRET`, 30 days). Missing
   secrets fail closed. The JSON is served only through the app, never from a public URL.
+  The only other public paths are the link-preview image and icons (`/opengraph-image`,
+  `/icon.svg`, `/apple-icon`, drawn at build time from `app/opengraph-image.tsx`,
+  `app/icon.svg`, `app/apple-icon.tsx`): brand only, never restaurant data. Link previews
+  can't pass the passcode, so they read the Open Graph tags (root layout) on `/login`.
 - **Data:** `openings.json`, `metrics.json` and `opening_soon.json` (plus `manifest.json`:
   row count, Opening soon count, schema version 2) are baked into each deploy. A dated copy of every published export stays in
   `s3://$RAW_BUCKET/exports/dt=…/<run_id>/` (never overwritten); the guard compares with
