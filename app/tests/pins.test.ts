@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Opening } from "@/lib/data";
 import {
   FOCUS_ZOOM, KING_COUNTY_BOUNDS, YOU_ZOOM, boundsOf, cameraTarget, focusTarget, nextFocus, offMapNote, popupText,
-  resolveFocus, toPins, trucksOf,
+  resolveFocus, toPins,
 } from "@/lib/pins";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
@@ -92,21 +92,6 @@ describe("toPins", () => {
     const you = withHere.filter((f) => f.properties.kind === "you");
     expect(you).toHaveLength(1);
     expect(you[0].geometry.coordinates).toEqual([BELLEVUE.lon, BELLEVUE.lat]);
-  });
-});
-
-describe("trucksOf", () => {
-  it("lists only the food trucks, in the given order", () => {
-    const rows = [
-      opening("t2", null, { category: "food_truck" }),
-      opening("fixed", SEATTLE),
-      opening("t1", null, { category: "food_truck" }),
-    ];
-    expect(trucksOf(rows).map((o) => o.restaurant_id)).toEqual(["t2", "t1"]);
-  });
-
-  it("is empty when there are no trucks", () => {
-    expect(trucksOf([opening("fixed", SEATTLE)])).toEqual([]);
   });
 });
 

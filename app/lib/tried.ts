@@ -94,7 +94,7 @@ export function triedSnapshot(storage: KeyValueStore | undefined = browserStorag
 }
 
 /**
- * Ids to leave out of the top 3: every tried place except the one just marked, which stays
+ * Ids hidden as tried: every tried place except the one just marked, which stays
  * on screen (button pressed) so it can be undone in place.
  */
 export function hiddenFromTop(tried: Set<string>, justMarked: string | null): Set<string> {
@@ -106,7 +106,7 @@ export function nextJustMarked(id: string, triedAfter: Set<string>): string | nu
   return triedAfter.has(id) ? id : null;
 }
 
-/** How many listed places are hidden from the top 3 as tried (the just-marked one is still shown). */
+/** How many listed places are hidden as tried (the just-marked one is still shown). */
 export function hiddenCount(openings: { restaurant_id: string }[], tried: Set<string>, justMarked: string | null): number {
   const hidden = hiddenFromTop(tried, justMarked);
   return openings.filter((o) => hidden.has(o.restaurant_id)).length;

@@ -1,23 +1,32 @@
 "use client";
 
 /**
- * The question bar (SAN-40b): input, example chips and the answer. The caller binds `onAsk`
- * to the visitor's location and "Tried it" marks; the API checks the caps before Claude.
+ * The question bar (SAN-40b): input, location button, chips and the answer. Before the
+ * first question it shows the caller's "Today" brief (`intro`) as plain text under the bar,
+ * with chips that follow from it; an answer's cards come in as `children`. The caller binds `onAsk` to the visitor's location and "Tried it" marks; the
+ * API checks the caps before Claude.
  * Answers are plain text, rendered as text (never HTML).
  */
 import { useState, type FormEvent, type ReactNode } from "react";
 import type { AnswerPick } from "@/lib/ask";
-import { ASK_CHIPS, MAX_QUESTION_CHARS, type AskResult } from "@/lib/askClient";
+import { MAX_QUESTION_CHARS, type AskResult } from "@/lib/askClient";
+
+export type LocationStatus = "idle" | "asking" | "found" | "unavailable";
 
 type Props = {
   onAsk: (question: string) => Promise<AskResult>;
+  /** The Today brief, shown as plain text under the bar until the first question. */
+  intro: ReactNode;
+  /** Question chips (the brief's follow-ups). */
+  chips: string[];
+  location: { status: LocationStatus; onLocate: () => void };
   /** Told the answer's picks (empty when a new question starts or fails), so the map can highlight them. */
   onPicks?: (picks: AnswerPick[]) => void;
   /** The answer cards, shown under the answer text. */
   children?: ReactNode;
 };
 
-export function AskBar({ onAsk, onPicks, children }: Props) {
+export function AskBar({ onAsk, intro, chips, location, onPicks, children }: Props) {
   const [question, setQuestion] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<AskResult | null>(null);
@@ -64,6 +73,21 @@ export function AskBar({ onAsk, onPicks, children }: Props) {
           enterKeyHint="send"
         />
         {left !== null && <span className="ask-left">{left} left today</span>}
+        <button
+          type="button"
+          className="ask-locate"
+          onClick={location.onLocate}
+          aria-disabled={location.status === "asking"}
+          aria-pressed={location.status === "found"}
+          title={location.status === "found" ? "Using your location" : "Use my location"}
+        >
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z" />
+            <circle cx="12" cy="11" r="2.2" />
+          </svg>
+          <span className="sr-only">{location.status === "asking" ? "Finding you…" : "Use my location"}</span>
+        </button>
         <button type="submit" className="ask-send" aria-label="Ask" aria-disabled={pending}>
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -72,18 +96,26 @@ export function AskBar({ onAsk, onPicks, children }: Props) {
         </button>
       </form>
 
-      <ul className="ask-chips" aria-label="Example questions">
-        {ASK_CHIPS.map((text) => (
-          <li key={text}>
-            <button type="button" className="chip" onClick={() => chip(text)} aria-disabled={pending}>
-              {text}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <p role="status" className="locate-status">
+        {location.status === "asking" && "Finding you…"}
+        {location.status === "unavailable" && "Location unavailable — showing the default order"}
+        {location.status === "found" && "Showing what's near you"}
+      </p>
 
       <div role="status" aria-live="polite" className="ask-answer-wrap">
         {pending && <p className="ask-pending">Thinking…</p>}
+        {!pending && !result && (
+          <div className="ask-brief">
+            <span className="ask-brief-label">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+              </svg>
+              Today
+            </span>
+            {intro}
+          </div>
+        )}
         {!pending && result && (
           <div className={result.ok ? "ask-answer" : "ask-answer ask-error"}>
             <span className="ask-label">{result.ok ? "Answer" : "Couldn't answer"}</span>
@@ -92,6 +124,16 @@ export function AskBar({ onAsk, onPicks, children }: Props) {
           </div>
         )}
       </div>
+
+      <ul className="ask-chips" aria-label="Example questions">
+        {chips.map((text) => (
+          <li key={text}>
+            <button type="button" className="chip" onClick={() => chip(text)} aria-disabled={pending}>
+              {text}
+            </button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

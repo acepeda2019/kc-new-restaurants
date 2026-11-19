@@ -10,7 +10,6 @@ import type { LatLon } from "@/lib/rank";
 export const MAX_QUESTION_CHARS = 500;
 
 /** Example questions shown as chips under the bar (from the design mockup). */
-export const ASK_CHIPS = ["Newest near me", "Skip ones I've tried", "Any to be wary of?", "New cafés this month"];
 
 export type AskInput = { question: string; here?: LatLon; tried: Set<string> };
 export type AskResult =

@@ -241,6 +241,67 @@ input {
   white-space: nowrap;
 }
 
+/*
+ * The Today brief: a short paragraph under the bar, framed by a lime-to-lavender gradient
+ * border (the border-box layer shows through a transparent border) so it reads as a summary
+ * and stands off the map.
+ */
+.ask-brief {
+  margin-top: 12px;
+  padding: 14px 18px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    linear-gradient(120deg, rgba(212, 247, 90, 0.85), rgba(201, 182, 255, 0.85) 55%, rgba(127, 209, 255, 0.7)) border-box;
+  box-shadow: 0 0 24px rgba(201, 182, 255, 0.12);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.ask-brief-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lime);
+}
+
+.ask-brief p {
+  margin: 0;
+  display: inline;
+}
+
+.ask-brief p + p::before {
+  content: " ";
+}
+
+.ask-brief strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ask-locate {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-2);
+}
+
+.ask-locate[aria-pressed="true"] {
+  color: var(--lime);
+}
+
 .ask-send {
   flex: none;
   display: flex;
@@ -409,53 +470,6 @@ input {
   white-space: nowrap;
 }
 
-/* Stat tiles: number first, label under it (dt stays first in the markup). */
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.metrics > div {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--tile);
-}
-
-.metrics dt {
-  order: 1;
-  font-size: 0.75rem;
-  line-height: 1.3;
-  color: var(--text-3);
-}
-
-.metrics .number {
-  font-size: 1.625rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1;
-}
-
-.metrics .note {
-  order: 2;
-  font-size: 0.75rem;
-  line-height: 1.3;
-  color: var(--muted);
-}
-
-.metrics .compare {
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: #1b2016; /* the lime at 10% over the tile */
-  color: var(--lime);
-  font-weight: 500;
-}
-
 /* Top 3. */
 .top-three {
   margin-top: 8px;
@@ -473,9 +487,7 @@ input {
 }
 
 /* The place shown on the map. */
-.top-three li.focused,
-.all-places li.focused,
-.soon-list li.focused {
+.top-three li.focused {
   border-radius: 12px;
   background: rgba(212, 247, 90, 0.08);
   box-shadow: inset 0 0 0 1px rgba(212, 247, 90, 0.45);
@@ -602,72 +614,8 @@ button.link {
   text-decoration: underline;
 }
 
-/* Food trucks and the All places list. */
-.food-trucks h3 {
-  margin: 12px 0 4px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.food-trucks ul,
-.all-places ul {
-  padding-left: 1.25rem;
-  font-size: 0.875rem;
-}
-
-.all-places summary {
-  padding: 10px 0; /* 44px tall; stays a list item so the open/closed triangle shows */
-  margin-top: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.all-places li {
-  padding: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Opening soon (SAN-49): licence applications, not open yet. */
-.soon-source {
-  margin: 2px 0 8px;
-  font-size: 0.8125rem;
-  color: var(--muted);
-}
-
-.soon-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 0.875rem;
-}
-
-.soon-list li {
-  padding: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.soon-list p {
-  margin: 0;
-}
-
-.soon-list .why {
-  margin-top: 2px;
-  color: var(--text-3);
-}
-
 .swatch.soon {
   background: transparent;
-}
-
-.tried-tag {
-  margin-left: 0.5rem;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--tile);
-  font-size: 0.75rem;
-  color: var(--text-2);
 }
 
 /*
@@ -774,8 +722,7 @@ button.link {
     pointer-events: none;
   }
 
-  .panel,
-  .metrics > div {
+  .panel {
     pointer-events: auto;
   }
 
@@ -795,8 +742,9 @@ button.link {
 
   .panels {
     display: grid;
-    grid-template-columns: minmax(0, 380px) 1fr minmax(0, 220px);
-    grid-template-areas: "picks ask stats" "places . soon";
+    /* The question bar is the page: one centred column over the map. */
+    grid-template-columns: 1fr;
+    grid-template-areas: "ask";
     align-items: start;
     gap: 12px 16px;
     margin: 0;
@@ -827,51 +775,27 @@ button.link {
   }
 
   .ask-form {
-    background: var(--panel);
-    backdrop-filter: blur(20px);
-    box-shadow: var(--shadow);
+    height: 64px;
+    font-size: 1.125rem;
   }
 
   .ask-chips {
     justify-content: center;
   }
 
-  .ask-answer {
+  .ask-brief {
+    backdrop-filter: blur(20px);
+  }
+
+  .ask-form {
+    background: var(--panel);
     backdrop-filter: blur(20px);
     box-shadow: var(--shadow);
   }
 
-  .picks {
-    grid-area: picks;
-  }
-
-  .soon {
-    grid-area: soon;
-  }
-
-  .places {
-    grid-area: places;
-  }
-
-  .metrics {
-    grid-area: stats;
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .metrics > div {
-    padding: 16px 18px;
-    border-radius: 20px;
-    background: var(--panel);
+  .ask-answer {
     backdrop-filter: blur(20px);
-  }
-
-  .metrics dt {
-    font-size: 0.8125rem;
-  }
-
-  .metrics .number {
-    font-size: 2.25rem;
+    box-shadow: var(--shadow);
   }
 
   .top-three li:last-child {

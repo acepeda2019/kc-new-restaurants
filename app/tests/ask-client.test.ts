@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { ASK_CHIPS, MAX_QUESTION_CHARS, askQuestion } from "@/lib/askClient";
+import { MAX_QUESTION_CHARS, askQuestion } from "@/lib/askClient";
+import { todayBrief } from "@/lib/brief";
 
 function fakeFetch(status: number, body: unknown) {
   return vi.fn(async () => new Response(JSON.stringify(body), { status }));
@@ -69,9 +70,10 @@ describe("askQuestion", () => {
   });
 });
 
-describe("ASK_CHIPS", () => {
-  it("are short example questions within the length limit", () => {
-    expect(ASK_CHIPS.length).toBeGreaterThanOrEqual(3);
-    for (const chip of ASK_CHIPS) expect(chip.length).toBeLessThanOrEqual(MAX_QUESTION_CHARS);
+describe("brief chips", () => {
+  it("fit in a question", () => {
+    const { chips } = todayBrief({ openings: [], openingSoon: [], metrics: { opened_last_7_days: 0, opened_last_30_days: 0 } });
+    expect(chips.length).toBeGreaterThanOrEqual(1);
+    for (const chip of chips) expect(chip.length).toBeLessThanOrEqual(MAX_QUESTION_CHARS);
   });
 });
