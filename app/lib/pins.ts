@@ -170,3 +170,28 @@ export function resolveFocus(
   const at = soon && soonSpot(soon);
   return at ? { ...focus, center: [at.lon, at.lat], zoom: FOCUS_ZOOM } : null;
 }
+
+/** How far from a tap (in screen pixels) a pin still counts as tapped: about half a fingertip. */
+export const TAP_RADIUS_PX = 22;
+
+/**
+ * The pin a tap meant (SAN-52): the nearest one within `radius` pixels of the tap, or null.
+ * Small pins are hard to hit with a finger, and overlapping ones need a tie-break; on equal
+ * distance the first candidate wins (MapLibre lists the top-drawn feature first).
+ */
+export function nearestPin<T>(
+  candidates: { item: T; x: number; y: number }[],
+  tap: { x: number; y: number },
+  radius = TAP_RADIUS_PX,
+): T | null {
+  let best: T | null = null;
+  let bestD = radius;
+  for (const c of candidates) {
+    const d = Math.hypot(c.x - tap.x, c.y - tap.y);
+    if (d < bestD || (best === null && d <= radius)) {
+      best = c.item;
+      bestD = d;
+    }
+  }
+  return best;
+}

@@ -240,7 +240,8 @@ near me). Named places with a pin are buttons that fly the map there.
   every pin, or to the visitor once located, and closes any popup (`homeView`). Clicking a
   place's name on a card or in the brief flies the map to its pin, opens its popup
   (name · why, as text) and highlights the pin and the card; clicking the name again or
-  pressing Escape clears it, and clicking a pin highlights its card. On desktop, hovering a
+  pressing Escape clears it, and clicking a pin highlights its card. A tap counts for the nearest pin within 22px
+  (`nearestPin`, `TAP_RADIUS_PX`), so small pins work with a finger. On desktop, hovering a
   pin shows its name. The camera pads around the floating panels so pins never land under
   them. Food trucks get no pin; they come up by asking. If the map or
   its style fails to load, a "Map unavailable. The question bar still works." note shows on the plain dark ground, names

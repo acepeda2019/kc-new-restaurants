@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Opening } from "@/lib/data";
 import {
-  FOCUS_ZOOM, KING_COUNTY_BOUNDS, YOU_ZOOM, boundsOf, cameraTarget, focusTarget, homeView, nextFocus, offMapNote, popupText,
+  FOCUS_ZOOM, KING_COUNTY_BOUNDS, TAP_RADIUS_PX, YOU_ZOOM, boundsOf, cameraTarget, focusTarget, homeView, nearestPin, nextFocus,
+  offMapNote, popupText,
   resolveFocus, toPins,
 } from "@/lib/pins";
 
@@ -230,5 +231,26 @@ describe("homeView (reset map view)", () => {
 
   it("falls back to King County with no pins", () => {
     expect(homeView(toPins([], { topIds: new Set() }))).toEqual({ bounds: KING_COUNTY_BOUNDS });
+  });
+});
+
+describe("nearestPin (finger-sized taps)", () => {
+  const at = (item: string, x: number, y: number) => ({ item, x, y });
+
+  it("picks the nearest pin within the radius", () => {
+    expect(nearestPin([at("far", 20, 0), at("near", 5, 5)], { x: 0, y: 0 })).toBe("near");
+  });
+
+  it("ignores pins beyond the radius", () => {
+    expect(nearestPin([at("a", 30, 0)], { x: 0, y: 0 })).toBeNull();
+    expect(nearestPin([at("a", TAP_RADIUS_PX, 0)], { x: 0, y: 0 })).toBe("a");
+  });
+
+  it("keeps the first (top-drawn) pin on a tie", () => {
+    expect(nearestPin([at("top", 3, 4), at("under", 4, 3)], { x: 0, y: 0 })).toBe("top");
+  });
+
+  it("returns null with no pins", () => {
+    expect(nearestPin([], { x: 0, y: 0 })).toBeNull();
   });
 });
