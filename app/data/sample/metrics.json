@@ -1,0 +1,40 @@
+{
+ "built_at": "2026-11-18 16:10:11.980489-08",
+ "pulled_on": "2026-11-17",
+ "opened_last_30_days": 10,
+ "opened_prior_30_days": 2,
+ "opened_last_7_days": 4,
+ "opened_last_180_days": 14,
+ "clean_first_inspection_count": 7,
+ "by_city": [
+  {
+   "city": "SEATTLE",
+   "openings": 7
+  },
+  {
+   "city": "REDMOND",
+   "openings": 2
+  },
+  {
+   "city": "BUCKLEY",
+   "openings": 1
+  },
+  {
+   "city": "BURIEN",
+   "openings": 1
+  },
+  {
+   "city": "FEDERAL WAY",
+   "openings": 1
+  },
+  {
+   "city": "KENT",
+   "openings": 1
+  },
+  {
+   "city": "WOODINVILLE",
+   "openings": 1
+  }
+ ],
+ "pending_review_count": 2
+}
