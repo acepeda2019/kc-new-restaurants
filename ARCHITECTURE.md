@@ -78,7 +78,7 @@ The GitHub Actions failure email is the alert.
 | Map + "All N places" list | `app/` | built (SAN-39b/c) |
 | Capped question bar | `app/api/ask`, `app/components/AskBar.tsx` | built (SAN-40) |
 | Daily workflow + CI | `.github/workflows/` | built (SAN-41); live since 2026-11-19 (first classification run: 637 places, $0.13) |
-| Opening soon: LCB snapshot, staging and rules | `ingestion/sources/lcb_local_authority.py`, `transform/models/staging/lcb/`, `int_opening_soon_candidates` | built (SAN-44, SAN-46); matching, mart and app planned (SAN-47–49) |
+| Opening soon: LCB snapshot, staging and rules | `ingestion/sources/lcb_local_authority.py`, `transform/models/staging/lcb/`, `int_opening_soon_candidates` | built (SAN-44, SAN-46, SAN-47 rule matching); mart and app planned (SAN-48–49) |
 
 ## 3. Sources
 

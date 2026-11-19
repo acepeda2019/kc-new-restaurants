@@ -36,3 +36,82 @@ models:
         data_tests:
           - accepted_values:
               arguments: {values: ["NEW LICENSE APPLICATION", "CHANGE OF LOCATION"]}
+  - name: int_lcb_match_pairs
+    description: "Grain: one row per (Opening soon notice, KC business) pair at the same ZIP and street number, with the cleaned-name Jaro-Winkler score and the rule decision: match, review, different_name, or previous_business (first inspected too long before the application)."
+    columns:
+      - name: pair_id
+        data_tests: [unique, not_null]
+      - name: name_score
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "name_score between 0 and 1"}
+      - name: decision
+        data_tests:
+          - accepted_values:
+              arguments: {values: [match, review, different_name, previous_business]}
+  - name: int_opening_soon
+    description: "Grain: one row per Opening soon notice (King County restaurant licence application), with the KC business it opened as, if any: an owner override first, else the best rule match. pairs_for_review counts borderline pairs for the owner to check."
+    columns:
+      - name: notice_id
+        data_tests: [unique, not_null]
+      - name: match_method
+        data_tests:
+          - accepted_values:
+              arguments: {values: [rule, override]}
+      - name: opened_on
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "opened_on is null or opened_business_id is not null"}
+
+unit_tests:
+  - name: lcb_pairs_decide_match_review_previous_and_skip_other_addresses
+    model: int_lcb_match_pairs
+    given:
+      - input: ref('int_opening_soon_candidates')
+        rows:
+          - {notice_id: "N1", application_date: "2026-11-04", trade_name: "DANTINI DELLO LLC", street_address: "704 NW 65TH ST", zip5: "98117"}
+      - input: ref('int_establishments')
+        rows:
+          - {business_id: "B_SAME", business_name: "Dantini Dello", address: "704 NW 65TH ST", zip5: "98117", first_inspection_date: "2026-12-10"}
+          - {business_id: "B_NEIGHBOUR", business_name: "DONATELLO", address: "704 NW 65TH ST STE B", zip5: "98117", first_inspection_date: "2026-12-01"}
+          - {business_id: "B_PIZZA", business_name: "DANTE'S PIZZA", address: "704 NW 65TH ST", zip5: "98117", first_inspection_date: "2026-12-01"}
+          - {business_id: "B_OLD", business_name: "DANTINI DELLO", address: "704 NW 65TH ST", zip5: "98117", first_inspection_date: "2024-03-01"}
+          - {business_id: "B_ELSEWHERE", business_name: "DANTINI DELLO", address: "900 NW 65TH ST", zip5: "98117", first_inspection_date: "2026-12-10"}
+      - input: ref('lcb_match_params')
+        rows:
+          - {name_score_min: 0.85, name_score_review_min: 0.70, inspection_lead_days: 30}
+    expect:
+      rows:
+        - {business_id: "B_SAME", decision: "match"}
+        - {business_id: "B_NEIGHBOUR", decision: "review"}
+        - {business_id: "B_PIZZA", decision: "different_name"}
+        - {business_id: "B_OLD", decision: "previous_business"}
+
+  - name: lcb_opening_soon_override_wins_over_rule_and_blank_override_blocks
+    model: int_opening_soon
+    given:
+      - input: ref('int_opening_soon_candidates')
+        rows:
+          - {notice_id: "N_RULE"}
+          - {notice_id: "N_OVERRIDE"}
+          - {notice_id: "N_BLOCKED"}
+          - {notice_id: "N_NONE"}
+      - input: ref('int_lcb_match_pairs')
+        rows:
+          - {notice_id: "N_RULE", business_id: "B1", first_inspection_date: "2026-12-10", name_score: 0.95, decision: "match"}
+          - {notice_id: "N_RULE", business_id: "B9", first_inspection_date: "2026-12-11", name_score: 0.80, decision: "review"}
+          - {notice_id: "N_OVERRIDE", business_id: "B2", first_inspection_date: "2026-12-12", name_score: 0.99, decision: "match"}
+          - {notice_id: "N_BLOCKED", business_id: "B4", first_inspection_date: "2026-12-14", name_score: 0.99, decision: "match"}
+      - input: ref('int_establishments')
+        rows:
+          - {business_id: "B3", first_inspection_date: "2026-12-20"}
+      - input: ref('lcb_match_overrides')
+        rows:
+          - {notice_id: "N_OVERRIDE", business_id: "B3", note: "owner checked"}
+          - {notice_id: "N_BLOCKED", business_id: "", note: "different place"}
+    expect:
+      rows:
+        - {notice_id: "N_RULE", opened_business_id: "B1", opened_on: "2026-12-10", match_method: "rule", pairs_for_review: 1}
+        - {notice_id: "N_OVERRIDE", opened_business_id: "B3", opened_on: "2026-12-20", match_method: "override", pairs_for_review: 0}
+        - {notice_id: "N_BLOCKED", opened_business_id: null, opened_on: null, match_method: "override", pairs_for_review: 0}
+        - {notice_id: "N_NONE", opened_business_id: null, opened_on: null, match_method: null, pairs_for_review: 0}
