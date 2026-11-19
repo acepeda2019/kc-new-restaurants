@@ -216,11 +216,11 @@ where it serves, so it can't be "near you".
   just marked).
 - **Layout and look:** a dark theme (ground `#0B0E13`, one lime accent `#D4F75A`, Geist)
   following the owner's UI mockup. On screens 1100px and wider the map fills the window and
-  everything floats over it in dark panels: header (logo, question-bar slot, "Sample data ·
-  not today's list" pill), your top 3 and the lists on the left, the three stat tiles on
+  everything floats over it in dark panels: header (logo and the "Sample data ·
+  not today's list" pill), the question bar top-centre, your top 3 and the lists on the left, the three stat tiles on
   the right, the legend and data source at the bottom. Below 1100px (phones, tablets, small
   laptops) the map takes the top of the screen and one scrolling sheet below holds the
-  tiles, top 3 and lists; there, "Tried it" shows a visible "Tried" label.
+  question bar, tiles, top 3 and lists; there, "Tried it" shows a visible "Tried" label.
 - **Map:** MapLibre GL with OpenFreeMap's `dark` style (free, no key);
   `NEXT_PUBLIC_MAP_STYLE_URL` overrides it. Every opening with a fixed location is pinned,
   including ones marked "Tried it"; pin logic is in `app/lib/pins.ts`. Pins: top 3 lime,
@@ -257,6 +257,10 @@ where it serves, so it can't be "near you".
     cookie → API key present → caps (visitor counter, then global; refused questions count)
     → Claude (no SDK retries). A missing API key returns 503 without counting; Redis
     missing or down returns 429. Questions and locations are never logged.
+- **Question bar** (`app/components/AskBar.tsx`, `app/lib/askClient.ts`): an input (500
+  characters max) and four example chips. The browser sends the question with the visitor's
+  location and "Tried it" ids; the reply is `{answer, left}`, and the bar shows the answer as
+  plain text and "N left today". A cap hit or error shows the server's message instead.
 - **Answer style:** at most 3 recommendations, one-line reason each. "Likely <cuisine>" for
   inferred cuisine. "Wary" answers cite the inspection date and red points. Say plainly
   when the data can't answer (hours, price, ratings, opening soon).

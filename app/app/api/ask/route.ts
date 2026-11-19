@@ -67,10 +67,12 @@ export async function POST(request: NextRequest) {
   const url = process.env.KV_REST_API_URL;
   const token = process.env.KV_REST_API_TOKEN;
   if (!url || !token) return reply(429, OUT_OF_QUESTIONS);
+  let left: number;
   try {
     const redis = new Redis({ url, token, retry: { retries: 1 } });
     const caps = await checkAndCount(redis, visitor, new Date());
     if (!caps.ok) return reply(429, OUT_OF_QUESTIONS);
+    left = caps.left;
   } catch (err) {
     logFailure(err);
     return reply(429, OUT_OF_QUESTIONS);
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
     const params = buildRequest(body.question, getOpenings(), { here: body.here, tried: body.tried });
     const text = await answer(client, params);
     // Guardrail 5: an answer built from the labelled sample says so.
-    return NextResponse.json({ answer: isSampleData() ? `${text}\n\n${SAMPLE_NOTE}` : text });
+    return NextResponse.json({ answer: isSampleData() ? `${text}\n\n${SAMPLE_NOTE}` : text, left });
   } catch (err) {
     logFailure(err);
     return reply(503, UNAVAILABLE);

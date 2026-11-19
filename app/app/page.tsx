@@ -24,8 +24,6 @@ export default function Home() {
           <span aria-hidden="true">KC New Eats</span>
           <span className="sr-only">King County New Eats</span>
         </h1>
-        {/* SAN-40b puts the question bar here. */}
-        <div className="ask-slot" />
         {isSampleData() && (
           <p className="pill sample" role="note">
             {/* One span: the pill's flex gap would otherwise space out the pieces. */}
