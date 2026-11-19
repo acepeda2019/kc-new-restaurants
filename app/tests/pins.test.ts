@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Opening } from "@/lib/data";
 import {
-  FOCUS_ZOOM, KING_COUNTY_BOUNDS, YOU_ZOOM, boundsOf, cameraTarget, focusTarget, nextFocus, offMapNote, popupText,
+  FOCUS_ZOOM, KING_COUNTY_BOUNDS, YOU_ZOOM, boundsOf, cameraTarget, focusTarget, homeView, nextFocus, offMapNote, popupText,
   resolveFocus, toPins,
 } from "@/lib/pins";
 
@@ -212,5 +212,23 @@ describe("resolveFocus", () => {
     expect(resolveFocus(null, rows)).toBeNull();
     expect(resolveFocus({ id: "zzz", from: "list" }, rows)).toBeNull();
     expect(resolveFocus({ id: "t", from: "list" }, rows)).toBeNull();
+  });
+});
+
+describe("homeView (reset map view)", () => {
+  it("fits every pin when the visitor isn't located", () => {
+    const pins = toPins([opening("a", SEATTLE), opening("b", BELLEVUE)], { topIds: new Set() });
+    expect(homeView(pins)).toEqual({
+      bounds: [[SEATTLE.lon, SEATTLE.lat], [BELLEVUE.lon, BELLEVUE.lat]],
+    });
+  });
+
+  it("centres on the visitor once located", () => {
+    const pins = toPins([opening("a", BELLEVUE)], { topIds: new Set(), here: SEATTLE });
+    expect(homeView(pins)).toEqual({ center: [SEATTLE.lon, SEATTLE.lat], zoom: YOU_ZOOM });
+  });
+
+  it("falls back to King County with no pins", () => {
+    expect(homeView(toPins([], { topIds: new Set() }))).toEqual({ bounds: KING_COUNTY_BOUNDS });
   });
 });

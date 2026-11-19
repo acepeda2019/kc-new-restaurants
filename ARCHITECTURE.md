@@ -236,13 +236,14 @@ near me). Named places with a pin are buttons that fly the map there.
   including ones marked "Tried it"; pin logic is in `app/lib/pins.ts`. Pins: the cards' open places lime,
   numbered to match the cards (brief or answer), larger, drawn on top (winning over red) and labelled with
   the name; red points at latest inspection orange with a light ring; other new places light
-  grey; you blue. After "Use my location" the map recenters on the visitor. Clicking a
+  grey; you blue. After "Use my location" the map recenters on the visitor. A "reset view" button (top-right on desktop, bottom-right of the map on phones) returns to
+  every pin, or to the visitor once located, and closes any popup (`homeView`). Clicking a
   place's name on a card or in the brief flies the map to its pin, opens its popup
   (name · why, as text) and highlights the pin and the card; clicking the name again or
   pressing Escape clears it, and clicking a pin highlights its card. On desktop, hovering a
   pin shows its name. The camera pads around the floating panels so pins never land under
   them. Food trucks get no pin; they come up by asking. If the map or
-  its style fails to load, a "Map unavailable" note shows on the plain dark ground, names
+  its style fails to load, a "Map unavailable. The question bar still works." note shows on the plain dark ground, names
   are plain text, and the question bar still works. The question bar is the keyboard and
   screen-reader route to what the map shows.
   Visitors' browsers fetch tiles from OpenFreeMap, which sees their IP and the area viewed;
