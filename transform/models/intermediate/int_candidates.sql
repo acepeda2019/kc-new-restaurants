@@ -30,7 +30,7 @@ prior_at_address as (
                 'first_inspection_date': o.first_inspection_date,
                 'latest_inspection_date': o.latest_inspection_date
             }
-            order by o.latest_inspection_date desc
+            order by o.latest_inspection_date desc, o.business_id
         )) as prior_businesses_at_address
     from window_candidates as c
     join establishments as o
