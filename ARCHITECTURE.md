@@ -215,22 +215,29 @@ where it serves, so it can't be "near you".
   tried · Clear" link resets them (N = tried places still listed, other than the one
   just marked).
 - **Layout and look:** a dark theme (ground `#0B0E13`, one lime accent `#D4F75A`, Geist)
-  following the owner's UI mockup. On screens 720px and wider the map fills the window and
-  everything floats over it in dark panels: header (logo, question-bar slot, "Sample data"
-  pill), your top 3 and the lists on the left, the three stat tiles on the right, the legend
-  and data source at the bottom. On phones the map takes the top of the screen and one
-  scrolling sheet below holds the tiles, top 3 and lists.
-- **Map:** MapLibre GL with OpenFreeMap's `dark` style (free, no key); `NEXT_PUBLIC_MAP_STYLE_URL`
-  overrides it. Every opening with a fixed location is pinned, including ones marked "Tried
-  it"; pin logic is in `app/lib/pins.ts`. Pins: top 3 lime, numbered 1–3 to match the cards,
-  larger and drawn on top (winning over red); red points at latest inspection orange with a
-  dark ring; other new places light grey; you blue. After "Use my location" the map
-  recenters on the visitor. Food trucks get no pin and are listed as "Food trucks (no fixed
-  spot)". If the map or its style fails to load, a "Map unavailable" note shows on the plain
-  dark ground and the panels still work. A collapsed "All N places" list (closed by default; rows render only when
-  opened) gives every opening as text. Once located: fixed-location places nearest first
-  (ties by rank), then food trucks and places without coordinates in rank order; without a
-  location, rank order. Tried places are tagged, not hidden. It is the keyboard and screen-reader route to what the map shows.
+  following the owner's UI mockup. On screens 1100px and wider the map fills the window and
+  everything floats over it in dark panels: header (logo, question-bar slot, "Sample data ·
+  not today's list" pill), your top 3 and the lists on the left, the three stat tiles on
+  the right, the legend and data source at the bottom. Below 1100px (phones, tablets, small
+  laptops) the map takes the top of the screen and one scrolling sheet below holds the
+  tiles, top 3 and lists; there, "Tried it" shows a visible "Tried" label.
+- **Map:** MapLibre GL with OpenFreeMap's `dark` style (free, no key);
+  `NEXT_PUBLIC_MAP_STYLE_URL` overrides it. Every opening with a fixed location is pinned,
+  including ones marked "Tried it"; pin logic is in `app/lib/pins.ts`. Pins: top 3 lime,
+  numbered 1-3 to match the cards, larger, drawn on top (winning over red) and labelled with
+  the name; red points at latest inspection orange with a light ring; other new places light
+  grey; you blue. After "Use my location" the map recenters on the visitor. Clicking a
+  place's name in the top 3 or "All N places" flies the map to its pin, opens its popup
+  (name · why, as text) and highlights the pin and the card; clicking the name again or
+  pressing Escape clears it, and clicking a pin highlights its card. On desktop, hovering a
+  pin shows its name. The camera pads around the floating panels so pins never land under
+  them. Food trucks get no pin and are listed as "Food trucks (no fixed spot)". If the map or
+  its style fails to load, a "Map unavailable" note shows on the plain dark ground, names
+  are plain text, and the panels still work. A collapsed "All N places" list (closed by
+  default; rows render only when opened) gives every opening as text. Once located:
+  fixed-location places nearest first (ties by rank), then food trucks and places without
+  coordinates in rank order; without a location, rank order. Tried places are tagged, not
+  hidden. It is the keyboard and screen-reader route to what the map shows.
   Visitors' browsers fetch tiles from OpenFreeMap, which sees their IP and the area viewed;
   after "Use my location" that area is near the visitor. Coordinates themselves are never
   sent to this app or anyone else.

@@ -21,17 +21,18 @@ export default function Home() {
               <circle cx="12" cy="9.5" r="2.5" />
             </svg>
           </span>
-          <span>
-            <abbr title="King County">KC</abbr> New Eats
-          </span>
+          <span aria-hidden="true">KC New Eats</span>
+          <span className="sr-only">King County New Eats</span>
         </h1>
         {/* SAN-40b puts the question bar here. */}
         <div className="ask-slot" />
         {isSampleData() && (
           <p className="pill sample" role="note">
-            Sample data
-            <span className="sr-only">
-              : a small real cut of King County records with hand-labelled classifications, not today&apos;s list.
+            {/* One span: the pill's flex gap would otherwise space out the pieces. */}
+            <span>
+              <span className="sample-long">Sample data</span>
+              <span className="sample-short">Sample</span> · not today&apos;s list
+              <span className="sr-only">: a small real cut of King County records with hand-labelled classifications.</span>
             </span>
           </p>
         )}

@@ -6,7 +6,7 @@
  * from lib/pins; Metrics, OpeningsMap and TopThree stay presentational. The first render has no location and nothing
  * tried (the server snapshot), so it matches the static HTML; stored marks apply after hydration.
  */
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AllPlaces } from "@/components/AllPlaces";
 import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
@@ -15,7 +15,7 @@ import { OpeningsMap } from "@/components/OpeningsMap";
 import { TopThree } from "@/components/TopThree";
 import type { Metrics as MetricsData, Opening } from "@/lib/data";
 import { requestLocation } from "@/lib/location";
-import { toPins, trucksOf } from "@/lib/pins";
+import { nextFocus, resolveFocus, toPins, trucksOf, type FocusRequest } from "@/lib/pins";
 import { NEAR_RADIUS_MI, allPlaces, countNear, personalTopThree, type LatLon } from "@/lib/rank";
 import {
   clearTried,
@@ -40,6 +40,10 @@ export function PersonalPicks({ openings, metrics }: Props) {
   const tried = useSyncExternalStore(subscribeTried, browserSnapshot, serverSnapshot);
   // The place just marked stays on screen (button pressed) so it can be undone in place.
   const [justMarked, setJustMarked] = useState<string | null>(null);
+  // The place shown on the map: a name clicked in a list, or a pin clicked on the map.
+  const [focused, setFocused] = useState<FocusRequest | null>(null);
+  // Once the map has failed there is nothing to show places on, so names stop being buttons.
+  const [mapFailed, setMapFailed] = useState(false);
 
   async function locate() {
     if (status === "asking") return; // aria-disabled (not disabled) keeps focus, so ignore clicks here
@@ -69,11 +73,34 @@ export function PersonalPicks({ openings, metrics }: Props) {
     [openings, top, here],
   );
   const everyPlace = useMemo(() => allPlaces(openings, { here, tried }), [openings, here, tried]);
+  const focus = useMemo(() => resolveFocus(focused, openings), [focused, openings]);
+  const focusedId = focus?.id ?? null;
+  const showFromList = (id: string) => setFocused((now) => nextFocus(now, { id, from: "list" }));
+  const showFromMap = (id: string | null) => setFocused((now) => nextFocus(now, id ? { id, from: "map" } : null));
+  const onShow = mapFailed ? undefined : showFromList;
+  function mapUnavailable() {
+    setMapFailed(true);
+    setFocused(null);
+  }
+
+  // Escape clears the focused place (popup and highlight). Listens only while something is
+  // focused; Escape typed in a text field is left to the field.
+  useEffect(() => {
+    if (!focusedId) return;
+    function onKey(e: KeyboardEvent) {
+      const el = e.target instanceof Element ? e.target : null;
+      const typing = el?.closest("input, textarea, select, [contenteditable='true']");
+      if (e.key !== "Escape" || e.defaultPrevented || typing) return;
+      setFocused(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [focusedId]);
 
   // DOM order is the phone order (stats, top 3, lists); on wide screens CSS places them around the map.
   return (
     <>
-      <OpeningsMap pins={pins} />
+      <OpeningsMap pins={pins} focus={focus} onFocus={showFromMap} onUnavailable={mapUnavailable} />
       <div className="panels">
         <Metrics metrics={metrics} near={near} />
 
@@ -88,14 +115,14 @@ export function PersonalPicks({ openings, metrics }: Props) {
             {status === "unavailable" && "Location unavailable — showing default order"}
             {status === "found" && "Ranked by score and distance from you"}
           </p>
-          <TopThree items={top} tried={tried} onToggleTried={toggle} />
+          <TopThree items={top} tried={tried} onToggleTried={toggle} onShow={onShow} focusedId={focusedId} />
           <HiddenTried count={hiddenCount(openings, tried, justMarked)} onClear={clear} />
         </section>
 
         <section aria-labelledby="map-heading" className="panel places">
-          <h2 id="map-heading">Where they are</h2>
+          <h2 id="map-heading">All places</h2>
           <FoodTrucks trucks={trucksOf(openings)} />
-          <AllPlaces items={everyPlace} />
+          <AllPlaces items={everyPlace} onShow={onShow} focusedId={focusedId} />
         </section>
       </div>
     </>

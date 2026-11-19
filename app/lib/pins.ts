@@ -7,8 +7,11 @@ import type { LatLon } from "@/lib/rank";
 
 /** Pin colour group: the current top 3, places with red points at the latest inspection, other new places, the visitor. */
 export type PinKind = "top" | "wary" | "new" | "you";
-/** `rank` (1-3, top pins only) is the place's position in the personal top 3, the number on its card. */
-export type PinProps = { id: string; kind: PinKind; name: string; why: string; rank?: number };
+/**
+ * Top pins only: `rank` (1-3) is the place's position in the personal top 3, the number on its
+ * card, and `label` is its name for the map's text layer.
+ */
+export type PinProps = { id: string; kind: PinKind; name: string; why: string; rank?: number; label?: string };
 export type PinFeature = {
   type: "Feature";
   geometry: { type: "Point"; coordinates: [lon: number, lat: number] };
@@ -28,8 +31,16 @@ function pin(id: string, kind: PinKind, at: LatLon, name: string, why: string, r
   return {
     type: "Feature",
     geometry: { type: "Point", coordinates: [at.lon, at.lat] },
-    properties: rank ? { id, kind, name, why, rank } : { id, kind, name, why },
+    properties: rank ? { id, kind, name, why, rank, label: name } : { id, kind, name, why },
   };
+}
+
+type Placeable = Pick<Opening, "category" | "latitude" | "longitude">;
+
+/** Where a place is pinned, or null: food trucks (the address is a base) and rows without coordinates get no pin. */
+function fixedSpot(o: Placeable): LatLon | null {
+  if (o.category === "food_truck" || o.latitude === null || o.longitude === null) return null;
+  return { lat: o.latitude, lon: o.longitude };
 }
 
 /**
@@ -43,10 +54,11 @@ export function toPins(openings: Opening[], opts: { topIds: ReadonlySet<string>;
   const topOrder = [...opts.topIds];
   const features: PinFeature[] = [];
   for (const o of openings) {
-    if (o.category === "food_truck" || o.latitude === null || o.longitude === null) continue;
+    const at = fixedSpot(o);
+    if (!at) continue;
     const rank = topOrder.indexOf(o.restaurant_id) + 1; // 0 when not in the top 3
     const kind: PinKind = rank ? "top" : o.latest_red_points > 0 ? "wary" : "new";
-    features.push(pin(o.restaurant_id, kind, { lat: o.latitude, lon: o.longitude }, o.name, o.why, rank));
+    features.push(pin(o.restaurant_id, kind, at, o.name, o.why, rank));
   }
   if (opts.here) features.push(pin("you", "you", opts.here, "You are here", ""));
   return { type: "FeatureCollection", features };
@@ -88,4 +100,42 @@ export function cameraTarget(pins: Pins, lastCentered: LonLat | null): { center:
   const [lon, lat] = you.geometry.coordinates;
   if (lastCentered && lastCentered[0] === lon && lastCentered[1] === lat) return null;
   return { center: [lon, lat], zoom: YOU_ZOOM };
+}
+
+/** Zoom for showing one place: its street and the blocks around it. */
+export const FOCUS_ZOOM = 15;
+
+/** Where to move the camera to show one place, or null when it has no pin (trucks, no coordinates). */
+export function focusTarget(o: Placeable): { center: LonLat; zoom: number } | null {
+  const at = fixedSpot(o);
+  return at ? { center: [at.lon, at.lat], zoom: FOCUS_ZOOM } : null;
+}
+
+/** Why a place has no pin, for a short note beside its name; null when it is on the map. */
+export function offMapNote(o: Placeable): "no fixed spot" | "not on the map" | null {
+  if (o.category === "food_truck") return "no fixed spot";
+  return fixedSpot(o) ? null : "not on the map";
+}
+
+/** A request to show one place: from a name in a list, or from its pin on the map. */
+export type FocusRequest = { id: string; from: "list" | "map" };
+/** A focus request plus where the camera goes; `from: "list"` moves the camera, `"map"` doesn't. */
+export type MapFocus = FocusRequest & { center: LonLat; zoom: number };
+
+/**
+ * The focus after a click (or `null`: Escape, the popup closed, the map failed). Clicking the
+ * focused place's name again clears it; anything else focuses the clicked place, as a new
+ * object so a repeat request is seen as new.
+ */
+export function nextFocus(current: FocusRequest | null, clicked: FocusRequest | null): FocusRequest | null {
+  if (!clicked) return null;
+  if (clicked.from === "list" && current?.id === clicked.id) return null;
+  return { ...clicked };
+}
+
+/** The focus with its camera target, or null when nothing is focused or the place has no pin. */
+export function resolveFocus(focus: FocusRequest | null, openings: Opening[]): MapFocus | null {
+  const place = focus && openings.find((o) => o.restaurant_id === focus.id);
+  const target = place && focusTarget(place);
+  return focus && target ? { ...focus, ...target } : null;
 }
