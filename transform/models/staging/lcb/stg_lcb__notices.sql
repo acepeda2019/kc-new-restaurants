@@ -1,6 +1,8 @@
 -- One row per licence notice across all daily snapshots: the latest snapshot's values, plus
 -- the first and last snapshot it appeared in. Personal fields (contact, phones, applicants,
--- signee, licensee name, mailing address) are never selected.
+-- signee, mailing address) are never selected. licensee_name (the company on the licence,
+-- sometimes a sole proprietor) is kept for matching to KC only and must never be exported
+-- (owner decision 2026-11-19; test no_licensee_name_in_marts).
 with raw as (
     select json, filename from {{ source('lcb', 'notices_raw') }}
 ),
@@ -12,6 +14,7 @@ typed as (
         cast(strptime(json ->> 'applicationdate', '%Y%m%d') as date)  as application_date,
         cast(json ->> 'la_posted_date' as date)                       as posted_date,
         json ->> 'tradename'                                          as trade_name,
+        json ->> 'licenseename'                                       as licensee_name,
         json ->> 'ubi'                                                as ubi,
         json ->> 'streetaddress'                                      as street_address,
         json ->> 'city'                                               as city,
@@ -60,6 +63,7 @@ select
     latest.application_date,
     latest.posted_date,
     latest.trade_name,
+    latest.licensee_name,
     latest.ubi,
     latest.street_address,
     latest.city,

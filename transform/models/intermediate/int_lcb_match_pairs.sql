@@ -21,7 +21,10 @@ notice_keys as (
         zip5,
         regexp_extract(street_address, '^(\d+)', 1) as street_number,
         trim(regexp_replace(regexp_replace(regexp_replace(upper(trade_name), '[^A-Z0-9 ]', ' ', 'g'),
-            '\b(LLC|L L C|INC|CO|CORP|THE)\b', ' ', 'g'), '\s+', ' ', 'g')) as name_key
+            '\b(LLC|L L C|INC|CO|CORP|THE)\b', ' ', 'g'), '\s+', ' ', 'g')) as name_key,
+        -- KC often records the company, not the trade name (source card): score both.
+        trim(regexp_replace(regexp_replace(regexp_replace(upper(coalesce(licensee_name, '')), '[^A-Z0-9 ]', ' ', 'g'),
+            '\b(LLC|L L C|INC|CO|CORP|THE)\b', ' ', 'g'), '\s+', ' ', 'g')) as licensee_key
     from notices
 ),
 
@@ -43,7 +46,15 @@ pairs as (
         b.business_id,
         b.business_name,
         b.first_inspection_date,
-        round(jaro_winkler_similarity(n.name_key, b.name_key), 3) as name_score,
+        round(greatest(
+            jaro_winkler_similarity(n.name_key, b.name_key),
+            case when n.licensee_key <> '' then jaro_winkler_similarity(n.licensee_key, b.name_key) else 0 end
+        ), 3) as name_score,
+        case
+            when n.licensee_key <> ''
+                and jaro_winkler_similarity(n.licensee_key, b.name_key) > jaro_winkler_similarity(n.name_key, b.name_key)
+            then 'licensee_name' else 'trade_name'
+        end as matched_on,
         b.first_inspection_date >= n.application_date - to_days(p.inspection_lead_days) as is_after_application,
         p.name_score_min,
         p.name_score_review_min
@@ -62,6 +73,7 @@ select
     business_name,
     first_inspection_date,
     name_score,
+    matched_on,
     is_after_application,
     case
         when not is_after_application then 'previous_business'

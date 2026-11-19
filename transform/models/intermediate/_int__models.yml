@@ -49,6 +49,11 @@ models:
         data_tests:
           - accepted_values:
               arguments: {values: [match, review, different_name, previous_business]}
+      - name: matched_on
+        description: "Which LCB name scored higher against the KC name: trade_name or licensee_name (KC often records the company)."
+        data_tests:
+          - accepted_values:
+              arguments: {values: [trade_name, licensee_name]}
   - name: int_opening_soon
     description: "Grain: one row per Opening soon notice (King County restaurant licence application), with the KC business it opened as, if any: an owner override first, else the best rule match. pairs_for_review counts borderline pairs for the owner to check."
     columns:
@@ -69,7 +74,8 @@ unit_tests:
     given:
       - input: ref('int_opening_soon_candidates')
         rows:
-          - {notice_id: "N1", application_date: "2026-11-04", trade_name: "DANTINI DELLO LLC", street_address: "704 NW 65TH ST", zip5: "98117"}
+          - {notice_id: "N1", application_date: "2026-11-04", trade_name: "DANTINI DELLO LLC", licensee_name: "DD HOLDINGS LLC", street_address: "704 NW 65TH ST", zip5: "98117"}
+          - {notice_id: "N2", application_date: "2026-01-10", trade_name: "HANA KATSU", licensee_name: "C AND R 2026 CORP", street_address: "1200 MAIN ST", zip5: "98004"}
       - input: ref('int_establishments')
         rows:
           - {business_id: "B_SAME", business_name: "Dantini Dello", address: "704 NW 65TH ST", zip5: "98117", first_inspection_date: "2026-12-10"}
@@ -77,15 +83,17 @@ unit_tests:
           - {business_id: "B_PIZZA", business_name: "DANTE'S PIZZA", address: "704 NW 65TH ST", zip5: "98117", first_inspection_date: "2026-12-01"}
           - {business_id: "B_OLD", business_name: "DANTINI DELLO", address: "704 NW 65TH ST", zip5: "98117", first_inspection_date: "2024-03-01"}
           - {business_id: "B_ELSEWHERE", business_name: "DANTINI DELLO", address: "900 NW 65TH ST", zip5: "98117", first_inspection_date: "2026-12-10"}
+          - {business_id: "B_COMPANY", business_name: "C AND R 2026, CORP", address: "1200 MAIN ST", zip5: "98004", first_inspection_date: "2026-06-25"}
       - input: ref('lcb_match_params')
         rows:
           - {name_score_min: 0.85, name_score_review_min: 0.70, inspection_lead_days: 30}
     expect:
       rows:
-        - {business_id: "B_SAME", decision: "match"}
-        - {business_id: "B_NEIGHBOUR", decision: "review"}
-        - {business_id: "B_PIZZA", decision: "different_name"}
-        - {business_id: "B_OLD", decision: "previous_business"}
+        - {business_id: "B_SAME", decision: "match", matched_on: "trade_name"}
+        - {business_id: "B_COMPANY", decision: "match", matched_on: "licensee_name"}
+        - {business_id: "B_NEIGHBOUR", decision: "review", matched_on: "trade_name"}
+        - {business_id: "B_PIZZA", decision: "different_name", matched_on: "trade_name"}
+        - {business_id: "B_OLD", decision: "previous_business", matched_on: "trade_name"}
 
   - name: lcb_opening_soon_override_wins_over_rule_and_blank_override_blocks
     model: int_opening_soon

@@ -13,7 +13,8 @@ This is the *why*. The current system is described in `ARCHITECTURE.md`; an entr
 - **Consequences:**
   - On 69 real 2026 licences, 48% matched.
   - Median lead time is 164 days, so places stay in Opening soon for months.
-  - KC often records the company name, which trade-name matching misses (follow-up: also match on the LCB licensee name).
+  - KC often records the company name, so matching also scores the LCB licensee name. That lifts matches to 38 of 69 (55%).
+  - **Owner decision:** `licensee_name` (sometimes a person) is kept in staging for matching only. It never reaches a mart or the app; test `no_licensee_name_in_marts` enforces it.
   - The drop-off cutoff waits for a week of snapshots.
 
 ## 2026-11-19 — Which licence notices count for Opening soon
