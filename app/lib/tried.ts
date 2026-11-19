@@ -61,11 +61,14 @@ export function toggleTried(id: string, storage: KeyValueStore | undefined = bro
 }
 
 /** Removes every "Tried it" mark. Never throws; if storage fails the marks stay as they were. */
-export function clearTried(storage: Pick<Storage, "removeItem"> | undefined = browserStorage()): void {
+/** Removes every mark. Returns false (marks untouched) when there is no storage or it throws. */
+export function clearTried(storage: Pick<Storage, "removeItem"> | undefined = browserStorage()): boolean {
   try {
-    storage?.removeItem(TRIED_KEY);
+    if (!storage) return false;
+    storage.removeItem(TRIED_KEY);
+    return true;
   } catch {
-    // leave the marks; the snapshot still shows what is stored
+    return false; // leave the marks; the snapshot still shows what is stored
   } finally {
     listeners.forEach((notify) => notify());
   }

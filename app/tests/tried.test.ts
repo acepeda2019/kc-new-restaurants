@@ -156,7 +156,7 @@ describe("clearTried", () => {
     const storage = memoryStorage({ kcne_tried: '["a","b"]', other: "kept" });
     const onChange = vi.fn();
     subscribeTried(onChange);
-    clearTried(storage);
+    expect(clearTried(storage)).toBe(true);
     expect(storage.data.has(TRIED_KEY)).toBe(false);
     expect(storage.data.get("other")).toBe("kept");
     expect(loadTried(storage)).toEqual(new Set());
@@ -166,9 +166,9 @@ describe("clearTried", () => {
   it("never throws, and leaves the marks as they were when storage throws", async () => {
     const { clearTried } = await freshTried();
     const storage = { ...memoryStorage({ kcne_tried: '["a"]' }), removeItem: throwing.removeItem };
-    expect(() => clearTried(storage)).not.toThrow();
+    expect(clearTried(storage)).toBe(false);
     expect(loadTried(storage)).toEqual(new Set(["a"]));
-    expect(() => clearTried(undefined)).not.toThrow();
+    expect(clearTried(undefined)).toBe(false);
   });
 });
 

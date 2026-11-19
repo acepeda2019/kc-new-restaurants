@@ -50,8 +50,8 @@ export function PersonalPicks({ openings, metrics }: Props) {
   }
 
   function clear() {
-    clearTried();
-    setJustMarked(null);
+    // Only forget the just-marked place if the marks really were cleared.
+    if (clearTried()) setJustMarked(null);
   }
 
   const top = personalTopThree(openings, { here, tried: hiddenFromTop(tried, justMarked) });

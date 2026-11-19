@@ -212,7 +212,8 @@ where it serves, so it can't be "near you".
 - **"Tried it":** browser localStorage only (`kcne_tried`), sent with each question so
   answers can skip those places. Tried places drop out of the top 3; the one just marked
   stays visible (pressed) so a mistaken tap can be undone in place, and a "N hidden as
-  tried · Clear" link resets them.
+  tried · Clear" link resets them (N = tried places still listed, other than the one
+  just marked).
 - **Map:** MapLibre GL with free tiles. Pin colours: top 3, other new places, red
   violations, you.
 - **`/api/ask`** (the only Claude call at request time):

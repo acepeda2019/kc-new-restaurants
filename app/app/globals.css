@@ -227,6 +227,7 @@ button.link {
   background: none;
   color: inherit;
   text-decoration: underline;
+  cursor: pointer;
 }
 
 @media (prefers-color-scheme: dark) {
