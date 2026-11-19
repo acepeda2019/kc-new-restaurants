@@ -4,6 +4,14 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-19 — Licence addresses share the KC geocode cache
+- **Context:** Opening soon places need coordinates for map pins and distance ranking.
+- **Decision:**
+  - After saving the daily WSLCB snapshot, the job sends its King County addresses through the same Census geocoder, under the same key rule (v1), so licence and inspection addresses share one cache and are geocoded once.
+  - In dbt the key rule is now one macro (`macros/geocode_key.sql`), used by both `int_establishments` and `int_opening_soon_candidates`. `assert_geocode_key_matches_requests` keeps checking it against what the geocoder was sent.
+  - `mart_opening_soon` and `opening_soon.json` gain nullable `latitude`/`longitude`. That's an added column, not a schema bump.
+- **Consequences:** a place gets coordinates from the first daily run after its notice appears. The step stays non-fatal, so a geocoder outage just leaves coordinates null.
+
 ## 2026-11-19 — Opening soon export (schema version 2)
 - **Context:** the app needs the Opening soon list; the export/app contract is versioned by `manifest.schema_version`.
 - **Decision:**
