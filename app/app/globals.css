@@ -227,8 +227,13 @@ input {
   cursor: pointer;
 }
 
-/* The About panel: a native <dialog>, centred, scrolling inside on short screens. */
+/*
+ * The About panel: a native <dialog>, centred, scrolling inside on short screens. It sits
+ * inside .shell, whose pointer-events: none lets taps reach the map, so it must turn them back
+ * on or its close button, link and backdrop ignore every click.
+ */
 dialog.about {
+  pointer-events: auto;
   width: min(560px, calc(100vw - 32px));
   max-height: calc(100svh - 48px);
   padding: 0;
