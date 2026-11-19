@@ -1,7 +1,7 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { loadData } from "@/lib/data";
 
 const DATA_DIR = path.join(__dirname, "..", "data");
@@ -48,6 +48,20 @@ describe("loadData", () => {
 
   it("uses the real export when present", () => {
     expect(loadData(realExportDir()).isSample).toBe(false);
+  });
+
+  describe("with REQUIRE_EXPORT=1 (the daily production build)", () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("refuses to fall back to the sample", () => {
+      vi.stubEnv("REQUIRE_EXPORT", "1");
+      expect(() => loadData(sampleOnlyDir())).toThrow(/real export is required.*transform\/export\.py/);
+    });
+
+    it("loads a full real export normally", () => {
+      vi.stubEnv("REQUIRE_EXPORT", "1");
+      expect(loadData(realExportDir()).isSample).toBe(false);
+    });
   });
 
   it("rejects an unknown manifest schema_version", () => {

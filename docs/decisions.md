@@ -4,6 +4,13 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-18 — Daily deploys never fall back to sample data; trucks rank last near you
+- **Context:** `app/lib/data.ts` falls back to the labelled sample when no export is present, so a production build without the pipeline would replace real data with the labelled sample. Separately, with a location known, the personal top 3 had to place food trucks, which have no fixed spot.
+- **Decision (owner OK'd):**
+  - With `REQUIRE_EXPORT=1`, set by the daily job, a missing export fails the build. A failed build leaves the last good deploy live and GitHub emails the owner. A flag rather than `VERCEL_ENV`, because Vercel's git integration builds production on every merge until SAN-41 turns that off, and those builds should keep showing the labelled sample.
+  - With a location known, trucks and places without coordinates rank after every mappable place.
+- **Consequences:** local and preview builds keep the sample. SAN-41's `daily.yml` must set `REQUIRE_EXPORT: "1"` in the job env, not as a Vercel env var (`vercel pull` would bring it into every build); the CI app build leaves it unset.
+
 ## 2026-11-18 — Passcode gate uses Next.js 16 `proxy.ts` and `SESSION_SECRET`
 - **Context:** `create-next-app` now installs Next.js 16, which deprecates `middleware.ts` in favour of `proxy.ts`. The plan named the cookie-signing key `AUTH_SECRET`; the SAN-38a build used `SESSION_SECRET`.
 - **Decision (owner OK'd):**

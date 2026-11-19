@@ -15,6 +15,8 @@ npm run lint
 npm run build
 ```
 
+Without an export in `data/`, the app builds from the labelled sample in `data/sample/`. Set `REQUIRE_EXPORT=1` (the daily production job does, from SAN-41) to make the build fail instead of falling back to the sample.
+
 With either variable unset, the gate fails closed: nobody can log in.
 Changing `APP_PASSCODE` does not log anyone out; rotate `SESSION_SECRET` to revoke all sessions.
 Cookies are `Secure`: Safari may drop them on `http://localhost`, so test locally in Chrome or Firefox.
