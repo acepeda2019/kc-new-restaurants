@@ -25,7 +25,7 @@ beforeEach(() => vi.stubEnv("SESSION_SECRET", secret));
 afterEach(() => vi.unstubAllEnvs());
 
 describe("proxy", () => {
-  it.each(["/login", "/api/login"])("lets %s through without a cookie", async (path) => {
+  it.each(["/login", "/api/login", "/opengraph-image", "/icon.svg", "/apple-icon"])("lets %s through without a cookie", async (path) => {
     expectPassThrough(await proxy(request(path)));
   });
 
