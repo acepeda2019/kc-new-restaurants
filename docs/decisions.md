@@ -6,8 +6,8 @@ This is the *why*. The current system is described in `ARCHITECTURE.md`; an entr
 
 ## 2026-11-18 — A collapsed "All N places" list returns under the map
 - **Context:** SAN-38c dropped a full list as out of scope ("browse everything"). The SAN-39b review found keyboard and screen-reader users could reach only the top 3; every other place was a map pin.
-- **Decision (owner):** add an "All N places" list under the map, collapsed by default, with rows rendered only when opened. Nearest first once located, else rank order; tried places tagged, not hidden.
-- **Consequences:** every place is reachable without a pointer. With real data it may hold a few hundred rows, so it stays closed until asked for. Supersedes the "no list" call in SAN-38c.
+- **Decision (owner):** add an "All N places" list under the map, collapsed by default, with rows rendered only when opened. Once located, fixed-location places nearest first (ties by rank), then food trucks and places without coordinates in rank order; without a location, rank order. Tried places tagged, not hidden.
+- **Consequences:** every place is reachable without a pointer. With real data it may hold a few hundred rows, so it stays closed until asked for. Reverses the "no full list" call made in the SAN-38c review.
 
 ## 2026-11-18 — Map tiles from OpenFreeMap; every fixed-location opening is pinned
 - **Context:** the plan's default MapLibre demo style shows only country outlines, and openstreetmap.org's own tile servers forbid app traffic under their usage policy (open question in ARCHITECTURE §9).

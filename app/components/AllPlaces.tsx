@@ -15,9 +15,9 @@ export function AllPlaces({ items }: Props) {
   const [open, setOpen] = useState(false);
   return (
     <details className="all-places" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>All {items.length} places</summary>
+      <summary>All {items.length} {items.length === 1 ? "place" : "places"}</summary>
       {open && (
-        <ol>
+        <ul>
           {items.map((o) => {
             const distance = formatDistance(o.distanceMi);
             return (
@@ -25,13 +25,13 @@ export function AllPlaces({ items }: Props) {
                 <p>
                   <strong>{o.name}</strong> <span className="where">— {placeLabel(o.city, o.category)}</span>
                   {distance && <span className="where"> · {distance}</span>}
-                  {o.tried && <span className="tried-tag">tried</span>}
+                  {o.tried && <>{" "}<span className="tried-tag">tried</span></>}
                 </p>
                 <p className="why">{o.why}</p>
               </li>
             );
           })}
-        </ol>
+        </ul>
       )}
     </details>
   );
