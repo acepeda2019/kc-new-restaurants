@@ -13,3 +13,7 @@ All files are cut from real responses recorded on 2026-11-12; nothing is invente
 
 The KC row count (7) used by the paging tests matches the cut pages; the real dataset had
 111,644 rows. The `X-SODA2-Truth-Last-Modified` value in the tests is the real header value.
+
+- `lcb_local_authority_page.json`: 4 live rows from data.wa.gov `vgcw-qfjm` (2026-11-19), with
+  personal fields (`contact`, `dayphone`, `applicants`, `designatedsignee`, `licenseename`,
+  `mailaddress`) replaced by `SAMPLE …` values. Business fields are as received.
