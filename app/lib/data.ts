@@ -2,7 +2,7 @@
  * The app's only data access. Reads the JSON written by transform/export.py
  * (openings.json, metrics.json, manifest.json) from app/data/ at build time, or the
  * tracked, labelled sample in app/data/sample/ when no real export is present.
- * With REQUIRE_EXPORT=1 (set by the daily production build) there is no sample fallback:
+ * With REQUIRE_EXPORT=1 (to be set by the daily production job, SAN-41) there is no sample fallback:
  * a missing export throws, so production never ships sample data.
  *
  * Throws (failing `next build`) on a partial export, an unknown manifest schema_version,

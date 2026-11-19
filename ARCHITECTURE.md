@@ -181,7 +181,7 @@ claim food quality.
 **Personal top 3:** computed in the browser as `score − 10 × distance_mi`, dropping places
 marked "Tried it". Without location it falls back to score order with no distances.
 With a location, food trucks and places without coordinates rank after every place that
-has a fixed spot (in score order, no distance shown): a truck's address is a base, not
+has a fixed spot (in rank order, highest score first; no distance shown): a truck's address is a base, not
 where it serves, so it can't be "near you".
 
 ## 7. App (`app/`, Next.js on Vercel)
@@ -198,10 +198,11 @@ where it serves, so it can't be "near you".
   inspection result, red points and short red-violation descriptions, so answers can cite
   records.
 - **Build checks (`app/lib/data.ts`):** the build fails on a partial export, an unknown
-  `schema_version`, a missing column or a row count that disagrees with the manifest. With
-  no export at all it uses the labelled sample in `app/data/sample/`, except when
-  `REQUIRE_EXPORT=1` (set by the daily job): then it fails, and Vercel keeps serving the
-  last good deploy.
+  `schema_version`, a missing or null key column, or a row count that disagrees with the
+  manifest. With no export at all it uses the labelled sample in `app/data/sample/`, except
+  when `REQUIRE_EXPORT=1` (to be set in the daily workflow's env by SAN-41, never as a
+  Vercel env var): then the build fails, the job stops before deploying, and the last good
+  deploy stays live.
 - **Location:** browser geolocation, asked on demand, never stored server-side. "Near me" is
   a radius computed in the browser; "in [place]" uses ZIP and city.
 - **"Tried it":** browser localStorage only (`kcne_tried`), sent with each question so
