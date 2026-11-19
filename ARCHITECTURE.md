@@ -70,7 +70,7 @@ The GitHub Actions failure email is the alert.
 | App data + personal top 3 ranking | `app/lib/data.ts`, `app/lib/rank.ts` | built (SAN-38b) |
 | Home page | `app/` | built (SAN-38c) |
 | Location, "Tried it" | `app/lib/location.ts`, `app/lib/tried.ts`, `app/components/PersonalPicks.tsx` | built (SAN-39a) |
-| Map | `app/` | planned (SAN-39b) |
+| Map | `app/` | built (SAN-39b) |
 | Capped question bar | `app/api/ask` | planned (SAN-40) |
 | Daily workflow + CI | `.github/workflows/` | planned (SAN-41) |
 
@@ -214,8 +214,8 @@ where it serves, so it can't be "near you".
   stays visible (pressed) so a mistaken tap can be undone in place, and a "N hidden as
   tried · Clear" link resets them (N = tried places still listed, other than the one
   just marked).
-- **Map:** MapLibre GL with free tiles. Pin colours: top 3, other new places, red
-  violations, you.
+- **Map:** MapLibre GL with OpenFreeMap tiles (free, no key); `NEXT_PUBLIC_MAP_STYLE_URL`
+  overrides the style URL. Pin colours: top 3, other new places, red violations, you.
 - **`/api/ask`** (the only Claude call at request time):
   - caps checked *before* calling Claude, in Upstash Redis: 200 questions/day in total and
     20 per visitor (`ask:g:<date>`, `ask:v:<visitor>:<date>`, Pacific date). Questions are
@@ -246,4 +246,3 @@ where it serves, so it can't be "near you".
 - The typical lag between opening and first inspection (affects the "just opened" wording).
 - KC rule details: "Bakery", "Limited Food Service", "Nonprofit Institution", seasonal
   `SFE-` IDs.
-- The map tile provider (OpenStreetMap usage policy vs. a free-tier provider).
