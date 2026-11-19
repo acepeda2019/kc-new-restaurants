@@ -1,23 +1,30 @@
 "use client";
 
 /**
- * The question bar (SAN-40b): input, example chips and the answer. The caller binds `onAsk`
- * to the visitor's location and "Tried it" marks; the API checks the caps before Claude.
+ * The question bar (SAN-40b): input, location button, example chips and the answer. Before
+ * the first question the answer area shows the caller's "Today" brief (`brief` plus the cards
+ * in `children`). The caller binds `onAsk` to the visitor's location and "Tried it" marks; the
+ * API checks the caps before Claude.
  * Answers are plain text, rendered as text (never HTML).
  */
 import { useState, type FormEvent, type ReactNode } from "react";
 import type { AnswerPick } from "@/lib/ask";
 import { ASK_CHIPS, MAX_QUESTION_CHARS, type AskResult } from "@/lib/askClient";
 
+export type LocationStatus = "idle" | "asking" | "found" | "unavailable";
+
 type Props = {
   onAsk: (question: string) => Promise<AskResult>;
+  /** The Today brief's summary line, shown until the first question. */
+  brief: string;
+  location: { status: LocationStatus; onLocate: () => void };
   /** Told the answer's picks (empty when a new question starts or fails), so the map can highlight them. */
   onPicks?: (picks: AnswerPick[]) => void;
   /** The answer cards, shown under the answer text. */
   children?: ReactNode;
 };
 
-export function AskBar({ onAsk, onPicks, children }: Props) {
+export function AskBar({ onAsk, brief, location, onPicks, children }: Props) {
   const [question, setQuestion] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<AskResult | null>(null);
@@ -64,6 +71,21 @@ export function AskBar({ onAsk, onPicks, children }: Props) {
           enterKeyHint="send"
         />
         {left !== null && <span className="ask-left">{left} left today</span>}
+        <button
+          type="button"
+          className="ask-locate"
+          onClick={location.onLocate}
+          aria-disabled={location.status === "asking"}
+          aria-pressed={location.status === "found"}
+          title={location.status === "found" ? "Using your location" : "Use my location"}
+        >
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z" />
+            <circle cx="12" cy="11" r="2.2" />
+          </svg>
+          <span className="sr-only">{location.status === "asking" ? "Finding you…" : "Use my location"}</span>
+        </button>
         <button type="submit" className="ask-send" aria-label="Ask" aria-disabled={pending}>
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -82,8 +104,21 @@ export function AskBar({ onAsk, onPicks, children }: Props) {
         ))}
       </ul>
 
+      <p role="status" className="locate-status">
+        {location.status === "asking" && "Finding you…"}
+        {location.status === "unavailable" && "Location unavailable — showing the default order"}
+        {location.status === "found" && "Showing what's near you"}
+      </p>
+
       <div role="status" aria-live="polite" className="ask-answer-wrap">
         {pending && <p className="ask-pending">Thinking…</p>}
+        {!pending && !result && (
+          <div className="ask-answer">
+            <span className="ask-label">Today</span>
+            <p>{brief}</p>
+            {children}
+          </div>
+        )}
         {!pending && result && (
           <div className={result.ok ? "ask-answer" : "ask-answer ask-error"}>
             <span className="ask-label">{result.ok ? "Answer" : "Couldn't answer"}</span>

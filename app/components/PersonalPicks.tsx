@@ -11,18 +11,17 @@ import { AllPlaces } from "@/components/AllPlaces";
 import { AnswerPicks, type PickCard } from "@/components/AnswerPicks";
 import type { AnswerPick } from "@/lib/ask";
 import { openingFacts, openingSoonFacts } from "@/lib/format";
-import { AskBar } from "@/components/AskBar";
+import { AskBar, type LocationStatus } from "@/components/AskBar";
 import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
-import { Metrics } from "@/components/Metrics";
 import { OpeningSoonPanel } from "@/components/OpeningSoonPanel";
 import { OpeningsMap } from "@/components/OpeningsMap";
-import { TopThree } from "@/components/TopThree";
 import type { Metrics as MetricsData, Opening, OpeningSoon } from "@/lib/data";
 import { askQuestion } from "@/lib/askClient";
 import { requestLocation } from "@/lib/location";
 import { nextFocus, resolveFocus, toPins, trucksOf, type FocusRequest } from "@/lib/pins";
-import { NEAR_RADIUS_MI, allPlaces, countNear, personalTopThree, rankOpeningSoon, type LatLon } from "@/lib/rank";
+import { todayBrief } from "@/lib/brief";
+import { NEAR_RADIUS_MI, allPlaces, countNear, rankOpeningSoon, type LatLon } from "@/lib/rank";
 import {
   clearTried,
   hiddenCount,
@@ -34,7 +33,6 @@ import {
 } from "@/lib/tried";
 
 type Props = { openings: Opening[]; metrics: MetricsData; openingSoon: OpeningSoon[] };
-type LocationStatus = "idle" | "asking" | "found" | "unavailable";
 
 const NOTHING_TRIED = new Set<string>();
 const serverSnapshot = () => NOTHING_TRIED;
@@ -46,8 +44,8 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
   const tried = useSyncExternalStore(subscribeTried, browserSnapshot, serverSnapshot);
   // The place just marked stays on screen (button pressed) so it can be undone in place.
   const [justMarked, setJustMarked] = useState<string | null>(null);
-  // The last answer's picks: shown as cards and numbered on the map.
-  const [picks, setPicks] = useState<AnswerPick[]>([]);
+  // The last answer's picks (null until the first question, when the Today brief shows instead).
+  const [answerPicks, setAnswerPicks] = useState<AnswerPick[] | null>(null);
   // The place shown on the map: a name clicked in a list, or a pin clicked on the map.
   const [focused, setFocused] = useState<FocusRequest | null>(null);
   // Once the map has failed there is nothing to show places on, so names stop being buttons.
@@ -71,18 +69,22 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
   }
 
   // Memoised so `pins` below only changes (and the map only updates) when an input changes.
-  const top = useMemo(
-    () => personalTopThree(openings, { here, tried: hiddenFromTop(tried, justMarked) }),
-    [openings, here, tried, justMarked],
+  const near = useMemo(
+    () => (here ? { count: countNear(openings, here), radiusMi: NEAR_RADIUS_MI } : undefined),
+    [openings, here],
   );
-  const near = here ? { count: countNear(openings, here), radiusMi: NEAR_RADIUS_MI } : undefined;
+  const brief = useMemo(
+    () => todayBrief({ openings, openingSoon, metrics, here, near, tried: hiddenFromTop(tried, justMarked) }),
+    [openings, openingSoon, metrics, here, near, tried, justMarked],
+  );
+  // Cards and numbered pins: the last answer's picks, or the brief's before any question.
+  const picks = answerPicks ?? brief.picks;
   const pins = useMemo(
     () => {
-      // An answer's picks take over the numbered pins (in card order); otherwise the top 3.
-      const ids = picks.length ? picks.map((p) => p.id) : top.map((o) => o.restaurant_id);
-      return toPins(openings, { topIds: new Set(ids), here, openingSoon });
+      // The cards' places take the numbered pins, in card order.
+      return toPins(openings, { topIds: new Set(picks.map((p) => p.id)), here, openingSoon });
     },
-    [openings, top, picks, here, openingSoon],
+    [openings, picks, here, openingSoon],
   );
   const everyPlace = useMemo(() => allPlaces(openings, { here, tried }), [openings, here, tried]);
 
@@ -119,12 +121,17 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [focusedId]);
 
-  // DOM order is the phone order (question bar, stats, top 3, lists); on wide screens CSS places them around the map.
+  // DOM order is the phone order (question bar with the brief or answer, then lists); on wide screens CSS places them around the map.
   return (
     <>
       <OpeningsMap pins={pins} focus={focus} onFocus={showFromMap} onUnavailable={mapUnavailable} />
       <div className="panels">
-        <AskBar onAsk={(question) => askQuestion({ question, here, tried })} onPicks={setPicks}>
+        <AskBar
+          onAsk={(question) => askQuestion({ question, here, tried })}
+          brief={brief.summary}
+          location={{ status, onLocate: locate }}
+          onPicks={setAnswerPicks}
+        >
           <AnswerPicks
             picks={picks}
             cards={cardById}
@@ -133,24 +140,8 @@ export function PersonalPicks({ openings, metrics, openingSoon }: Props) {
             onShow={onShow}
             focusedId={focusedId}
           />
-        </AskBar>
-        <Metrics metrics={metrics} near={near} />
-
-        <section aria-labelledby="top-three" className="panel picks">
-          <div className="panel-head">
-            <h2 id="top-three">Your top 3 to try</h2>
-            <button type="button" className="secondary" onClick={locate} aria-disabled={status === "asking"}>
-              {status === "asking" ? "Finding you…" : "Use my location"}
-            </button>
-          </div>
-          <p role="status" className="locate-status">
-            {status === "unavailable" && "Location unavailable — showing default order"}
-            {status === "found" && "Ranked by score and distance from you"}
-          </p>
-          <TopThree items={top} tried={tried} onToggleTried={toggle} onShow={onShow} focusedId={focusedId} />
           <HiddenTried count={hiddenCount(openings, tried, justMarked)} onClear={clear} />
-        </section>
-
+        </AskBar>
         <OpeningSoonPanel items={soon} onShow={onShow} focusedId={focusedId} />
 
         <section aria-labelledby="map-heading" className="panel places">

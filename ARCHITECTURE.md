@@ -20,9 +20,10 @@ yet (Linear ticket in brackets).
 A private web app for the owner and a few friends that answers:
 *"What restaurants just opened near me, and why is each worth a look?"*
 
-One screen: a question bar, a map of new openings, three headline numbers, a personal
-top 3 with one-line reasons, an "Opening soon" list (from liquor licence applications), and
-a collapsed "All N places" list under the map. UI mockup (private artifact):
+One screen, built around the question bar: a map of new openings, the bar, and an answer
+area that shows a **"Today" brief** before the first question (one summary line plus cards
+for the visitor's top 3 and two Opening soon places) and Claude's answer cards after it, an
+"Opening soon" list (from liquor licence applications), and a collapsed "All N places" list. UI mockup (private artifact):
 https://claude.ai/artifact/DtEGBA9Zv91zrdhsophvgB
 
 **In scope:** "Just opened" restaurants in King County, from KC food inspections, refreshed
@@ -56,7 +57,7 @@ GitHub Actions, daily cron + manual run                        .github/workflows
 
 Vercel (Next.js)
   proxy       shared passcode → signed cookie; gates every page, the data and the API
-  page        JSON baked in at build → map, metrics, top 3 (static)
+  page        JSON baked in at build → map, Today brief (static)
   /api/ask    caps check (Upstash Redis) → Claude Haiku with the openings JSON as data → short answer
 ```
 
@@ -187,7 +188,9 @@ match the dbt key. Source freshness.
 This ranks the *newest* openings with a boost for a clean first inspection. It does not
 claim food quality.
 
-**Personal top 3:** computed in the browser as `score − 10 × distance_mi`, dropping places
+**Personal top 3** (the first three cards of the Today brief, `todayBrief` in
+`app/lib/brief.ts`, which adds up to two Opening soon places and a summary line from
+`metrics.json`; no Claude call): computed in the browser as `score − 10 × distance_mi`, dropping places
 marked "Tried it". Without location it falls back to score order with no distances.
 With a location, food trucks and places without coordinates rank after every place that
 has a fixed spot (in rank order, highest score first; no distance shown): a truck's address is a base, not
@@ -212,30 +215,30 @@ where it serves, so it can't be "near you".
   when `REQUIRE_EXPORT=1` (to be set in the daily workflow's env by SAN-41, never as a
   Vercel env var): then the build fails, the job stops before deploying, and the last good
   deploy stays live.
-- **Location:** browser geolocation, asked when the visitor taps "Use my location" (8 s
+- **Location:** browser geolocation, asked when the visitor taps the pin button in the question bar (8 s
   browser timeout, not counting the permission prompt), never stored server-side. "Near me"
   is a 2-mile radius (`NEAR_RADIUS_MI` in `app/lib/rank.ts`) of fixed-location places,
-  computed in the browser; once located, the "last 7 days" headline number becomes "N near
-  you". "In [place]" uses ZIP and city.
+  computed in the browser; once located, the brief's summary leads with "N new places within
+  2 mi of you". "In [place]" uses ZIP and city.
 - **"Tried it":** browser localStorage only (`kcne_tried`), sent with each question so
-  answers can skip those places. Tried places drop out of the top 3; the one just marked
+  answers can skip those places. Tried places drop out of the brief; the one just marked
   stays visible (pressed) so a mistaken tap can be undone in place, and a "N hidden as
   tried · Clear" link resets them (N = tried places still listed, other than the one
   just marked).
 - **Layout and look:** a dark theme (ground `#0B0E13`, one lime accent `#D4F75A`, Geist)
   following the owner's UI mockup. On screens 1100px and wider the map fills the window and
   everything floats over it in dark panels: header (logo and the "Sample data ·
-  not today's list" pill), the question bar top-centre, your top 3 and the lists on the left, the three stat tiles on
-  the right, the legend and data source at the bottom. Below 1100px (phones, tablets, small
+  not today's list" pill), the question bar and its brief or answer on the left (so the numbered pins mid-map stay
+  visible), Opening soon on the right, "All places" under the answer, the legend and data source at the bottom. Below 1100px (phones, tablets, small
   laptops) the map takes the top of the screen and one scrolling sheet below holds the
-  question bar, tiles, top 3 and lists; there, "Tried it" shows a visible "Tried" label.
+  question bar, brief or answer, and lists; there, "Tried it" shows a visible "Tried" label.
 - **Map:** MapLibre GL with OpenFreeMap's `dark` style (free, no key);
   `NEXT_PUBLIC_MAP_STYLE_URL` overrides it. Every opening with a fixed location is pinned,
-  including ones marked "Tried it"; pin logic is in `app/lib/pins.ts`. Pins: top 3 lime,
-  numbered 1-3 to match the cards, larger, drawn on top (winning over red) and labelled with
+  including ones marked "Tried it"; pin logic is in `app/lib/pins.ts`. Pins: the cards' open places lime,
+  numbered to match the cards (brief or answer), larger, drawn on top (winning over red) and labelled with
   the name; red points at latest inspection orange with a light ring; other new places light
   grey; you blue. After "Use my location" the map recenters on the visitor. Clicking a
-  place's name in the top 3 or "All N places" flies the map to its pin, opens its popup
+  place's name on a card or in "All N places" flies the map to its pin, opens its popup
   (name · why, as text) and highlights the pin and the card; clicking the name again or
   pressing Escape clears it, and clicking a pin highlights its card. On desktop, hovering a
   pin shows its name. The camera pads around the floating panels so pins never land under
