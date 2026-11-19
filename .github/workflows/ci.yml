@@ -45,7 +45,8 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - name: dbt build on the checked-in sample (models + tests)
-        run: uv run dbt build --profiles-dir . --vars '{raw_root: data/sample/raw}'
+        run: |
+          uv run dbt build --profiles-dir . --vars '{raw_root: data/sample/raw}'
       - name: export tests
         run: uv run pytest -q
 
