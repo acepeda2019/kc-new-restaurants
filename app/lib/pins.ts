@@ -2,11 +2,14 @@
  * Map pins (ARCHITECTURE.md §7, Map): pure functions, safe to run in the browser. Turns the
  * openings into a GeoJSON FeatureCollection for MapLibre; the component only draws it.
  */
-import type { Opening } from "@/lib/data";
+import type { Opening, OpeningSoon } from "@/lib/data";
 import type { LatLon } from "@/lib/rank";
 
-/** Pin colour group: the current top 3, places with red points at the latest inspection, other new places, the visitor. */
-export type PinKind = "top" | "wary" | "new" | "you";
+/**
+ * Pin group: the current top 3, places with red points at the latest inspection, other new
+ * places, Opening soon (licence applied for, not open yet), the visitor.
+ */
+export type PinKind = "top" | "wary" | "new" | "soon" | "you";
 /**
  * Top pins only: `rank` (1-3) is the place's position in the personal top 3, the number on its
  * card, and `label` is its name for the map's text layer.
@@ -50,7 +53,10 @@ function fixedSpot(o: Placeable): LatLon | null {
  * Top pins get `rank` from `topIds`' insertion order, so pass the top 3 in card order.
  * With `here`, adds one "you" pin.
  */
-export function toPins(openings: Opening[], opts: { topIds: ReadonlySet<string>; here?: LatLon }): Pins {
+export function toPins(
+  openings: Opening[],
+  opts: { topIds: ReadonlySet<string>; here?: LatLon; openingSoon?: OpeningSoon[] },
+): Pins {
   const topOrder = [...opts.topIds];
   const features: PinFeature[] = [];
   for (const o of openings) {
@@ -59,6 +65,10 @@ export function toPins(openings: Opening[], opts: { topIds: ReadonlySet<string>;
     const rank = topOrder.indexOf(o.restaurant_id) + 1; // 0 when not in the top 3
     const kind: PinKind = rank ? "top" : o.latest_red_points > 0 ? "wary" : "new";
     features.push(pin(o.restaurant_id, kind, at, o.name, o.why, rank));
+  }
+  for (const s of opts.openingSoon ?? []) {
+    const at = soonSpot(s);
+    if (at) features.push(pin(s.notice_id, "soon", at, s.trade_name, s.why));
   }
   if (opts.here) features.push(pin("you", "you", opts.here, "You are here", ""));
   return { type: "FeatureCollection", features };
@@ -111,6 +121,11 @@ export function focusTarget(o: Placeable): { center: LonLat; zoom: number } | nu
   return at ? { center: [at.lon, at.lat], zoom: FOCUS_ZOOM } : null;
 }
 
+/** An Opening soon place's spot, or null until the geocoder has matched its address. */
+export function soonSpot(s: Pick<OpeningSoon, "latitude" | "longitude">): LatLon | null {
+  return s.latitude === null || s.longitude === null ? null : { lat: s.latitude, lon: s.longitude };
+}
+
 /** Why a place has no pin, for a short note beside its name; null when it is on the map. */
 export function offMapNote(o: Placeable): "no fixed spot" | "not on the map" | null {
   if (o.category === "food_truck") return "no fixed spot";
@@ -134,8 +149,18 @@ export function nextFocus(current: FocusRequest | null, clicked: FocusRequest | 
 }
 
 /** The focus with its camera target, or null when nothing is focused or the place has no pin. */
-export function resolveFocus(focus: FocusRequest | null, openings: Opening[]): MapFocus | null {
-  const place = focus && openings.find((o) => o.restaurant_id === focus.id);
-  const target = place && focusTarget(place);
-  return focus && target ? { ...focus, ...target } : null;
+export function resolveFocus(
+  focus: FocusRequest | null,
+  openings: Opening[],
+  openingSoon: OpeningSoon[] = [],
+): MapFocus | null {
+  if (!focus) return null;
+  const place = openings.find((o) => o.restaurant_id === focus.id);
+  if (place) {
+    const target = focusTarget(place);
+    return target ? { ...focus, ...target } : null;
+  }
+  const soon = openingSoon.find((s) => s.notice_id === focus.id);
+  const at = soon && soonSpot(soon);
+  return at ? { ...focus, center: [at.lon, at.lat], zoom: FOCUS_ZOOM } : null;
 }

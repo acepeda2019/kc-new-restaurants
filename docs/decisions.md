@@ -4,6 +4,15 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-19 — How Opening soon appears in the app
+- **Context:** the Opening soon data (SAN-48/50) needed a place on the one-screen app (SAN-49).
+- **Decision:**
+  - A panel labelled "From liquor licence applications", so visitors know it misses places without alcohol. On desktop it sits under the stat tiles; on phones it follows the top 3.
+  - Map pins are **hollow rings**, so "not open yet" reads by shape, not just colour.
+  - Ranked newest application first, or nearest first once located. The first five show.
+  - The question bar receives the list as a separate block and must never call these places open.
+- **Consequences:** a place leaves the panel when it is first inspected (it then appears in Just opened) or after 365 days.
+
 ## 2026-11-19 — Licence addresses share the KC geocode cache
 - **Context:** Opening soon places need coordinates for map pins and distance ranking.
 - **Decision:**

@@ -2,7 +2,7 @@
  * Personal top 3 (ARCHITECTURE.md §6): pure functions, safe to run in the browser.
  * With a location, rank by score − 10 × distance in miles; without, use the mart's rank.
  */
-import type { Opening } from "@/lib/data";
+import type { Opening, OpeningSoon } from "@/lib/data";
 
 export type LatLon = { lat: number; lon: number };
 export type RankedOpening = Opening & { distanceMi?: number };
@@ -84,4 +84,24 @@ export function allPlaces(openings: Opening[], opts: { here?: LatLon; tried: Set
   }
   mapped.sort((a, b) => a.distanceMi - b.distanceMi || byRank(a, b));
   return [...mapped, ...unmapped.sort(byRank)].map(withTried);
+}
+
+/**
+ * Opening soon in display order: with `here`, places with coordinates nearest first (with
+ * `distanceMi`), then the rest by rank; without it, by rank (newest application first).
+ */
+export function rankOpeningSoon(
+  places: OpeningSoon[],
+  here?: LatLon,
+): Array<OpeningSoon & { distanceMi?: number }> {
+  const byRank = (a: OpeningSoon, b: OpeningSoon) => a.rank - b.rank;
+  if (!here) return [...places].sort(byRank);
+  const located: Array<OpeningSoon & { distanceMi: number }> = [];
+  const rest: OpeningSoon[] = [];
+  for (const p of places) {
+    if (p.latitude === null || p.longitude === null) rest.push(p);
+    else located.push({ ...p, distanceMi: haversineMi(here, { lat: p.latitude, lon: p.longitude }) });
+  }
+  located.sort((a, b) => a.distanceMi - b.distanceMi || byRank(a, b));
+  return [...located, ...rest.sort(byRank)];
 }

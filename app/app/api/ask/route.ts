@@ -7,7 +7,7 @@ import { Redis } from "@upstash/redis";
 import { answer, buildRequest, SAMPLE_NOTE } from "@/lib/ask";
 import { SESSION_COOKIE, VISITOR_COOKIE, verifySession } from "@/lib/auth";
 import { checkAndCount } from "@/lib/caps";
-import { getOpenings, isSampleData } from "@/lib/data";
+import { getOpeningSoon, getOpenings, isSampleData } from "@/lib/data";
 import type { LatLon } from "@/lib/rank";
 
 export const runtime = "nodejs";
@@ -84,7 +84,11 @@ export async function POST(request: NextRequest) {
   // 5. Only now: Claude. No SDK retries, so one counted question is at most one billed call.
   try {
     const client = new Anthropic({ apiKey, timeout: 20_000, maxRetries: 0 });
-    const params = buildRequest(body.question, getOpenings(), { here: body.here, tried: body.tried });
+    const params = buildRequest(body.question, getOpenings(), {
+      here: body.here,
+      tried: body.tried,
+      openingSoon: getOpeningSoon(),
+    });
     const text = await answer(client, params);
     // Guardrail 5: an answer built from the labelled sample says so.
     return NextResponse.json({ answer: isSampleData() ? `${text}\n\n${SAMPLE_NOTE}` : text, left });

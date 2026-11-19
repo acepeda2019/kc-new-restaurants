@@ -23,3 +23,7 @@ Nothing is invented.
   job on 2026-11-19 (14 notices statewide, 7 King County), with personal fields (`contact`,
   `dayphone`, `applicants`, `designatedsignee`, `licenseename`, `mailaddress`, `mailcity`,
   `mailzip`) replaced by `SAMPLE …` values. Business fields are as received.
+- `census_geocoder/dt=2026-11-19/20261119T210632Z-ee6508c1/`: the real geocoder run from the daily
+  job on 2026-11-19 for that snapshot's new King County licence addresses (5 sent, 5 matched).
+  Taurus Karaoke & Lounge's address was already in the production cache from a KC inspection, so
+  it wasn't re-sent and has no coordinates in this sample.
