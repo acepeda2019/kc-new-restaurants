@@ -1,0 +1,97 @@
+name: daily
+
+# The whole pipeline, once a day (ARCHITECTURE.md §3): extract → dbt candidates → Claude
+# classification of new candidates → dbt marts → export (with the publish guard) → deploy.
+# Any failed step stops the job: nothing deploys, the site keeps yesterday's data, and
+# GitHub emails the owner.
+on:
+  schedule:
+    - cron: "0 14 * * *" # 14:00 UTC ≈ 6–7 am Pacific
+  workflow_dispatch:
+    inputs:
+      classify_limit:
+        description: "Classify at most N new candidates (blank = all)"
+        required: false
+
+permissions:
+  contents: read
+  id-token: write # GitHub OIDC → the AWS role (no stored AWS keys)
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-west-2
+  RAW_BUCKET: ${{ vars.RAW_BUCKET }}
+
+jobs:
+  pipeline:
+    # The AWS role only trusts this repo's main branch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Extract (KC inspections, Census geocoder) → s3://$RAW_BUCKET/raw/
+        working-directory: ingestion
+        run: uv run python run.py extract
+
+      - name: dbt build up to the candidates
+        working-directory: transform
+        run: uv run dbt build --profiles-dir . --target prod --select +int_candidates
+
+      - name: Classify new candidates with Claude Haiku
+        working-directory: ingestion
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLASSIFY_LIMIT: ${{ inputs.classify_limit }}
+        run: |
+          uv run python run.py classify --db ../transform/kcne.duckdb ${CLASSIFY_LIMIT:+--limit "$CLASSIFY_LIMIT"}
+
+      - name: dbt build everything (classifications, scoring, marts) with tests
+        working-directory: transform
+        run: uv run dbt build --profiles-dir . --target prod
+
+      - name: Export JSON for the app (publish guard; dated copy in S3)
+        working-directory: transform
+        run: uv run python export.py --db kcne.duckdb --out ../app/data
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # REQUIRE_EXPORT=1: a missing export fails the build instead of shipping sample data
+      # (ARCHITECTURE.md §7). Set here only, never as a Vercel env var.
+      - name: Build for Vercel
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          REQUIRE_EXPORT: "1"
+        run: |
+          npx --yes vercel@65.11.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx --yes vercel@65.11.0 build --prod --token="$VERCEL_TOKEN"
+
+      - name: Check the question API ships the real export, not only the sample
+        run: |
+          found=$(find .vercel/output/functions -path '*api/ask*' -name openings.json -not -path '*sample*' | head -1)
+          if [ -z "$found" ]; then echo "::error::/api/ask bundle has no real openings.json"; exit 1; fi
+          echo "ok: $found"
+
+      - name: Deploy to production
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@65.11.0 deploy --prebuilt --prod --token="$VERCEL_TOKEN"

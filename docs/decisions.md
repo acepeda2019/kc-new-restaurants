@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-19 — Only the daily job deploys production
+- **Context:** Vercel's git integration built production on every merge to `main`, from the repo alone, so it could only ever show the sample. SAN-41 adds the daily job that builds with the real export.
+- **Decision:** `app/vercel.json` turns off git deploys for `main`; PR previews stay. Production deploys only from `daily.yml` (`vercel build` with `REQUIRE_EXPORT=1`, then `deploy --prebuilt --prod`). After the build, the job checks that the `/api/ask` bundle contains the real `openings.json` and fails otherwise. The first dbt pass builds only up to `int_candidates`, because classifications don't exist until the classify step runs.
+- **Consequences:** a merged change reaches the live site at the next daily run, or when the owner runs the workflow by hand. A failed step leaves yesterday's site live and GitHub emails the owner.
+
 ## 2026-11-18 — Click a place to see it on the map; floating layout from 1100px
 - **Context:** after the redesign merged (#33), the owner couldn't tell which pin was which, and the pin popups were unreadable (light text on MapLibre's white default). The #33 review also found panels covering pins between 720 and 1099px and red-points pins that differed only by colour on the dark map.
 - **Decision (owner):**

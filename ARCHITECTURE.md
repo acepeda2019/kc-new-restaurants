@@ -41,11 +41,14 @@ can push cost past the caps.
 GitHub Actions, daily cron + manual run                        .github/workflows/daily.yml
   1. extract   KC inspections, full pull        → s3 raw/kc_inspections/dt=…/<run_id>.jsonl.gz
   2. geocode   new addresses only → Census      → s3 raw/census_geocoder/dt=…/<run_id>/
-  3. dbt build staging + intermediate (DuckDB, reads raw from S3)  → candidates
+  3. dbt build up to int_candidates (DuckDB, reads raw from S3)    → candidates
   4. classify  candidates never seen before → Claude Haiku → s3 raw/claude_classifications/…
-  5. dbt build marts + tests                    → mart_new_openings, mart_metrics
+  5. dbt build everything + tests              → mart_new_openings, mart_metrics
   6. publish   export JSON → guard (refuse 0 rows or <50% of last run) → s3 exports/dt=…/<run_id>/
-               → vercel deploy --prebuilt
+               → vercel build (REQUIRE_EXPORT=1) → check /api/ask ships the real export
+               → vercel deploy --prebuilt --prod. Any failed step stops the job; nothing deploys.
+  Vercel's own deploy-on-push is off for main (app/vercel.json); PRs still get previews.
+  ci.yml runs ingestion, dbt-on-sample and app checks on every PR.
 
 Vercel (Next.js)
   proxy       shared passcode → signed cookie; gates every page, the data and the API
@@ -72,7 +75,7 @@ The GitHub Actions failure email is the alert.
 | Location, "Tried it" | `app/lib/location.ts`, `app/lib/tried.ts`, `app/components/PersonalPicks.tsx` | built (SAN-39a) |
 | Map + "All N places" list | `app/` | built (SAN-39b/c) |
 | Capped question bar | `app/api/ask` | planned (SAN-40) |
-| Daily workflow + CI | `.github/workflows/` | planned (SAN-41) |
+| Daily workflow + CI | `.github/workflows/` | built (SAN-41), first live run pending |
 
 ## 3. Sources
 
