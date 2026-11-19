@@ -11,8 +11,10 @@ target-path: target
 clean-targets: [target, dbt_packages]
 
 vars:
-  # Root of the raw layer. Production: the S3 bucket. Local: --vars '{raw_root: data/sample/raw}'.
-  raw_root: "s3://{{ env_var('RAW_BUCKET', 'RAW_BUCKET-not-set') }}/raw"
+  # Root of the raw layer. Always passed on the command line (dbt doesn't render Jinja here):
+  #   local:  --vars '{raw_root: data/sample/raw}'
+  #   daily:  --vars "{raw_root: s3://$RAW_BUCKET/raw}" (.github/workflows/daily.yml)
+  raw_root: "raw_root-not-set--pass-it-with---vars"
 
 models:
   kc_new_eats:

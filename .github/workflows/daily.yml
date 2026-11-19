@@ -49,7 +49,8 @@ jobs:
 
       - name: dbt build up to the candidates
         working-directory: transform
-        run: uv run dbt build --profiles-dir . --target prod --select +int_candidates
+        run: |
+          uv run dbt build --profiles-dir . --target prod --vars "{raw_root: s3://${RAW_BUCKET}/raw}" --select +int_candidates
 
       - name: Classify new candidates with Claude Haiku
         working-directory: ingestion
@@ -61,7 +62,8 @@ jobs:
 
       - name: dbt build everything (classifications, scoring, marts) with tests
         working-directory: transform
-        run: uv run dbt build --profiles-dir . --target prod
+        run: |
+          uv run dbt build --profiles-dir . --target prod --vars "{raw_root: s3://${RAW_BUCKET}/raw}"
 
       - name: Export JSON for the app (publish guard; dated copy in S3)
         working-directory: transform
