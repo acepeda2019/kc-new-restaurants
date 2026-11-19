@@ -918,17 +918,50 @@ button.link {
   font-size: 0.75rem;
 }
 
-.fact.good {
+.facts .fact.good {
   color: #d4f75a;
   border-color: rgba(212, 247, 90, 0.4);
 }
 
-.fact.warn {
+.facts .fact.warn {
   color: #ff8a3d;
   border-color: rgba(255, 138, 61, 0.5);
 }
 
-.fact.soon {
+.facts .fact.soon {
   color: #c9b6ff;
   border-color: #c9b6ff;
+}
+
+/* Answer cards: a compact "Tried" pill right after the name, label always visible. */
+.answer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* A long name wraps inside its heading, so "Tried" never drops to its own line. */
+.answer-head h3 {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* The card list's ".top-three li" rules would otherwise pad and underline each bubble. */
+.facts .fact {
+  display: block;
+  margin: 0;
+  padding: 2px 10px;
+  border: 1px solid transparent;
+}
+
+.answer-picks button.tried {
+  width: auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.answer-picks .tried-label {
+  display: inline;
 }
