@@ -1,7 +1,8 @@
 /*
  * One dark theme (owner's mockup, SAN-42). Mobile first: on phones the map fills the top of the
- * screen and the panels sit in a scrolling bottom sheet; from 720px the map fills the window and
- * the panels float over it. Every text colour here is at least 4.5:1 on the panel colour.
+ * screen and the panels sit in a scrolling bottom sheet; from 1100px (where the panels leave
+ * the map a usable middle; FLOATING in OpeningsMap.tsx must match) the map fills the window
+ * and the panels float over it. Every text colour here is at least 4.5:1 on the panel colour.
  */
 :root {
   color-scheme: dark;
@@ -133,6 +134,19 @@ input {
   color: var(--orange-text);
   background: #1d1611; /* the orange at 12% over the ground, opaque for contrast */
   border-color: rgba(255, 138, 61, 0.3);
+}
+
+.sample-short {
+  display: none;
+}
+
+@media (max-width: 399.98px) {
+  .sample-long {
+    display: none;
+  }
+  .sample-short {
+    display: inline;
+  }
 }
 
 /* Layout, phone: header over the map, then one scrolling sheet. */
@@ -324,8 +338,43 @@ input {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 12px 0;
+  margin: 0 -8px;
+  padding: 12px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* The place shown on the map. */
+.top-three li.focused,
+.all-places li.focused {
+  border-radius: 12px;
+  background: rgba(212, 247, 90, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(212, 247, 90, 0.45);
+}
+
+/* A name that shows the place on the map: reads as text, underlined as a hint. */
+button.place-name {
+  min-height: 0;
+  margin: -10px 0; /* a 44px-tall target without moving the text */
+  padding: 10px 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font-weight: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: rgba(242, 244, 247, 0.35);
+  text-underline-offset: 3px;
+}
+
+button.place-name:hover {
+  text-decoration-color: var(--lime);
+}
+
+.off-map {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .rank {
@@ -388,14 +437,17 @@ input {
   color: var(--ground);
 }
 
+/* Sheet layout: tick plus a visible "Tried"; floating layout: tick only, with a tooltip. */
 button.tried {
   flex: none;
   align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  padding: 0;
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+  font-weight: 500;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--text-2);
@@ -443,7 +495,7 @@ button.link {
 }
 
 .all-places li {
-  padding: 8px 0;
+  padding: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -456,16 +508,66 @@ button.link {
   color: var(--text-2);
 }
 
-/* MapLibre popup in the theme. */
-.maplibregl-popup-content {
-  background: #0a0d12;
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+/*
+ * MapLibre popups (click and hover) in the theme. Scoped to .map-box so these win over
+ * maplibre-gl.css whichever loads last, and over the global button rule.
+ */
+.map-layer .map-box {
+  font-family: inherit; /* Geist in popups, not maplibre-gl.css's Helvetica */
 }
 
-.maplibregl-popup-tip {
-  display: none;
+.map-box .maplibregl-popup-content {
+  padding: 10px 36px 10px 12px; /* the right side leaves room for the close button */
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0a0d12;
+  color: var(--text);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  box-shadow: var(--shadow);
+}
+
+.map-box .pin-hover .maplibregl-popup-content {
+  padding: 4px 10px;
+}
+
+.map-box .maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.map-box .maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.map-box .maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+  border-bottom-color: #0a0d12;
+}
+
+.map-box .maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.map-box .maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.map-box .maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+  border-top-color: #0a0d12;
+}
+
+.map-box .maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: #0a0d12;
+}
+
+.map-box .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: #0a0d12;
+}
+
+.map-box .maplibregl-popup-close-button {
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.map-box .maplibregl-popup-close-button:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Login. */
@@ -491,7 +593,7 @@ button.link {
 }
 
 /* Wide screens: full-window map, panels floating around its centre. */
-@media (min-width: 720px) {
+@media (min-width: 1100px) {
   :root {
     --map-h: 100svh;
   }
@@ -586,6 +688,15 @@ button.link {
 
   .top-three li:last-child {
     border-bottom: 0;
+  }
+
+  button.tried {
+    width: 44px;
+    padding: 0;
+  }
+
+  .tried-label {
+    display: none;
   }
 
   .bottombar {

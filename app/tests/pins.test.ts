@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Opening } from "@/lib/data";
-import { KING_COUNTY_BOUNDS, YOU_ZOOM, boundsOf, cameraTarget, popupText, toPins, trucksOf } from "@/lib/pins";
+import {
+  FOCUS_ZOOM, KING_COUNTY_BOUNDS, YOU_ZOOM, boundsOf, cameraTarget, focusTarget, offMapNote, popupText, toPins, trucksOf,
+} from "@/lib/pins";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
 const BELLEVUE = { lat: 47.6101, lon: -122.2015 };
@@ -44,6 +46,13 @@ describe("toPins", () => {
     const pins = toPins(rows, { topIds: new Set(["c", "a", "b"]) });
     const ranks = Object.fromEntries(pins.features.map((f) => [f.properties.id, f.properties.rank]));
     expect(ranks).toEqual({ a: 2, b: 3, c: 1, d: undefined });
+  });
+
+  it("labels top pins with the name for the map's text layer; other pins have no label", () => {
+    const rows = [opening("a", SEATTLE), opening("b", BELLEVUE, { latest_red_points: 5 })];
+    const pins = toPins(rows, { topIds: new Set(["a"]), here: SEATTLE });
+    const labels = Object.fromEntries(pins.features.map((f) => [f.properties.id, f.properties.label]));
+    expect(labels).toEqual({ a: "Name a", b: undefined, you: undefined });
   });
 
   it("carries name and why, and puts coordinates in lon, lat order", () => {
@@ -148,5 +157,25 @@ describe("cameraTarget", () => {
   it("moves again when the visitor is found somewhere else", () => {
     const pins = toPins(rows, { topIds: new Set(), here: SEATTLE });
     expect(cameraTarget(pins, [BELLEVUE.lon, BELLEVUE.lat])?.center).toEqual([SEATTLE.lon, SEATTLE.lat]);
+  });
+});
+
+describe("focusTarget", () => {
+  it("centres on a fixed-spot place at street zoom, in lon, lat order", () => {
+    expect(focusTarget(opening("a", SEATTLE))).toEqual({ center: [SEATTLE.lon, SEATTLE.lat], zoom: FOCUS_ZOOM });
+    expect(FOCUS_ZOOM).toBe(15);
+  });
+
+  it("is null for food trucks and places without coordinates", () => {
+    expect(focusTarget(opening("t", SEATTLE, { category: "food_truck" }))).toBeNull();
+    expect(focusTarget(opening("u", null))).toBeNull();
+  });
+});
+
+describe("offMapNote", () => {
+  it("says why a place has no pin, and is null exactly when focusTarget has a target", () => {
+    const rows = [opening("a", SEATTLE), opening("t", SEATTLE, { category: "food_truck" }), opening("u", null)];
+    expect(rows.map(offMapNote)).toEqual([null, "no fixed spot", "not on the map"]);
+    for (const o of rows) expect(offMapNote(o) === null).toBe(focusTarget(o) !== null);
   });
 });

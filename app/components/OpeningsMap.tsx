@@ -5,9 +5,11 @@
  * MapLibre is imported inside the effect, so the server render (and the static HTML) is just
  * the empty map layer behind the panels. Any MapLibre or style failure shows a short note
  * instead; the rest of the page never depends on the map. The legend is MapLegend.
+ * A `focus` (a place's name was clicked, or its pin) highlights that pin and opens its popup;
+ * from the lists it also moves the camera there.
  */
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import type { GeoJSONSource, Map as MapLibreMap, Popup } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import { PIN_COLORS } from "@/components/MapLegend";
 import { boundsOf, cameraTarget, popupText, type PinProps, type Pins } from "@/lib/pins";
@@ -15,23 +17,45 @@ import { boundsOf, cameraTarget, popupText, type PinProps, type Pins } from "@/l
 // OpenFreeMap: free, no key. Override with any MapLibre style URL.
 const STYLE_URL = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/dark";
 const SOURCE_ID = "openings";
-const GROUND = "#0B0E13"; // page background; dark rings and rank numbers use it
+const GROUND = "#0B0E13"; // page background; rank numbers and label halos use it
+const LIGHT = "#F2F4F7"; // main text colour; rings and labels use it
+const FOCUS_LAYER = `${SOURCE_ID}-focus`;
 // Faint glow behind top, wary and you pins (the colour at low opacity).
 const HALO = { top: "rgba(212,247,90,.18)", wary: "rgba(255,138,61,.18)", you: "rgba(90,169,255,.2)" };
 
-// Keep pins clear of the floating panels: on wide screens they cover the left and right edges.
-function fitPadding() {
-  return window.innerWidth >= 1100
+// Panels float over the map from this width (keep in step with the 1100px media query in
+// globals.css); below it the map sits above the bottom sheet.
+const FLOATING = "(min-width: 1100px)";
+const media = (query: string) => window.matchMedia(query).matches;
+const reducedMotion = () => media("(prefers-reduced-motion: reduce)");
+
+// Keep pins in the part of the map nothing covers: between the floating panels on wide
+// screens, under the header pills otherwise. Read at camera time, so it follows resizes.
+function viewPadding() {
+  return media(FLOATING)
     ? { top: 96, bottom: 72, left: 440, right: 280 }
     : { top: 72, bottom: 24, left: 24, right: 24 };
 }
 
-type Props = { pins: Pins };
+/** A place to show; `from: "list"` also flies there (a pin click leaves the camera alone). */
+export type MapFocus = { id: string; from: "list" | "map"; center: [number, number]; zoom: number };
 
-export function OpeningsMap({ pins }: Props) {
+type Props = {
+  pins: Pins;
+  focus: MapFocus | null;
+  /** A pin was clicked (its id), or the focused popup was closed (null). */
+  onFocus: (id: string | null) => void;
+};
+
+export function OpeningsMap({ pins, focus, onFocus }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const popupClass = useRef<typeof Popup | null>(null);
+  const focusPopup = useRef<Popup | null>(null);
+  const loaded = useRef(false);
   const latestPins = useRef(pins);
+  const latestFocus = useRef(focus);
+  const latestOnFocus = useRef(onFocus);
   const lastCentered = useRef<[number, number] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -40,8 +64,41 @@ export function OpeningsMap({ pins }: Props) {
     const target = cameraTarget(latestPins.current, lastCentered.current);
     if (!target) return;
     lastCentered.current = target.center;
-    map.easeTo(target);
+    map.easeTo({ ...target, padding: viewPadding() });
   }
+
+  // Ring the focused pin and open its popup; from the lists, also fly there (and on phones
+  // scroll back up to the map). Needs the layers, so before "load" it waits for setup.
+  function showFocus(map: MapLibreMap) {
+    const f = latestFocus.current;
+    map.setFilter(FOCUS_LAYER, ["==", ["get", "id"], f?.id ?? ""]);
+    const old = focusPopup.current;
+    focusPopup.current = null; // first, so its "close" below doesn't clear the new focus
+    old?.remove();
+    const pin = f && latestPins.current.features.find((p) => p.properties.id === f.id);
+    if (!f || !pin || !popupClass.current) return;
+    if (f.from === "list") {
+      const camera = { center: f.center, zoom: f.zoom, padding: viewPadding() };
+      if (reducedMotion()) map.jumpTo(camera);
+      else map.flyTo(camera);
+      if (!media(FLOATING)) window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+    }
+    // closeOnClick off: a click on another pin must replace this focus, not clear it.
+    const popup = new popupClass.current({ closeOnClick: false, focusAfterOpen: false, offset: 18 })
+      .setLngLat(f.center)
+      .setText(popupText(pin.properties)); // a text node: names and reasons are data, never HTML
+    popup.on("close", () => {
+      if (focusPopup.current !== popup) return; // replaced, not closed by the visitor
+      focusPopup.current = null;
+      latestOnFocus.current(null);
+    });
+    focusPopup.current = popup;
+    popup.addTo(map);
+  }
+
+  useEffect(() => {
+    latestOnFocus.current = onFocus;
+  }, [onFocus]);
 
   // New top 3 or location: swap the data in place rather than rebuilding the map.
   useEffect(() => {
@@ -51,6 +108,12 @@ export function OpeningsMap({ pins }: Props) {
     map.getSource<GeoJSONSource>(SOURCE_ID)?.setData(pins).catch(() => {}); // a failed update keeps the old pins
     recenter(map);
   }, [pins]);
+
+  useEffect(() => {
+    latestFocus.current = focus;
+    const map = mapRef.current;
+    if (map && loaded.current) showFocus(map);
+  }, [focus]);
 
   useEffect(() => {
     let map: MapLibreMap | undefined;
@@ -69,11 +132,12 @@ export function OpeningsMap({ pins }: Props) {
         if (cancelled || !box.current) return;
         // The bundler moves MapLibre's code, so tell it where its worker file ended up.
         maplibre.setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).href);
+        popupClass.current = maplibre.Popup;
         map = new maplibre.Map({
           container: box.current,
           style: STYLE_URL,
           bounds: boundsOf(latestPins.current.features),
-          fitBoundsOptions: { padding: fitPadding(), maxZoom: 14 },
+          fitBoundsOptions: { padding: viewPadding(), maxZoom: 14 },
           attributionControl: { compact: false }, // OpenStreetMap / OpenFreeMap credit stays visible
         });
         mapRef.current = map;
@@ -109,9 +173,23 @@ export function OpeningsMap({ pins }: Props) {
                 PIN_COLORS.new,
               ],
               "circle-radius": ["match", ["get", "kind"], "top", 14, "you", 7, "wary", 6.5, 5],
-              // Wary pins keep a thick dark ring so they differ by more than colour too.
-              "circle-stroke-color": GROUND,
-              "circle-stroke-width": ["match", ["get", "kind"], "you", 3, "wary", 2.5, "top", 2, 1],
+              // Wary pins get a light ring (and are bigger) so they differ from new ones by more
+              // than colour; a dark ring would vanish on the dark map.
+              "circle-stroke-color": ["match", ["get", "kind"], "wary", LIGHT, GROUND],
+              "circle-stroke-width": ["match", ["get", "kind"], "you", 3, "wary", 2, "top", 2, 1],
+            },
+          });
+          // A light ring around the focused pin; the filter is set by showFocus.
+          map!.addLayer({
+            id: FOCUS_LAYER,
+            type: "circle",
+            source: SOURCE_ID,
+            filter: ["==", ["get", "id"], ""],
+            paint: {
+              "circle-opacity": 0,
+              "circle-radius": ["match", ["get", "kind"], "top", 19, 11],
+              "circle-stroke-color": LIGHT,
+              "circle-stroke-width": 3,
             },
           });
           // The card's number (1-3) on each top pin, in the dark ground colour.
@@ -129,15 +207,48 @@ export function OpeningsMap({ pins }: Props) {
             },
             paint: { "text-color": GROUND },
           });
+          // The name beside each numbered pin, so the top 3 read at a glance.
+          map!.addLayer({
+            id: `${SOURCE_ID}-label`,
+            type: "symbol",
+            source: SOURCE_ID,
+            filter: ["==", ["get", "kind"], "top"],
+            layout: {
+              "text-field": ["get", "label"],
+              "text-font": ["Noto Sans Bold"],
+              "text-size": 13,
+              "text-anchor": "left",
+              "text-offset": [1.5, 0], // ems: clear of the 14px pin
+              "text-allow-overlap": true,
+            },
+            paint: { "text-color": LIGHT, "text-halo-color": GROUND, "text-halo-width": 2 },
+          });
+          loaded.current = true;
+          showFocus(map!); // a name may have been clicked while the map loaded
         });
         map.on("click", SOURCE_ID, (e) => {
           const props = e.features?.[0]?.properties as PinProps | undefined;
           if (!props || !map) return;
-          // setText writes a text node: names and reasons are data, never HTML.
-          new maplibre.Popup().setLngLat(e.lngLat).setText(popupText(props)).addTo(map);
+          if (props.kind === "you") {
+            new maplibre.Popup().setLngLat(e.lngLat).setText(popupText(props)).addTo(map);
+            return;
+          }
+          latestOnFocus.current(props.id); // comes back as `focus`, which opens the popup
         });
-        map.on("mouseenter", SOURCE_ID, () => (map!.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", SOURCE_ID, () => (map!.getCanvas().style.cursor = ""));
+        // Hovering a pin names it (mouse only; touch has no hover).
+        const hover = new maplibre.Popup({ closeButton: false, closeOnClick: false, className: "pin-hover", offset: 12 });
+        map.on("mousemove", SOURCE_ID, (e) => {
+          const f = e.features?.[0];
+          if (!f || f.geometry.type !== "Point" || !map || !media("(hover: hover) and (pointer: fine)")) return;
+          map.getCanvas().style.cursor = "pointer";
+          const [lon, lat] = f.geometry.coordinates;
+          hover.setLngLat([lon, lat]).setText((f.properties as PinProps).name);
+          if (!hover.isOpen()) hover.addTo(map);
+        });
+        map.on("mouseleave", SOURCE_ID, () => {
+          map!.getCanvas().style.cursor = "";
+          hover.remove();
+        });
       } catch {
         fail(); // import failed or no WebGL
       }

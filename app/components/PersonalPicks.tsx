@@ -11,11 +11,11 @@ import { AllPlaces } from "@/components/AllPlaces";
 import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
 import { Metrics } from "@/components/Metrics";
-import { OpeningsMap } from "@/components/OpeningsMap";
+import { OpeningsMap, type MapFocus } from "@/components/OpeningsMap";
 import { TopThree } from "@/components/TopThree";
 import type { Metrics as MetricsData, Opening } from "@/lib/data";
 import { requestLocation } from "@/lib/location";
-import { toPins, trucksOf } from "@/lib/pins";
+import { focusTarget, toPins, trucksOf } from "@/lib/pins";
 import { NEAR_RADIUS_MI, allPlaces, countNear, personalTopThree, type LatLon } from "@/lib/rank";
 import {
   clearTried,
@@ -40,6 +40,8 @@ export function PersonalPicks({ openings, metrics }: Props) {
   const tried = useSyncExternalStore(subscribeTried, browserSnapshot, serverSnapshot);
   // The place just marked stays on screen (button pressed) so it can be undone in place.
   const [justMarked, setJustMarked] = useState<string | null>(null);
+  // The place shown on the map: a name clicked in a list, or a pin clicked on the map.
+  const [focused, setFocused] = useState<Pick<MapFocus, "id" | "from"> | null>(null);
 
   async function locate() {
     if (status === "asking") return; // aria-disabled (not disabled) keeps focus, so ignore clicks here
@@ -69,11 +71,20 @@ export function PersonalPicks({ openings, metrics }: Props) {
     [openings, top, here],
   );
   const everyPlace = useMemo(() => allPlaces(openings, { here, tried }), [openings, here, tried]);
+  const focus = useMemo((): MapFocus | null => {
+    const place = focused && openings.find((o) => o.restaurant_id === focused.id);
+    const target = place && focusTarget(place);
+    return focused && target ? { ...focused, ...target } : null;
+  }, [focused, openings]);
+  const focusedId = focus?.id ?? null;
+  // A new object on every click, so clicking the same name again flies back to it.
+  const showFromList = (id: string) => setFocused({ id, from: "list" });
+  const showFromMap = (id: string | null) => setFocused(id ? { id, from: "map" } : null);
 
   // DOM order is the phone order (stats, top 3, lists); on wide screens CSS places them around the map.
   return (
     <>
-      <OpeningsMap pins={pins} />
+      <OpeningsMap pins={pins} focus={focus} onFocus={showFromMap} />
       <div className="panels">
         <Metrics metrics={metrics} near={near} />
 
@@ -88,14 +99,14 @@ export function PersonalPicks({ openings, metrics }: Props) {
             {status === "unavailable" && "Location unavailable — showing default order"}
             {status === "found" && "Ranked by score and distance from you"}
           </p>
-          <TopThree items={top} tried={tried} onToggleTried={toggle} />
+          <TopThree items={top} tried={tried} onToggleTried={toggle} onShow={showFromList} focusedId={focusedId} />
           <HiddenTried count={hiddenCount(openings, tried, justMarked)} onClear={clear} />
         </section>
 
         <section aria-labelledby="map-heading" className="panel places">
-          <h2 id="map-heading">Where they are</h2>
+          <h2 id="map-heading">All places</h2>
           <FoodTrucks trucks={trucksOf(openings)} />
-          <AllPlaces items={everyPlace} />
+          <AllPlaces items={everyPlace} onShow={showFromList} focusedId={focusedId} />
         </section>
       </div>
     </>

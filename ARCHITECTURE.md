@@ -215,7 +215,7 @@ where it serves, so it can't be "near you".
   tried · Clear" link resets them (N = tried places still listed, other than the one
   just marked).
 - **Layout and look:** a dark theme (ground `#0B0E13`, one lime accent `#D4F75A`, Geist)
-  following the owner's UI mockup. On screens 720px and wider the map fills the window and
+  following the owner's UI mockup. On screens 1100px and wider the map fills the window and
   everything floats over it in dark panels: header (logo, question-bar slot, "Sample data"
   pill), your top 3 and the lists on the left, the three stat tiles on the right, the legend
   and data source at the bottom. On phones the map takes the top of the screen and one
@@ -223,9 +223,12 @@ where it serves, so it can't be "near you".
 - **Map:** MapLibre GL with OpenFreeMap's `dark` style (free, no key); `NEXT_PUBLIC_MAP_STYLE_URL`
   overrides it. Every opening with a fixed location is pinned, including ones marked "Tried
   it"; pin logic is in `app/lib/pins.ts`. Pins: top 3 lime, numbered 1–3 to match the cards,
-  larger and drawn on top (winning over red); red points at latest inspection orange with a
-  dark ring; other new places light grey; you blue. After "Use my location" the map
-  recenters on the visitor. Food trucks get no pin and are listed as "Food trucks (no fixed
+  larger, drawn on top (winning over red) and labelled with the name; red points at latest
+  inspection orange with a light ring; other new places light grey; you blue. After "Use my location" the map
+  recenters on the visitor. Clicking a place's name in the top 3 or "All N places" flies the
+  map to its pin, opens its popup (name · why, as text) and highlights the pin and the card;
+  clicking a pin highlights its card. On desktop, hovering a pin shows its name. The camera
+  pads around the floating panels so pins never land under them. Food trucks get no pin and are listed as "Food trucks (no fixed
   spot)". If the map or its style fails to load, a "Map unavailable" note shows on the plain
   dark ground and the panels still work. A collapsed "All N places" list (closed by default; rows render only when
   opened) gives every opening as text. Once located: fixed-location places nearest first
