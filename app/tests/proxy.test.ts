@@ -29,7 +29,7 @@ describe("proxy", () => {
     expectPassThrough(await proxy(request(path)));
   });
 
-  it.each(["/", "/restaurant/1", "/api/other"])("redirects %s without a cookie", async (path) => {
+  it.each(["/", "/restaurant/1", "/api/ask", "/api/other"])("redirects %s without a cookie", async (path) => {
     expectRedirectToLogin(await proxy(request(path)));
   });
 
