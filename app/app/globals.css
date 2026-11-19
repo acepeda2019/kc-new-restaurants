@@ -204,8 +204,8 @@ input {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 56px;
-  padding: 0 6px 0 16px;
+  min-height: 56px;
+  padding: 6px 6px 6px 16px;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--tile);
@@ -220,17 +220,28 @@ input {
   color: var(--lime);
 }
 
-.ask-form input {
+/* A text box that grows with the question (AskBar sets its height), up to six lines: a
+   long question stays readable on a phone after tapping away. */
+.ask-form textarea {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  max-height: calc(6 * 1.4em);
+  scrollbar-width: none;
+  padding: 0;
   border: 0;
+  border-radius: 0;
   outline: 0;
+  resize: none;
+  overflow-y: auto;
   background: transparent;
   color: var(--text);
+  font: inherit;
   font-size: 1rem; /* 16px stops iOS zooming in on focus */
+  line-height: 1.4;
 }
 
-.ask-form input::placeholder {
+.ask-form textarea::placeholder {
   color: var(--muted);
 }
 
@@ -775,7 +786,10 @@ button.link {
   }
 
   .ask-form {
-    height: 64px;
+    min-height: 64px;
+  }
+
+  .ask-form textarea {
     font-size: 1.125rem;
   }
 

@@ -7,7 +7,7 @@
  * API checks the caps before Claude.
  * Answers are plain text, rendered as text (never HTML).
  */
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { AnswerPick } from "@/lib/ask";
 import { MAX_QUESTION_CHARS, type AskResult } from "@/lib/askClient";
 
@@ -28,6 +28,16 @@ type Props = {
 
 export function AskBar({ onAsk, intro, chips, location, onPicks, children }: Props) {
   const [question, setQuestion] = useState("");
+  const input = useRef<HTMLTextAreaElement>(null);
+
+  // Grow with the text (CSS caps it at six lines, then it scrolls), so a long question stays
+  // readable after the visitor taps away. Runs on every change, including a chip filling it in.
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [question]);
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<AskResult | null>(null);
   const [left, setLeft] = useState<number | null>(null);
@@ -49,6 +59,14 @@ export function AskBar({ onAsk, intro, chips, location, onPicks, children }: Pro
     void ask(question);
   }
 
+  // Enter sends, as in the old one-line input; Shift+Enter is ignored (questions are one line).
+  // Skipped while an input method is composing (e.g. Japanese), where Enter confirms text.
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    if (!e.shiftKey) void ask(question);
+  }
+
   function chip(text: string) {
     setQuestion(text);
     void ask(text);
@@ -62,11 +80,13 @@ export function AskBar({ onAsk, intro, chips, location, onPicks, children }: Pro
           <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
         </svg>
         <label htmlFor="ask-input" className="sr-only">Ask about new restaurants</label>
-        <input
+        <textarea
           id="ask-input"
-          type="text"
+          ref={input}
+          rows={1}
           value={question}
-          onChange={(e) => setQuestion(e.target.value)}
+          onChange={(e) => setQuestion(e.target.value.replace(/\n/g, " "))}
+          onKeyDown={onKeyDown}
           maxLength={MAX_QUESTION_CHARS}
           placeholder="Ask anything about new restaurants…"
           autoComplete="off"
