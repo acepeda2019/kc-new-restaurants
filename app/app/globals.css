@@ -235,3 +235,83 @@ button.link {
     color: #aaa;
   }
 }
+
+/* Map: fixed height so the page doesn't jump while tiles load. */
+.openings-map {
+  margin: 0;
+}
+
+.map-box,
+.map-unavailable {
+  height: 320px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.map-unavailable {
+  height: auto;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: #666;
+}
+
+.maplibregl-popup-content {
+  color: #1a1a1a;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.35rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #888;
+  vertical-align: -0.1rem;
+}
+
+.swatch.top {
+  width: 1rem;
+  height: 1rem;
+}
+
+.swatch.wary {
+  border-color: #1a1a1a;
+}
+
+.food-trucks h3 {
+  font-size: 1rem;
+  margin: 1rem 0 0.25rem;
+}
+
+.food-trucks ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+@media (min-width: 40rem) {
+  .map-box {
+    height: 400px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .map-box,
+  .map-unavailable {
+    border-color: #333;
+  }
+  .map-unavailable {
+    color: #aaa;
+  }
+}

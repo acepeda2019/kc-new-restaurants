@@ -2,16 +2,19 @@
 
 /**
  * Browser-only state for the home page: the visitor's location (asked on click, never sent
- * anywhere) and "Tried it" marks (localStorage). Ranking and counting come from lib/rank;
- * Metrics and TopThree stay presentational. The first render has no location and nothing
+ * anywhere) and "Tried it" marks (localStorage). Ranking and counting come from lib/rank, pins
+ * from lib/pins; Metrics, OpeningsMap and TopThree stay presentational. The first render has no location and nothing
  * tried (the server snapshot), so it matches the static HTML; stored marks apply after hydration.
  */
-import { useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import { FoodTrucks } from "@/components/FoodTrucks";
 import { HiddenTried } from "@/components/HiddenTried";
 import { Metrics } from "@/components/Metrics";
+import { OpeningsMap } from "@/components/OpeningsMap";
 import { TopThree } from "@/components/TopThree";
 import type { Metrics as MetricsData, Opening } from "@/lib/data";
 import { requestLocation } from "@/lib/location";
+import { toPins, trucksOf } from "@/lib/pins";
 import { NEAR_RADIUS_MI, countNear, personalTopThree, type LatLon } from "@/lib/rank";
 import {
   clearTried,
@@ -54,12 +57,26 @@ export function PersonalPicks({ openings, metrics }: Props) {
     if (clearTried()) setJustMarked(null);
   }
 
-  const top = personalTopThree(openings, { here, tried: hiddenFromTop(tried, justMarked) });
+  // Memoised so `pins` below only changes (and the map only updates) when an input changes.
+  const top = useMemo(
+    () => personalTopThree(openings, { here, tried: hiddenFromTop(tried, justMarked) }),
+    [openings, here, tried, justMarked],
+  );
   const near = here ? { count: countNear(openings, here), radiusMi: NEAR_RADIUS_MI } : undefined;
+  const pins = useMemo(
+    () => toPins(openings, { topIds: new Set(top.map((o) => o.restaurant_id)), here }),
+    [openings, top, here],
+  );
 
   return (
     <>
       <Metrics metrics={metrics} near={near} />
+
+      <section aria-labelledby="map-heading">
+        <h2 id="map-heading">Where they are</h2>
+        <OpeningsMap pins={pins} />
+        <FoodTrucks trucks={trucksOf(openings)} />
+      </section>
 
       <section aria-labelledby="top-three">
         <h2 id="top-three">Top 3 new openings</h2>

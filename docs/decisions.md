@@ -4,6 +4,14 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-18 — Map tiles from OpenFreeMap; every fixed-location opening is pinned
+- **Context:** the plan's default MapLibre demo style shows only country outlines, and openstreetmap.org's own tile servers forbid app traffic under their usage policy (open question in ARCHITECTURE §9).
+- **Decision:**
+  - OpenFreeMap's `liberty` style: free OpenStreetMap tiles, no account or key, attribution kept visible. `NEXT_PUBLIC_MAP_STYLE_URL` can swap providers without code changes.
+  - Every opening with a fixed location is pinned, including places marked "Tried it" (owner request), so visitors can pan around and see what's near them. The top 3 are highlighted with larger, outlined pins drawn on top.
+  - `maplibre-gl` is pinned to an exact release at least two weeks old.
+- **Consequences:** no map cost and no key to manage. If OpenFreeMap is unavailable, the page shows "Map unavailable" and the lists still work.
+
 ## 2026-11-18 — Personal top 3 in the browser: 2-mile "near you", in-place undo
 - **Context:** SAN-39a adds location and "Tried it". The spec gave the formula but not the radius, which headline number "near you" replaces, or how a tried mark is undone.
 - **Decision:**
