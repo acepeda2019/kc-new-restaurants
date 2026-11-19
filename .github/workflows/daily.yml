@@ -47,6 +47,13 @@ jobs:
         working-directory: ingestion
         run: uv run python run.py extract
 
+      # Opening soon (not yet used by dbt): history only exists if we save it daily. A failure
+      # here must not stop the site update, so it can't fail the job.
+      - name: Snapshot WSLCB licence notices → s3://$RAW_BUCKET/raw/lcb_local_authority/
+        continue-on-error: true
+        working-directory: ingestion
+        run: uv run python run.py snapshot-lcb
+
       - name: dbt build up to the candidates
         working-directory: transform
         run: |

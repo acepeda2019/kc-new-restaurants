@@ -41,6 +41,8 @@ can push cost past the caps.
 GitHub Actions, daily cron + manual run                        .github/workflows/daily.yml
   1. extract   KC inspections, full pull        → s3 raw/kc_inspections/dt=…/<run_id>.jsonl.gz
   2. geocode   new addresses only → Census      → s3 raw/census_geocoder/dt=…/<run_id>/
+  2b. lcb     WSLCB licence-notice window (Opening soon, not yet modelled; may fail without
+              stopping the job) → s3 raw/lcb_local_authority/dt=…/<run_id>.jsonl.gz
   3. dbt build up to int_candidates (DuckDB, reads raw from S3)    → candidates
   4. classify  candidates never seen before → Claude Haiku → s3 raw/claude_classifications/…
   5. dbt build everything + tests              → mart_new_openings, mart_metrics

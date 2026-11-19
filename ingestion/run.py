@@ -2,9 +2,11 @@
 
     uv run python run.py extract [--run-date YYYY-MM-DD] [--run-id ID] [--force]
     uv run python run.py classify --db ../transform/kcne.duckdb [--run-date] [--run-id] [--limit N]
+    uv run python run.py snapshot-lcb [--run-date] [--run-id] [--force]
 
 extract: KC inspections, then the Census geocoder on that pull's files.
 classify: Claude Haiku on new or changed rows of dbt's int_candidates (needs ANTHROPIC_API_KEY).
+snapshot-lcb: today's WSLCB licence-notice window (Opening soon; not yet used by dbt).
 Each prints one JSON line per step result and exits 1 if a step raises, so the job stops.
 """
 
@@ -16,7 +18,7 @@ import logging
 import sys
 from typing import Any
 
-from sources import census_geocoder, claude_classifications, kc_inspections
+from sources import census_geocoder, claude_classifications, kc_inspections, lcb_local_authority
 from sources.common import configure_logging, env, new_run_id, resolve_run_date, s3_client
 
 logger = logging.getLogger("run")
@@ -62,6 +64,16 @@ def run_classify(run_date: str, run_id: str, db: str, limit: int | None, s3: Any
     return [result]
 
 
+def run_snapshot_lcb(run_date: str, run_id: str, force: bool, s3: Any) -> list[dict]:
+    """Land today's WSLCB licence-notice snapshot (history builds up in raw)."""
+    bucket = env("RAW_BUCKET", required=True)
+    return [
+        lcb_local_authority.extract(
+            bucket=bucket, run_date=run_date, run_id=run_id, s3=s3, force=force
+        )
+    ]
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="run.py", description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -74,6 +86,10 @@ def main(argv: list[str] | None = None) -> None:
     classify.add_argument("--run-date", help="YYYY-MM-DD; default: today in America/Los_Angeles")
     classify.add_argument("--run-id", help="default: a new timestamped id")
     classify.add_argument("--limit", type=int, help="classify at most N candidates (manual runs)")
+    snapshot = sub.add_parser("snapshot-lcb", help="WSLCB licence notices (Opening soon)")
+    snapshot.add_argument("--run-date", help="YYYY-MM-DD; default: today in America/Los_Angeles")
+    snapshot.add_argument("--run-id", help="default: a new timestamped id")
+    snapshot.add_argument("--force", action="store_true", help="land a second file for the date")
     args = parser.parse_args(argv)
 
     configure_logging()
@@ -81,6 +97,8 @@ def main(argv: list[str] | None = None) -> None:
     try:
         if args.command == "extract":
             results = run_extract(run_date, run_id, args.force, s3_client())
+        elif args.command == "snapshot-lcb":
+            results = run_snapshot_lcb(run_date, run_id, args.force, s3_client())
         else:
             results = run_classify(run_date, run_id, args.db, args.limit, s3_client())
     except Exception:
