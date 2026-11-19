@@ -4,6 +4,17 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-18 — Click a place to see it on the map; floating layout from 1100px
+- **Context:** after the redesign merged (#33), the owner couldn't tell which pin was which, and the pin popups were unreadable (light text on MapLibre's white default). The #33 review also found panels covering pins between 720 and 1099px and red-points pins that differed only by colour on the dark map.
+- **Decision (owner):**
+  - Place names in the top 3 and "All N places" are buttons that fly the map to the pin, open its popup and highlight pin and card. Clicking again or pressing Escape clears it.
+  - Top-3 pins carry name labels; hovering a pin shows its name on desktop.
+  - Popups are themed dark, with a visible close button.
+  - The floating layout starts at 1100px: below that, the side panels leave no usable map in the middle, so the map-on-top layout is used instead. The camera pads around the panels.
+  - Red-points pins get a light ring, shown in the legend too.
+  - Below 1100px, "Tried it" shows a visible "Tried". The sample pill reads "Sample data · not today's list".
+- **Consequences:** tablets and small laptops get the stacked layout. If the map fails, names fall back to plain text rather than buttons that do nothing.
+
 ## 2026-11-18 — Dark, map-first redesign from the owner's mockup
 - **Context:** the MVP screens were deliberately plain while the logic was built. The owner wants the look of the UI mockup (SAN-42).
 - **Decision:**
@@ -11,7 +22,7 @@ This is the *why*. The current system is described in `ARCHITECTURE.md`; an entr
   - Dark ground, lime accent, Geist (self-hosted via `next/font`). OpenFreeMap `dark` style. Top-3 pins numbered to match the cards.
   - Presentation only: no ranking, data or cap logic changed.
   - Kept from the current app where the mockup differs: the precise legend labels, the visible food-truck list, and muted greys that pass WCAG AA (the mockup's footer grey didn't).
-- **Consequences:** the "Sample data" explanation is a short pill for sighted visitors, with the full sentence for screen readers. "Tried it" is a tick icon button with a hidden label and tooltip. The question bar (SAN-40b) goes in the header slot on desktop; its place on phones is still to decide.
+- **Consequences:** the "Sample data" pill is short for sighted visitors, with the full sentence for screen readers (lengthened the same day, see the click-to-focus entry). "Tried it" is a tick icon button with an accessible name and tooltip. The question bar (SAN-40b) goes in the header slot on desktop; its place on phones is still to decide.
 
 ## 2026-11-18 — The question bar sends at most 100 places per question
 - **Context:** `/api/ask` sends the restaurant list to Haiku with every question. A real 180-day export could hold several hundred places, which is about 66k input tokens per question and roughly $1.40/day at the 200-question cap. That would use up the owner's prepaid $5 in a few days of heavy use.

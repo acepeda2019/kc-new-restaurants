@@ -3,14 +3,16 @@ import { offMapNote } from "@/lib/pins";
 
 type Props = {
   place: Pick<Opening, "name" | "category" | "latitude" | "longitude">;
-  onShow: () => void;
+  /** Absent when the map is unavailable: then the name is plain text. */
+  onShow?: () => void;
 };
 
 /**
- * A place's name. When it has a pin, the name is a button that shows it on the map; otherwise
- * plain text with a short note saying why it isn't on the map.
+ * A place's name. When it has a pin (and the map works), the name is a button that shows it
+ * on the map; a place without a pin gets plain text and a short note saying why.
  */
 export function PlaceName({ place, onShow }: Props) {
+  if (!onShow) return <>{place.name}</>;
   const note = offMapNote(place);
   if (note) {
     return (

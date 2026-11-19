@@ -246,6 +246,11 @@ input {
   border-radius: 50%;
 }
 
+/* The same light ring as red-points pins on the map. */
+.swatch.wary {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
 .swatch.top {
   width: 10px;
   height: 10px;

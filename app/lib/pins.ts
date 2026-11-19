@@ -116,3 +116,26 @@ export function offMapNote(o: Placeable): "no fixed spot" | "not on the map" | n
   if (o.category === "food_truck") return "no fixed spot";
   return fixedSpot(o) ? null : "not on the map";
 }
+
+/** A request to show one place: from a name in a list, or from its pin on the map. */
+export type FocusRequest = { id: string; from: "list" | "map" };
+/** A focus request plus where the camera goes; `from: "list"` moves the camera, `"map"` doesn't. */
+export type MapFocus = FocusRequest & { center: LonLat; zoom: number };
+
+/**
+ * The focus after a click (or `null`: Escape, the popup closed, the map failed). Clicking the
+ * focused place's name again clears it; anything else focuses the clicked place, as a new
+ * object so a repeat request is seen as new.
+ */
+export function nextFocus(current: FocusRequest | null, clicked: FocusRequest | null): FocusRequest | null {
+  if (!clicked) return null;
+  if (clicked.from === "list" && current?.id === clicked.id) return null;
+  return { ...clicked };
+}
+
+/** The focus with its camera target, or null when nothing is focused or the place has no pin. */
+export function resolveFocus(focus: FocusRequest | null, openings: Opening[]): MapFocus | null {
+  const place = focus && openings.find((o) => o.restaurant_id === focus.id);
+  const target = place && focusTarget(place);
+  return focus && target ? { ...focus, ...target } : null;
+}

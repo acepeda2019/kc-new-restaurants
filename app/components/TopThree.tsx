@@ -12,8 +12,8 @@ type Props = {
   /** Ids shown as marked "Tried it" (button pressed; pressing again undoes). */
   tried: Set<string>;
   onToggleTried: (id: string) => void;
-  /** Show this place on the map (its name was clicked). */
-  onShow: (id: string) => void;
+  /** Show this place on the map (its name was clicked); absent when the map is unavailable. */
+  onShow?: (id: string) => void;
   /** The place shown on the map, highlighted here too. */
   focusedId: string | null;
 };
@@ -33,7 +33,7 @@ export function TopThree({ items, tried, onToggleTried, onShow, focusedId }: Pro
             <div className="pick">
               <div className="pick-head">
                 <h3>
-                  <PlaceName place={o} onShow={() => onShow(o.restaurant_id)} />
+                  <PlaceName place={o} onShow={onShow && (() => onShow(o.restaurant_id))} />
                 </h3>
                 {distance && <span className="distance">{distance}</span>}
               </div>

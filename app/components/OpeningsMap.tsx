@@ -12,7 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, Map as MapLibreMap, Popup } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import { PIN_COLORS } from "@/components/MapLegend";
-import { boundsOf, cameraTarget, popupText, type PinProps, type Pins } from "@/lib/pins";
+import { boundsOf, cameraTarget, popupText, type MapFocus, type PinProps, type Pins } from "@/lib/pins";
 
 // OpenFreeMap: free, no key. Override with any MapLibre style URL.
 const STYLE_URL = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/dark";
@@ -37,17 +37,17 @@ function viewPadding() {
     : { top: 72, bottom: 24, left: 24, right: 24 };
 }
 
-/** A place to show; `from: "list"` also flies there (a pin click leaves the camera alone). */
-export type MapFocus = { id: string; from: "list" | "map"; center: [number, number]; zoom: number };
-
 type Props = {
   pins: Pins;
+  /** The place to show; `from: "list"` also flies there (a pin click leaves the camera alone). */
   focus: MapFocus | null;
   /** A pin was clicked (its id), or the focused popup was closed (null). */
   onFocus: (id: string | null) => void;
+  /** The map could not load; nothing can be shown on it from now on. */
+  onUnavailable: () => void;
 };
 
-export function OpeningsMap({ pins, focus, onFocus }: Props) {
+export function OpeningsMap({ pins, focus, onFocus, onUnavailable }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const popupClass = useRef<typeof Popup | null>(null);
@@ -56,6 +56,7 @@ export function OpeningsMap({ pins, focus, onFocus }: Props) {
   const latestPins = useRef(pins);
   const latestFocus = useRef(focus);
   const latestOnFocus = useRef(onFocus);
+  const latestOnUnavailable = useRef(onUnavailable);
   const lastCentered = useRef<[number, number] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -98,7 +99,8 @@ export function OpeningsMap({ pins, focus, onFocus }: Props) {
 
   useEffect(() => {
     latestOnFocus.current = onFocus;
-  }, [onFocus]);
+    latestOnUnavailable.current = onUnavailable;
+  }, [onFocus, onUnavailable]);
 
   // New top 3 or location: swap the data in place rather than rebuilding the map.
   useEffect(() => {
@@ -124,6 +126,7 @@ export function OpeningsMap({ pins, focus, onFocus }: Props) {
       map?.remove(); // its box is about to be replaced by the note
       mapRef.current = null;
       setFailed(true);
+      latestOnUnavailable.current();
     };
 
     (async () => {
@@ -218,7 +221,7 @@ export function OpeningsMap({ pins, focus, onFocus }: Props) {
               "text-font": ["Noto Sans Bold"],
               "text-size": 13,
               "text-anchor": "left",
-              "text-offset": [1.5, 0], // ems: clear of the 14px pin
+              "text-offset": [1.8, 0], // ems: clear of the pin and its focus ring
               "text-allow-overlap": true,
             },
             paint: { "text-color": LIGHT, "text-halo-color": GROUND, "text-halo-width": 2 },
@@ -226,7 +229,10 @@ export function OpeningsMap({ pins, focus, onFocus }: Props) {
           loaded.current = true;
           showFocus(map!); // a name may have been clicked while the map loaded
         });
+        // Hovering a pin names it (mouse only; touch has no hover).
+        const hover = new maplibre.Popup({ closeButton: false, closeOnClick: false, className: "pin-hover", offset: 12 });
         map.on("click", SOURCE_ID, (e) => {
+          hover.remove(); // the click's own popup replaces it
           const props = e.features?.[0]?.properties as PinProps | undefined;
           if (!props || !map) return;
           if (props.kind === "you") {
@@ -235,14 +241,18 @@ export function OpeningsMap({ pins, focus, onFocus }: Props) {
           }
           latestOnFocus.current(props.id); // comes back as `focus`, which opens the popup
         });
-        // Hovering a pin names it (mouse only; touch has no hover).
-        const hover = new maplibre.Popup({ closeButton: false, closeOnClick: false, className: "pin-hover", offset: 12 });
         map.on("mousemove", SOURCE_ID, (e) => {
           const f = e.features?.[0];
           if (!f || f.geometry.type !== "Point" || !map || !media("(hover: hover) and (pointer: fine)")) return;
           map.getCanvas().style.cursor = "pointer";
+          const props = f.properties as PinProps;
+          // The focused pin already has its popup open; don't stack a second one on it.
+          if (props.id === latestFocus.current?.id) {
+            hover.remove();
+            return;
+          }
           const [lon, lat] = f.geometry.coordinates;
-          hover.setLngLat([lon, lat]).setText((f.properties as PinProps).name);
+          hover.setLngLat([lon, lat]).setText(props.name);
           if (!hover.isOpen()) hover.addTo(map);
         });
         map.on("mouseleave", SOURCE_ID, () => {

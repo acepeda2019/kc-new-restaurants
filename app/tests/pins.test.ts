@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Opening } from "@/lib/data";
 import {
-  FOCUS_ZOOM, KING_COUNTY_BOUNDS, YOU_ZOOM, boundsOf, cameraTarget, focusTarget, offMapNote, popupText, toPins, trucksOf,
+  FOCUS_ZOOM, KING_COUNTY_BOUNDS, YOU_ZOOM, boundsOf, cameraTarget, focusTarget, nextFocus, offMapNote, popupText,
+  resolveFocus, toPins, trucksOf,
 } from "@/lib/pins";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
@@ -177,5 +178,44 @@ describe("offMapNote", () => {
     const rows = [opening("a", SEATTLE), opening("t", SEATTLE, { category: "food_truck" }), opening("u", null)];
     expect(rows.map(offMapNote)).toEqual([null, "no fixed spot", "not on the map"]);
     for (const o of rows) expect(offMapNote(o) === null).toBe(focusTarget(o) !== null);
+  });
+});
+
+describe("nextFocus", () => {
+  it("focuses a clicked name, as a new object so a repeat request flies there again", () => {
+    const click = { id: "a", from: "list" as const };
+    const next = nextFocus(null, click);
+    expect(next).toEqual(click);
+    expect(next).not.toBe(click);
+  });
+
+  it("toggles off when the already-focused name is clicked again", () => {
+    expect(nextFocus({ id: "a", from: "list" }, { id: "a", from: "list" })).toBeNull();
+    expect(nextFocus({ id: "a", from: "map" }, { id: "a", from: "list" })).toBeNull();
+  });
+
+  it("moves to another place, and a pin click on the focused pin keeps it", () => {
+    expect(nextFocus({ id: "a", from: "list" }, { id: "b", from: "list" })).toEqual({ id: "b", from: "list" });
+    expect(nextFocus({ id: "a", from: "list" }, { id: "a", from: "map" })).toEqual({ id: "a", from: "map" });
+  });
+
+  it("clears on null (Escape, the popup closed, or the map failed)", () => {
+    expect(nextFocus({ id: "a", from: "list" }, null)).toBeNull();
+  });
+});
+
+describe("resolveFocus", () => {
+  const rows = [opening("a", SEATTLE), opening("t", SEATTLE, { category: "food_truck" })];
+
+  it("adds the camera target for a place with a pin", () => {
+    expect(resolveFocus({ id: "a", from: "list" }, rows)).toEqual({
+      id: "a", from: "list", center: [SEATTLE.lon, SEATTLE.lat], zoom: FOCUS_ZOOM,
+    });
+  });
+
+  it("is null for nothing focused, an unknown id, or a place without a pin", () => {
+    expect(resolveFocus(null, rows)).toBeNull();
+    expect(resolveFocus({ id: "zzz", from: "list" }, rows)).toBeNull();
+    expect(resolveFocus({ id: "t", from: "list" }, rows)).toBeNull();
   });
 });

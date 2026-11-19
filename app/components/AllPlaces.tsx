@@ -11,8 +11,8 @@ type Item = Pick<
 >;
 type Props = {
   items: Item[];
-  /** Show this place on the map (its name was clicked). */
-  onShow: (id: string) => void;
+  /** Show this place on the map (its name was clicked); absent when the map is unavailable. */
+  onShow?: (id: string) => void;
   /** The place shown on the map, highlighted here too. */
   focusedId: string | null;
 };
@@ -34,7 +34,7 @@ export function AllPlaces({ items, onShow, focusedId }: Props) {
               <li key={o.restaurant_id} className={o.restaurant_id === focusedId ? "focused" : undefined}>
                 <p>
                   <strong>
-                    <PlaceName place={o} onShow={() => onShow(o.restaurant_id)} />
+                    <PlaceName place={o} onShow={onShow && (() => onShow(o.restaurant_id))} />
                   </strong>{" "}
                   <span className="where">— {placeLabel(o.city, o.category)}</span>
                   {distance && <span className="where"> · {distance}</span>}
