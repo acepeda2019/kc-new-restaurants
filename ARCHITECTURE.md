@@ -307,8 +307,8 @@ near me). Named places with a pin are buttons that fly the map there.
 - **Question bar** (`app/components/AskBar.tsx`, `app/lib/askClient.ts`): a text box (500
   characters max) that grows with the question up to six lines, so it stays readable on a
   phone (Enter sends; a × appears with text and clears it, keeping the last answer), and up to four chips from the Today brief. The browser sends the question with the visitor's
-  location and "Tried it" ids; the reply is `{answer, picks, left}`, and the bar shows the answer as
-  plain text and "N left today", then one card per pick (`app/components/AnswerPicks.tsx`):
+  location and "Tried it" ids; the reply is `{answer, picks, left}`, and the bar shows "N left today" as a
+  small note under the question, and the answer as plain text, then one card per pick (`app/components/AnswerPicks.tsx`):
   number, name, street and city (`addressLine`, so same-name places are told apart), up to four
   fact bubbles built from our data (`openingFacts` / `openingSoonFacts` in `lib/format.ts`:
   likely cuisine, "first inspected <date>" when a later inspection exists (opening dates aren't
