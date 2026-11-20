@@ -85,12 +85,7 @@ export async function POST(request: NextRequest) {
   //    billed calls (a search round trip adds one).
   try {
     const client = new Anthropic({ apiKey, timeout: 20_000, maxRetries: 0 });
-    const params = buildRequest(body.question, getOpenings(), {
-      here: body.here,
-      tried: body.tried,
-      openingSoon: getOpeningSoon(),
-      today: pacificDate(new Date()),
-    });
+    const params = buildRequest(body.question, { here: body.here, today: pacificDate(new Date()) });
     const search = { openings: getOpenings(), openingSoon: getOpeningSoon(), here: body.here, tried: body.tried };
     const raw = await answer(client, params, (input) => runFindOpenings(input, search));
     const picks = resolvePicks(raw.picks, getOpenings(), getOpeningSoon());

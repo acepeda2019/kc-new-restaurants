@@ -68,6 +68,14 @@ describe("findOpenings", () => {
     expect(r.opening_soon[0]).toMatchObject({ id: "67 PIZZA", applied_on: "2026-11-14" });
   });
 
+  it("matches cuisine on the name too, and suggests the known cuisines when nothing matches", () => {
+    const places = [o("DOMINO'S PIZZA", { likely_cuisine: null }), o("ROUND TABLE", { likely_cuisine: "Pizza" }), o("PHO", { likely_cuisine: "Vietnamese" })];
+    expect(run({ cuisine: "pizza" }, places).places.map((p) => p.id)).toEqual(["DOMINO'S PIZZA", "ROUND TABLE"]);
+    const none = run({ cuisine: "Italian" }, places);
+    expect(none.count).toBe(0);
+    expect(none.known_cuisines).toEqual(["Pizza", "Vietnamese"]);
+  });
+
   it("suggests the known cities when a city matches nothing", () => {
     const r = run({ city: "Kirklan" }, DATA);
     expect(r.count).toBe(0);
