@@ -23,7 +23,7 @@ export type RedisLike = {
 export type CapResult = { ok: true; left: number } | { ok: false; reason: "global" | "visitor" };
 
 /** YYYY-MM-DD in America/Los_Angeles. */
-function pacificDate(now: Date): string {
+export function pacificDate(now: Date): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
     year: "numeric",

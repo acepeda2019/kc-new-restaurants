@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Opening, OpeningSoon } from "@/lib/data";
 import {
-  ANSWER_SCHEMA, answer, buildRequest, MAX_DATA_ROWS, MAX_PICKS, REFUSAL_ANSWER, resolvePicks, UNREADABLE_ANSWER, type AskClient,
+  ANSWER_SCHEMA, ANSWER_WITH_SEARCH_SCHEMA, answer, buildRequest, MAX_DATA_ROWS, MAX_PICKS, MAX_TOOL_ROUNDS, REFUSAL_ANSWER,
+  resolvePicks, runFindOpenings, UNREADABLE_ANSWER, type AskClient,
 } from "@/lib/ask";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
@@ -39,7 +40,7 @@ describe("buildRequest", () => {
       model: "claude-haiku-5-5",
       max_tokens: 600,
       thinking: { type: "disabled" },
-      output_config: { effort: "low", format: { type: "json_schema", schema: ANSWER_SCHEMA } },
+      output_config: { effort: "low", format: { type: "json_schema", schema: ANSWER_WITH_SEARCH_SCHEMA } },
     });
     expect(p.messages).toHaveLength(1);
     expect(p.messages[0].role).toBe("user");
@@ -110,8 +111,10 @@ describe("buildRequest", () => {
       expect(sent).toEqual(many.slice(10, 110).map((o) => o.name));
     });
 
-    it("tells the model the list may be a subset", () => {
-      expect(String(buildRequest("hi", many, { tried: [] }).system)).toContain("isn't in the current list");
+    it("tells the model the list is a subset and to search before saying a place isn't listed", () => {
+      const system = String(buildRequest("hi", many, { tried: [] }).system);
+      expect(system).toContain("not all of them");
+      expect(system).toContain("always search by its name");
     });
 
     it("says tried places are already removed and asks for plain text", () => {
@@ -231,5 +234,68 @@ describe("Opening soon in the question bar", () => {
     expect(rows[0].distance_mi).toBeLessThan(1);
     expect(block).not.toContain("<PLACE>"); // "<" is escaped so a name can't close the block
     expect(String(p.system)).toContain("have NOT opened");
+  });
+});
+
+describe("the search loop (SAN-58)", () => {
+  const params = buildRequest("How many new places in Kirkland this month?", OPENINGS, { tried: [], today: "2026-11-20" });
+  const reply = (o: object): Partial<Anthropic.Message> => ({
+    stop_reason: "end_turn",
+    content: [{ type: "text", text: JSON.stringify(o), citations: null }],
+  });
+  const filters = { name: null, city: "Kirkland", cuisine: null, category: null, first_inspected_since: "2026-11-01", include_opening_soon: false };
+
+  it("lets the first reply ask for a search, and fixes what 'this week' and 'this month' mean", () => {
+    expect(ANSWER_WITH_SEARCH_SCHEMA.required).toContain("search");
+    const system = String(params.system);
+    expect(system).toContain("Today is 2026-11-20");
+    expect(system).toContain('"this month" means since 2026-11-01');
+    expect(system).toContain('"This week" means first_inspected_since 2026-11-13');
+  });
+
+  it("runs the search Claude asks for and answers from its results", async () => {
+    const create = vi.fn()
+      .mockResolvedValueOnce({ ...reply({ summary: "", picks: [], search: filters }) })
+      .mockResolvedValueOnce({ ...reply({ summary: "Counting places in Kirkland first inspected since Nov 1: 1.", picks: [] }) });
+    const runSearch = vi.fn().mockReturnValue('{"count":1,"name":"<b>"}');
+    const result = await answer({ messages: { create } }, params, runSearch);
+
+    expect(runSearch).toHaveBeenCalledWith(filters);
+    expect(result.summary).toBe("Counting places in Kirkland first inspected since Nov 1: 1.");
+    const second = create.mock.calls[1][0] as Anthropic.MessageCreateParamsNonStreaming;
+    const lastTurn = String(second.messages.at(-1)?.content);
+    expect(lastTurn).toContain("<search_results>");
+    expect(lastTurn).not.toContain("<b>"); // a name can't close the block
+  });
+
+  it("answers in one call when no search is needed", async () => {
+    const create = vi.fn().mockResolvedValueOnce({ ...reply({ summary: "Try Pho Real.", picks: [], search: null }) });
+    const runSearch = vi.fn();
+    expect((await answer({ messages: { create } }, params, runSearch)).summary).toBe("Try Pho Real.");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(runSearch).not.toHaveBeenCalled();
+  });
+
+  it("stops searching after MAX_TOOL_ROUNDS: the last request can't ask for one", async () => {
+    const create = vi.fn()
+      .mockResolvedValueOnce({ ...reply({ summary: "", picks: [], search: filters }) })
+      .mockResolvedValueOnce({ ...reply({ summary: "", picks: [], search: filters }) })
+      .mockResolvedValueOnce({ ...reply({ summary: "Done.", picks: [] }) });
+    const result = await answer({ messages: { create } }, params, () => "{}");
+
+    expect(create).toHaveBeenCalledTimes(MAX_TOOL_ROUNDS + 1);
+    const last = create.mock.calls[MAX_TOOL_ROUNDS][0] as Anthropic.MessageCreateParamsNonStreaming;
+    expect(last.output_config?.format).toEqual({ type: "json_schema", schema: ANSWER_SCHEMA });
+    expect(result.summary).toBe("Done.");
+  });
+
+  it("searches every place through runFindOpenings, not just the DATA block", () => {
+    const many = Array.from({ length: 150 }, (_, i) => opening(`id${i}`, `Place ${i}`, i + 1, { city: i === 149 ? "MAPLE VALLEY" : "SEATTLE" }));
+    const out = JSON.parse(runFindOpenings(
+      { name: null, city: "Maple Valley", cuisine: null, category: null, first_inspected_since: null, include_opening_soon: false },
+      { openings: many, openingSoon: [], tried: [] },
+    ));
+    expect(out.count).toBe(1);
+    expect(out.places[0].id).toBe("id149"); // rank 150: never in the 100-row DATA block
   });
 });

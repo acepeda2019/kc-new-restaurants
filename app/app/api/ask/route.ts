@@ -4,9 +4,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic, { APIError, AuthenticationError, BadRequestError, RateLimitError } from "@anthropic-ai/sdk";
 import { Redis } from "@upstash/redis";
-import { answer, buildRequest, resolvePicks, SAMPLE_NOTE } from "@/lib/ask";
+import { answer, buildRequest, resolvePicks, runFindOpenings, SAMPLE_NOTE } from "@/lib/ask";
 import { SESSION_COOKIE, VISITOR_COOKIE, verifySession } from "@/lib/auth";
-import { checkAndCount } from "@/lib/caps";
+import { checkAndCount, pacificDate } from "@/lib/caps";
 import { getOpeningSoon, getOpenings, isSampleData } from "@/lib/data";
 import type { LatLon } from "@/lib/rank";
 
@@ -81,15 +81,18 @@ export async function POST(request: NextRequest) {
     return reply(429, OUT_OF_QUESTIONS);
   }
 
-  // 5. Only now: Claude. No SDK retries, so one counted question is at most one billed call.
+  // 5. Only now: Claude. No SDK retries, so one counted question is at most MAX_TOOL_ROUNDS + 1
+  //    billed calls (a search round trip adds one).
   try {
     const client = new Anthropic({ apiKey, timeout: 20_000, maxRetries: 0 });
     const params = buildRequest(body.question, getOpenings(), {
       here: body.here,
       tried: body.tried,
       openingSoon: getOpeningSoon(),
+      today: pacificDate(new Date()),
     });
-    const raw = await answer(client, params);
+    const search = { openings: getOpenings(), openingSoon: getOpeningSoon(), here: body.here, tried: body.tried };
+    const raw = await answer(client, params, (input) => runFindOpenings(input, search));
     const picks = resolvePicks(raw.picks, getOpenings(), getOpeningSoon());
     // Guardrail 5: an answer built from the labelled sample says so.
     const summary = isSampleData() ? `${raw.summary}\n\n${SAMPLE_NOTE}`.trim() : raw.summary;
