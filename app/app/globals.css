@@ -346,11 +346,18 @@ dialog.about::backdrop {
   color: var(--lime);
 }
 
+/* The question and, under it, the "N left today" note. */
+.ask-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 /* A text box that grows with the question (AskBar sets its height), up to six lines: a
    long question stays readable on a phone after tapping away. */
 .ask-form textarea {
-  flex: 1;
-  min-width: 0;
   min-height: 0;
   max-height: calc(6 * 1.4em);
   scrollbar-width: none;
@@ -372,10 +379,8 @@ dialog.about::backdrop {
 }
 
 .ask-left {
-  flex: none;
   font-size: 0.75rem;
   color: var(--muted);
-  white-space: nowrap;
 }
 
 /*

@@ -82,18 +82,22 @@ export function AskBar({ onAsk, intro, introLabel, chips, location, onPicks, chi
           <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
         </svg>
         <label htmlFor="ask-input" className="sr-only">Ask about new restaurants</label>
-        <textarea
-          id="ask-input"
-          ref={input}
-          rows={1}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value.replace(/\n/g, " "))}
-          onKeyDown={onKeyDown}
-          maxLength={MAX_QUESTION_CHARS}
-          placeholder="Ask anything about new restaurants…"
-          autoComplete="off"
-          enterKeyHint="send"
-        />
+        {/* The question, with a small "N left today" note under it once the visitor has asked. */}
+        <div className="ask-field">
+          <textarea
+            id="ask-input"
+            ref={input}
+            rows={1}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value.replace(/\n/g, " "))}
+            onKeyDown={onKeyDown}
+            maxLength={MAX_QUESTION_CHARS}
+            placeholder="Ask anything about new restaurants…"
+            autoComplete="off"
+            enterKeyHint="send"
+          />
+          {left !== null && <span className="ask-left">{left} left today</span>}
+        </div>
         {question && (
           // Clears the box for a new question and puts the cursor back; the last answer stays.
           <button
@@ -111,7 +115,6 @@ export function AskBar({ onAsk, intro, introLabel, chips, location, onPicks, chi
             <span className="sr-only">Clear question</span>
           </button>
         )}
-        {left !== null && <span className="ask-left">{left} left today</span>}
         <button
           type="button"
           className="ask-locate"
