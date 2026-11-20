@@ -84,13 +84,19 @@ describe("answer-card facts", () => {
   } as Opening;
   const labels = (o: Partial<Opening> & { distanceMi?: number }) => openingFacts({ ...base, ...o }).map((f) => f.label);
 
-  it("leads with the latest inspection the county's way, then cuisine, opened date and distance", () => {
+  it("leads with the latest inspection the county's way, then cuisine and distance", () => {
     expect(openingFacts({ ...base, distanceMi: 3.94 })).toEqual([
       { label: "Satisfactory · 0 pts · Nov 13", tone: "good" },
       { label: "likely Egyptian", tone: "plain" },
-      { label: "opened Nov 13", tone: "plain" },
       { label: "3.9 mi", tone: "plain" },
     ]);
+  });
+
+  it("says 'first inspected', never 'opened', and only when a later visit holds the date (SAN-59)", () => {
+    const later = labels({ latest_inspection_date: "2026-11-18" });
+    expect(later).toContain("first inspected Nov 13");
+    expect(later.join(" ")).not.toMatch(/opened/);
+    expect(labels({}).join(" ")).not.toMatch(/first inspected|opened/); // one visit: the inspection bubble has the date
   });
 
   it("shows the county's score and verdict, not red points (Nori Sushi, Maple Valley: 30, not 25)", () => {
@@ -134,8 +140,11 @@ describe("answer-card facts", () => {
     expect(addressLine({ address: "1 BASE ST", city: "BUCKLEY", category: "food_truck" })).toBe("based in Buckley");
   });
 
-  it("marks Opening soon places as not open, with the applied date and licence", () => {
+  it("says an Opening soon place applied for a licence, not that it will open", () => {
     const s = { application_date: "2026-11-04", licence_label: "full-bar restaurant" } as OpeningSoon;
-    expect(openingSoonFacts(s).map((f) => f.label)).toEqual(["opening soon", "applied Nov 4", "full-bar restaurant"]);
+    expect(openingSoonFacts(s)).toEqual([
+      { label: "licence applied Nov 4", tone: "soon" },
+      { label: "full-bar restaurant", tone: "plain" },
+    ]);
   });
 });

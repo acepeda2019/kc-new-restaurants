@@ -93,10 +93,10 @@ export function briefChips(f: BriefFacts): string[] {
     .slice(0, MAX_CHIPS);
 }
 
-/** "KOSHARI brings likely Egyptian food to Seattle" or "KOSHARI opened in Seattle". */
+/** "KOSHARI brings likely Egyptian food to Seattle" or "KOSHARI is new in Seattle" (no opening date: we don't know it). */
 function highlight(p: BriefPlace): BriefPart[] {
-  if (p.food_truck) return [ref(p), ` started rolling out of ${p.city}`];
-  const cuisine = p.likely_cuisine ? ` brings likely ${p.likely_cuisine} food to ` : " opened in ";
+  if (p.food_truck) return [ref(p), ` is a new food truck based in ${p.city}`];
+  const cuisine = p.likely_cuisine ? ` brings likely ${p.likely_cuisine} food to ` : " is new in ";
   return [ref(p), `${cuisine}${p.city}`];
 }
 
@@ -106,7 +106,7 @@ export function templateSentences(f: BriefFacts): BriefPart[][] {
     [
       f.near
         ? `${plural(f.near.count, "new place", "new places")} within ${f.near.radiusMi} mi of you, ${f.opened_this_month} across King County this month.`
-        : `${plural(f.opened_this_week, "place", "places")} opened this week and ${f.opened_this_month} this month.`,
+        : `${plural(f.opened_this_week, "new place was", "new places were")} first inspected this week and ${f.opened_this_month} this month.`,
     ],
   ];
   const [first, second] = f.highlights;
@@ -118,7 +118,7 @@ export function templateSentences(f: BriefFacts): BriefPart[][] {
   }
   if (f.opening_soon) {
     if (last.length) last.push("; ");
-    last.push(ref(f.opening_soon), ` applied to open in ${f.opening_soon.city}`);
+    last.push(ref(f.opening_soon), ` applied for a liquor licence in ${f.opening_soon.city}`);
   }
   if (last.length) sentences.push([...last, "."]);
   return sentences;

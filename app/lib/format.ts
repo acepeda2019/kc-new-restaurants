@@ -60,7 +60,9 @@ export type Fact = { label: string; tone: "good" | "warn" | "soon" | "plain" };
 
 /**
  * The facts on an open place's answer card, at most four, from our data (never from Claude):
- * the latest inspection first, then "food truck", likely cuisine, when it opened, and distance.
+ * the latest inspection first, then "food truck", likely cuisine, the first inspection's date, and
+ * distance. We never know the opening date, only when the county first inspected the place
+ * (usually weeks after it opened), so the card says "first inspected" (SAN-59).
  */
 export function openingFacts(o: Opening & { distanceMi?: number }): Fact[] {
   // The inspection leads: it's the fact people scan for, and it's never the one cut at four.
@@ -68,17 +70,22 @@ export function openingFacts(o: Opening & { distanceMi?: number }): Fact[] {
   const cuisine = likelyCuisine(o.likely_cuisine);
   if (o.category === "food_truck") facts.push({ label: "food truck", tone: "plain" });
   if (cuisine) facts.push({ label: cuisine, tone: "plain" });
-  facts.push({ label: `opened ${shortDate(o.first_inspection_date)}`, tone: "plain" });
+  // With one visit, the inspection bubble already carries this date.
+  if (o.first_inspection_date !== o.latest_inspection_date) {
+    facts.push({ label: `first inspected ${shortDate(o.first_inspection_date)}`, tone: "plain" });
+  }
   const distance = formatDistance(o.distanceMi);
   if (distance) facts.push({ label: distance, tone: "plain" });
   return facts.slice(0, 4);
 }
 
-/** The facts on an Opening soon card: that it isn't open yet, when it applied, the licence. */
+/**
+ * The facts on an Opening soon card: that it applied for a licence and when (not that it will
+ * open: some applicants never do), and which licence.
+ */
 export function openingSoonFacts(s: OpeningSoon & { distanceMi?: number }): Fact[] {
   const facts: Fact[] = [
-    { label: "opening soon", tone: "soon" },
-    { label: `applied ${shortDate(s.application_date)}`, tone: "plain" },
+    { label: `licence applied ${shortDate(s.application_date)}`, tone: "soon" },
     { label: s.licence_label, tone: "plain" },
   ];
   const distance = formatDistance(s.distanceMi);
