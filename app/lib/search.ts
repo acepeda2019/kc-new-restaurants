@@ -4,7 +4,7 @@
  * filters and phrases the result. Pure, server-side, unit-tested.
  */
 import type { Opening, OpeningSoon } from "@/lib/data";
-import { haversineMi, type LatLon } from "@/lib/rank";
+import { haversineMi, rankOpeningSoon, type LatLon } from "@/lib/rank";
 
 /** Places returned to Claude per search: enough to pick 5 cards from, small enough to stay cheap. */
 export const MAX_TOOL_PLACES = 20;
@@ -19,6 +19,8 @@ export type FindInput = {
   category: (typeof CATEGORIES)[number] | null;
   /** YYYY-MM-DD: first inspected on or after this date (for Opening soon: applied on or after). */
   first_inspected_since: string | null;
+  /** Only places whose latest inspection the county rated Unsatisfactory ("anything to be wary of?"). */
+  latest_unsatisfactory: boolean;
   include_opening_soon: boolean;
 };
 
@@ -34,6 +36,8 @@ export type FindResult = {
   opening_soon: Row[];
   /** When `city` matched nothing: the cities that do have places, so Claude can correct a misspelling. */
   known_cities?: string[];
+  /** When `cuisine` matched nothing: the cuisines that do appear, so Claude can search again (e.g. "Pizza", not "Italian"). */
+  known_cuisines?: string[];
 };
 
 const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
@@ -63,9 +67,11 @@ export function findOpenings(
       (o) =>
         has(o.name, input.name) &&
         sameCity(o.city, input.city) &&
-        has(o.likely_cuisine, input.cuisine) &&
+        // Cuisine also matches the name, so "pizza" finds DOMINO'S PIZZA whatever its cuisine label.
+        (has(o.likely_cuisine, input.cuisine) || has(o.name, input.cuisine)) &&
         (!input.category || o.category === input.category) &&
-        (!since || o.first_inspection_date >= since),
+        (!since || o.first_inspection_date >= since) &&
+        (!input.latest_unsatisfactory || o.latest_inspection_result === "Unsatisfactory"),
     )
     .map((o): Opening & { distanceMi?: number } => {
       const fixed = here && o.category !== "food_truck" && o.latitude !== null && o.longitude !== null;
@@ -77,9 +83,13 @@ export function findOpenings(
         : b.first_inspection_date.localeCompare(a.first_inspection_date) || a.rank - b.rank,
     );
 
+  // Nearest first once located, else newest application first.
   const soon = input.include_opening_soon
-    ? openingSoon.filter(
-        (s) => has(s.trade_name, input.name) && sameCity(s.city, input.city) && (!since || s.application_date >= since),
+    ? rankOpeningSoon(
+        openingSoon.filter(
+          (s) => has(s.trade_name, input.name) && sameCity(s.city, input.city) && (!since || s.application_date >= since),
+        ),
+        here,
       )
     : [];
 
@@ -93,10 +103,15 @@ export function findOpenings(
       city: s.city,
       applied_on: s.application_date,
       licence: s.licence_label,
+      moving_from_elsewhere: s.notice_type === "CHANGE OF LOCATION",
+      ...(s.distanceMi === undefined ? {} : { distance_mi: Math.round(s.distanceMi * 10) / 10 }),
     })),
   };
   if (input.city && open.length === 0 && soon.length === 0) {
     result.known_cities = [...new Set(openings.map((o) => o.city))].sort();
+  }
+  if (input.cuisine && open.length === 0) {
+    result.known_cuisines = [...new Set(openings.map((o) => o.likely_cuisine).filter((c): c is string => !!c))].sort();
   }
   return result;
 }

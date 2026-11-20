@@ -8,7 +8,7 @@ const o = (id: string, over: Partial<Opening> = {}) =>
 const soon = (id: string, over: Partial<OpeningSoon> = {}) =>
   ({ notice_id: id, trade_name: id, city: "KIRKLAND", application_date: "2026-11-14", licence_label: "beer/wine restaurant",
     ...over }) as OpeningSoon;
-const ANY: FindInput = { name: null, city: null, cuisine: null, category: null, first_inspected_since: null, include_opening_soon: false };
+const ANY: FindInput = { name: null, city: null, cuisine: null, category: null, first_inspected_since: null, latest_unsatisfactory: false, include_opening_soon: false };
 const run = (input: Partial<FindInput>, openings: Opening[], openingSoon: OpeningSoon[] = [], tried: string[] = []) =>
   findOpenings({ ...ANY, ...input }, { openings, openingSoon, tried: new Set(tried), toRow: (x) => ({ id: x.restaurant_id }) });
 
@@ -66,6 +66,20 @@ describe("findOpenings", () => {
     const r = run({ city: "Kirkland", include_opening_soon: true }, DATA, s);
     expect(r.opening_soon_count).toBe(1);
     expect(r.opening_soon[0]).toMatchObject({ id: "67 PIZZA", applied_on: "2026-11-14" });
+  });
+
+  it("finds only places whose latest inspection was Unsatisfactory, for what to be wary of", () => {
+    const places = [o("OK"), o("BAD", { latest_inspection_result: "Unsatisfactory" }), o("EDU", { latest_inspection_result: "Complete" })];
+    expect(run({ latest_unsatisfactory: true }, places).places.map((p) => p.id)).toEqual(["BAD"]);
+    expect(run({}, places).count).toBe(3);
+  });
+
+  it("matches cuisine on the name too, and suggests the known cuisines when nothing matches", () => {
+    const places = [o("DOMINO'S PIZZA", { likely_cuisine: null }), o("ROUND TABLE", { likely_cuisine: "Pizza" }), o("PHO", { likely_cuisine: "Vietnamese" })];
+    expect(run({ cuisine: "pizza" }, places).places.map((p) => p.id)).toEqual(["DOMINO'S PIZZA", "ROUND TABLE"]);
+    const none = run({ cuisine: "Italian" }, places);
+    expect(none.count).toBe(0);
+    expect(none.known_cuisines).toEqual(["Pizza", "Vietnamese"]);
   });
 
   it("suggests the known cities when a city matches nothing", () => {

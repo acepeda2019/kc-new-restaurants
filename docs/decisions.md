@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-20 — Claude sees places only through the search
+- **Context:** SAN-62. Testing pizza questions, the owner saw a "last month" answer with a sushi place and a September opening on its cards. Claude had answered from the 100 places in its prompt instead of searching, so the code that limits cards to search results never ran. Instructions to search were not enough; a later run also translated "pizza" into "Italian" and found nothing.
+- **Decision:** the request carries no places. Claude must search to see any, and code shows cards only from search results (no search, no cards). The search's cuisine filter also matches names, a miss returns the known cities or cuisines for one retry, and a "latest inspection Unsatisfactory" filter answers "anything to be wary of?". Fixed meanings for "last week"/"last month"; the summary always states count and period.
+- **Consequences:** almost every question is two calls, but each carries at most 20 places instead of 100: on 8 real questions, about 6,700 input tokens per question versus about 26,100 before (~75% less). Pizza "last month" returned 3 in 6 of 6 runs; "Any to be wary of?" 48 and the Seattle version 14, both exact. Comparing across many places now works through filters, not one long list.
+
 ## 2026-11-20 — Desktop: the question column moves to the left
 - **Context:** user feedback (SAN-61): on desktop the answer sat in the middle of the map, so when the map flew to a place it landed behind the answer.
 - **Decision:** on screens 1100px and wider, the bar, brief, answer and chips sit in a left column (about 460px); a long answer scrolls inside it; the map camera pads 520px on the left so framing and fly-to land in the open area. Phones are unchanged. This reverses the 2026-11-19 "bar centred at the top" layout for desktop.
