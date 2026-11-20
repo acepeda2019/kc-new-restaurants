@@ -33,6 +33,18 @@ models:
       - name: why
         description: One line built only from facts (first inspection date and result, "replaces X").
         data_tests: [not_null]
+      - name: first_inspection_score
+        description: The county's score for the first inspection, as shown on its site (red + blue violation points). Null when the source gave none. first_inspection_red_points counts red only.
+      - name: latest_inspection_result
+        description: The county's verdict on the latest inspection (Satisfactory, Unsatisfactory, or Complete for an educational visit). Drives the app's "be wary" pin (Unsatisfactory).
+        data_tests:
+          - accepted_values:
+              arguments: {values: [Satisfactory, Unsatisfactory, Complete]}
+      - name: latest_inspection_score
+        description: The county's score for the latest inspection (red + blue violation points), matching its site; red points alone are latest_red_points.
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "latest_inspection_score is null or latest_inspection_score >= latest_red_points"}
 
   - name: mart_metrics
     description: "Grain: one row. Headline numbers for the app and the review backlog."

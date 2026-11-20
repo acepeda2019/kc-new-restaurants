@@ -15,6 +15,7 @@ function opening(id: string, name: string, rank: number, extra: Partial<Opening>
     first_inspection_date: "2026-11-01", days_open: 16, first_inspection_type: "Routine Inspection/Field Review",
     first_inspection_result: "Satisfactory", first_inspection_red_points: 0,
     latest_inspection_date: "2026-11-10", latest_red_points: 25,
+    first_inspection_score: 0, latest_inspection_result: "Unsatisfactory", latest_inspection_score: 30,
     red_violations: [{ date: "2026-11-10", description: "Cold holding above 41F", points: 25 }],
     freshness: 0.7, safety: 1, score: 80, rank, why: "First inspected Nov 1",
     source: "claude", confidence: 0.9, classification_reason: "internal note", ...extra,

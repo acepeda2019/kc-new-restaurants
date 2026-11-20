@@ -56,9 +56,11 @@ inspection_summary as (
         arg_min(inspection_type, (inspection_date, inspection_serial_num))         as first_inspection_type,
         arg_min(inspection_result, (inspection_date, inspection_serial_num))       as first_inspection_result,
         arg_min(red_points, (inspection_date, inspection_serial_num))              as first_inspection_red_points,
+        arg_min(inspection_score, (inspection_date, inspection_serial_num))        as first_inspection_score,
         arg_max(inspection_date, (inspection_date, inspection_serial_num))         as latest_inspection_date,
         arg_max(inspection_result, (inspection_date, inspection_serial_num))       as latest_inspection_result,
         arg_max(red_points, (inspection_date, inspection_serial_num))              as latest_red_points,
+        arg_max(inspection_score, (inspection_date, inspection_serial_num))        as latest_inspection_score,
         arg_max(is_closed_by_inspection, (inspection_date, inspection_serial_num)) as is_closed_by_latest_inspection
     from inspections
     group by business_id
