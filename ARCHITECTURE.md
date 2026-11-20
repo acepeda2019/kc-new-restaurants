@@ -277,23 +277,27 @@ near me). Named places with a pin are buttons that fly the map there.
   - **fails closed:** if Redis is unreachable or a cap is hit, it returns 429 with a friendly
     message, and the rest of the page keeps working;
   - `claude-haiku-5-5`, thinking disabled, effort low, `max_tokens` 600, structured output (`ANSWER_SCHEMA`: `summary` + `picks` of `{id, blurb}`);
-  - restaurant data goes in a delimited block marked as data, and the system prompt says to
-    answer only from it (prompt-injection defence). The block holds at most 100 places
-    (`MAX_DATA_ROWS`): the nearest once located, else the top-ranked, with tried places
-    removed first. Every row carries its place `id`; `resolvePicks` keeps only picks whose id
+  - the first request carries only the question, today's date and the rules, **no places**
+    (SAN-62): Claude must search to see any, and restaurant data only ever arrives in a
+    delimited `<search_results>` block marked as data (prompt-injection defence). Every row
+    carries its place `id`; `resolvePicks` keeps only picks whose id
     is a real place (open or opening soon), at most 5 (`MAX_PICKS`), with name, city and kind
     taken from our data, so a card can never show an invented place.
-  - **search (SAN-58):** the 100-place block is a subset, so questions that count, name a place
-    or filter (city, cuisine, kind, date) go through a search over **every** place
-    (`findOpenings` in `app/lib/search.ts`: exact count plus up to 20 places, newest first or
-    nearest once located; Opening soon on request). Claude asks for it inside its structured
+  - **search (SAN-58, SAN-62):** every question about places goes through a search over
+    **every** place (`findOpenings` in `app/lib/search.ts`: filters for name, city, cuisine
+    (matching the likely cuisine or the name), kind, first-inspected date, latest inspection
+    Unsatisfactory, and Opening soon; exact count plus up to 20 places, newest first or nearest
+    once located; tried places flagged, not hidden; on a miss, the known cities or cuisines so
+    Claude can search again). **Cards come only from search results, enforced in code: no search,
+    no cards.** Claude asks for it inside its structured
     reply (`ANSWER_WITH_SEARCH_SCHEMA`'s `search`, strict filters), not as a tool: with a strict
     answer format, Haiku 5.5 replies in JSON instead of calling tools. The server runs it and
     sends the result back in a `<search_results>` data block; Claude answers from it and states
     the filter ("Counting places in Kirkland first inspected since Nov 1: 1"). At most
     `MAX_TOOL_ROUNDS` (2) searches, so a question is at most 3 Claude calls; the last request
     can't ask for a search. The prompt carries today's Pacific date and fixed meanings ("this
-    week" = last 7 days, "this month" = since the 1st, "recently" = last 30 days). A cut-off or unreadable
+    week"/"last week" = last 7 days, "this month" = since the 1st, "last month"/"recently" = last
+    30 days); after a search the summary always states the count and the period. A cut-off or unreadable
     reply returns a fixed message and no picks. Text is never rendered as HTML; an answer built from the
     labelled sample ends with "(Answered from sample data, not today's list.)";
   - order in `app/app/api/ask/route.ts`: session → body (question ≤ 500 chars) → visitor

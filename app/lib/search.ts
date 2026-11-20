@@ -19,6 +19,8 @@ export type FindInput = {
   category: (typeof CATEGORIES)[number] | null;
   /** YYYY-MM-DD: first inspected on or after this date (for Opening soon: applied on or after). */
   first_inspected_since: string | null;
+  /** Only places whose latest inspection the county rated Unsatisfactory ("anything to be wary of?"). */
+  latest_unsatisfactory: boolean;
   include_opening_soon: boolean;
 };
 
@@ -68,7 +70,8 @@ export function findOpenings(
         // Cuisine also matches the name, so "pizza" finds DOMINO'S PIZZA whatever its cuisine label.
         (has(o.likely_cuisine, input.cuisine) || has(o.name, input.cuisine)) &&
         (!input.category || o.category === input.category) &&
-        (!since || o.first_inspection_date >= since),
+        (!since || o.first_inspection_date >= since) &&
+        (!input.latest_unsatisfactory || o.latest_inspection_result === "Unsatisfactory"),
     )
     .map((o): Opening & { distanceMi?: number } => {
       const fixed = here && o.category !== "food_truck" && o.latitude !== null && o.longitude !== null;
