@@ -196,8 +196,8 @@ anything off falls back to the template and never blocks the deploy). The page l
 "✦ AI summary", or "✦ Today" for the template, which also takes over once the visitor is
 located (it knows what's near them). The facts: how many opened this week (or "N within 2 mi of you" once located) and this
 month; the two best-ranked openings of the last 30 days by name (with "likely <cuisine>");
-how many recent openings had red points at their latest inspection; and the newest Opening
-soon place. Up to four chips ask about what it raised (trucks, red points, opening soon,
+how many recent openings were Unsatisfactory at their latest inspection; and the newest Opening
+soon place. Up to four chips ask about what it raised (trucks, things to be wary of, opening soon,
 near me). Named places with a pin are buttons that fly the map there.
 
 ## 7. App (`app/`, Next.js on Vercel)
@@ -247,11 +247,12 @@ near me). Named places with a pin are buttons that fly the map there.
   `NEXT_PUBLIC_MAP_STYLE_URL` overrides it. Every opening with a fixed location is pinned,
   including ones marked "Tried it"; pin logic is in `app/lib/pins.ts`. Pins: the cards' open places lime,
   numbered to match the cards (brief or answer), larger, drawn on top (winning over red) and labelled with
-  the name; red points at latest inspection orange with a light ring; other new places light
+  the name; places whose latest inspection the county rated Unsatisfactory orange with a light
+  ring (the county's verdict on that visit, not any red points; owner, 2026-11-20); other new places light
   grey; you blue. After "Use my location" the map recenters on the visitor. A "reset view" button (top-right on desktop, bottom-right of the map on phones) returns to
   every pin, or to the visitor once located, and closes any popup (`homeView`). Clicking a
   place's name on a card or in the brief flies the map to its pin, opens its popup
-  (name · why, as text) and highlights the pin and the card; clicking the name again or
+  (name · street, city · latest inspection, as text; hover shows name · city) and highlights the pin and the card; clicking the name again or
   pressing Escape clears it, and clicking a pin highlights its card. A tap counts for the nearest pin within 22px
   (`nearestPin`, `TAP_RADIUS_PX`), so small pins work with a finger. On desktop, hovering a
   pin shows its name. The camera pads around the floating panels so pins never land under
@@ -291,16 +292,20 @@ near me). Named places with a pin are buttons that fly the map there.
   phone (Enter sends; a × appears with text and clears it, keeping the last answer), and up to four chips from the Today brief. The browser sends the question with the visitor's
   location and "Tried it" ids; the reply is `{answer, picks, left}`, and the bar shows the answer as
   plain text and "N left today", then one card per pick (`app/components/AnswerPicks.tsx`):
-  number, name, city, up to four fact bubbles built from our data (`openingFacts` /
-  `openingSoonFacts` in `lib/format.ts`: likely cuisine, opened or applied date, inspection
-  result coloured clean/red points, distance), Claude's blurb on why it fits, and "Tried" for
+  number, name, street and city (`addressLine`, so same-name places are told apart), up to four
+  fact bubbles built from our data (`openingFacts` / `openingSoonFacts` in `lib/format.ts`:
+  likely cuisine, opened or applied date, the **latest** inspection as the county shows it,
+  e.g. "Unsatisfactory · 30 pts · Jun 16" (`latestInspection`: its verdict, its score = red +
+  blue points, the date; never the first inspection), distance), Claude's blurb on why it fits,
+  a "County inspection record ↗" link (the county's lookup map; no per-restaurant link format is
+  public), and "Tried" for
   open places. Facts never come from Claude; an educational first visit is sent with no red
   points so it can't be called clean. The picks take over the numbered map pins (card order) until the next question;
   tapping a name flies the map there, as in the lists. A cap hit or error shows the server's message instead.
 - **Answer style:** a one-sentence summary (under 25 words) plus at most 5 picks, each with a
   one-sentence blurb (under 15 words) on why it fits, not restating the fact bubbles. "Tried"
   sits on the name's line, right-aligned, on every screen size. "Likely <cuisine>" for
-  inferred cuisine. "Wary" answers cite the inspection date and red points. Say plainly
+  inferred cuisine. "Wary" answers go by the latest inspection (Unsatisfactory = a concern; points are the county's score), and blurbs say what went wrong, not the numbers on the card. Say plainly
   when the data can't answer (hours, price, ratings, opening soon).
 
 ## 8. Infrastructure, secrets, cost

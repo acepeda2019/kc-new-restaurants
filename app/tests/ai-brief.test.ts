@@ -12,7 +12,7 @@ const FACTS: BriefFacts = {
   highlights: [
     { id: "K1", name: "KOSHARI", kind: "open", city: "Seattle", food_truck: false, likely_cuisine: "Egyptian" },
   ],
-  red_points_count: 2,
+  unsatisfactory_count: 2,
   food_trucks_count: 1,
   opening_soon: { id: "N1", name: "67 PIZZA", kind: "soon", city: "Kirkland", food_truck: false, likely_cuisine: null },
 };

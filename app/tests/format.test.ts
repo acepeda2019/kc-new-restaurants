@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Opening, OpeningSoon } from "@/lib/data";
 import {
-  categoryTag, formatDistance, formatPlainDate, likelyCuisine, openingFacts, openingSoonFacts, placeLabel,
+  addressLine, categoryTag, formatDistance, formatPlainDate, latestInspection, likelyCuisine, openingFacts, openingSoonFacts,
+  placeLabel,
 } from "@/lib/format";
 
 describe("formatPlainDate", () => {
@@ -79,32 +80,57 @@ describe("answer-card facts", () => {
     category: "restaurant", likely_cuisine: "Egyptian", first_inspection_date: "2026-11-13",
     first_inspection_type: "Routine Inspection/Field Review", first_inspection_red_points: 0,
     latest_inspection_date: "2026-11-13", latest_red_points: 0,
+    latest_inspection_result: "Satisfactory", latest_inspection_score: 0,
   } as Opening;
   const labels = (o: Partial<Opening> & { distanceMi?: number }) => openingFacts({ ...base, ...o }).map((f) => f.label);
 
-  it("shows cuisine, opened date, a clean result and distance", () => {
+  it("shows cuisine, opened date, the latest inspection the county's way, and distance", () => {
     expect(openingFacts({ ...base, distanceMi: 3.94 })).toEqual([
       { label: "likely Egyptian", tone: "plain" },
       { label: "opened Nov 13", tone: "plain" },
-      { label: "clean first inspection", tone: "good" },
+      { label: "Satisfactory · 0 pts · Nov 13", tone: "good" },
       { label: "3.9 mi", tone: "plain" },
     ]);
   });
 
-  it("never calls an educational first visit clean", () => {
-    expect(labels({ first_inspection_type: "Educational Inspection" })).toContain("first visit: educational");
-    expect(labels({ first_inspection_type: "Educational Inspection" })).not.toContain("clean first inspection");
+  it("shows the county's score and verdict, not red points (Nori Sushi, Maple Valley: 30, not 25)", () => {
+    const f = latestInspection({ latest_inspection_result: "Unsatisfactory", latest_inspection_score: 30, latest_inspection_date: "2026-06-16" });
+    expect(f).toEqual({ label: "Unsatisfactory · 30 pts · Jun 16", tone: "warn" });
   });
 
-  it("flags red points, a later inspection's first", () => {
-    expect(labels({ first_inspection_red_points: 15, latest_red_points: 15 })).toContain("15 red points");
-    expect(labels({ latest_inspection_date: "2026-11-18", latest_red_points: 10 })).toContain("10 red points (Nov 18)");
+  it("shows a later clean inspection, never falling back to a bad first one (SAN-60)", () => {
+    const improved = labels({
+      first_inspection_red_points: 25, first_inspection_score: 30,
+      latest_inspection_date: "2026-10-01", latest_red_points: 0,
+      latest_inspection_result: "Satisfactory", latest_inspection_score: 0,
+    });
+    expect(improved).toContain("Satisfactory · 0 pts · Oct 1");
+    expect(improved.join(" ")).not.toMatch(/25|30/);
+  });
+
+  it("never scores an educational latest visit", () => {
+    expect(latestInspection({ latest_inspection_result: "Complete", latest_inspection_score: 0, latest_inspection_date: "2026-06-10" }))
+      .toEqual({ label: "educational visit (not scored) · Jun 10", tone: "plain" });
+  });
+
+  it("keeps a satisfactory visit with some points neutral", () => {
+    expect(latestInspection({ latest_inspection_result: "Satisfactory", latest_inspection_score: 5, latest_inspection_date: "2026-06-10" }).tone)
+      .toBe("plain");
   });
 
   it("labels food trucks and keeps at most four bubbles", () => {
     const truck = labels({ category: "food_truck", distanceMi: 1 });
     expect(truck[0]).toBe("food truck");
     expect(truck).toHaveLength(4);
+  });
+
+  it("tells same-name places apart by street and city; trucks by their base", () => {
+    expect(addressLine({ address: "27317 MAPLE VALLEY BLACK DIAMOND RD SE, A104", city: "MAPLE VALLEY", category: "restaurant" }))
+      .toBe("27317 Maple Valley Black Diamond Rd SE, A104, Maple Valley");
+    expect(addressLine({ address: "32911 1ST AVE S, #G", city: "FEDERAL WAY", category: "restaurant" }))
+      .toBe("32911 1st Ave S, #G, Federal Way");
+    expect(addressLine({ address: null, city: "SEATTLE", category: "restaurant" })).toBe("Seattle");
+    expect(addressLine({ address: "1 BASE ST", city: "BUCKLEY", category: "food_truck" })).toBe("based in Buckley");
   });
 
   it("marks Opening soon places as not open, with the applied date and licence", () => {

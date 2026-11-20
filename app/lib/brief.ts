@@ -34,8 +34,8 @@ export type BriefFacts = {
   near?: { count: number; radiusMi: number };
   /** The two best-ranked openings of the last 30 days. */
   highlights: BriefPlace[];
-  /** Openings of the last 30 days with red points at their latest inspection. */
-  red_points_count: number;
+  /** Openings of the last 30 days whose latest inspection was Unsatisfactory (the county's verdict). */
+  unsatisfactory_count: number;
   food_trucks_count: number;
   opening_soon: BriefPlace | null;
 };
@@ -65,7 +65,7 @@ export function briefFacts(input: {
       food_truck: o.category === "food_truck",
       likely_cuisine: o.likely_cuisine,
     })),
-    red_points_count: recent.filter((o) => o.latest_red_points > 0).length,
+    unsatisfactory_count: recent.filter((o) => o.latest_inspection_result === "Unsatisfactory").length,
     food_trucks_count: recent.filter((o) => o.category === "food_truck").length,
     opening_soon: soon
       ? {
@@ -85,7 +85,7 @@ export function briefChips(f: BriefFacts): string[] {
   return [
     f.near ? "What's newest near me?" : "What's new near me?",
     f.food_trucks_count ? "Which food trucks are new?" : null,
-    f.red_points_count ? "Which had red points?" : null,
+    f.unsatisfactory_count ? "Any to be wary of?" : null,
     f.opening_soon ? "What's opening soon?" : null,
     "Any new cafés?",
   ]
@@ -113,7 +113,9 @@ export function templateSentences(f: BriefFacts): BriefPart[][] {
   if (first) sentences.push([...highlight(first), ...(second ? [", and ", ...highlight(second)] : []), "."]);
 
   const last: BriefPart[] = [];
-  if (f.red_points_count) last.push(`${plural(f.red_points_count, "new place", "new places")} had red points at the latest inspection`);
+  if (f.unsatisfactory_count) {
+    last.push(`${plural(f.unsatisfactory_count, "new place was", "new places were")} Unsatisfactory at the latest inspection`);
+  }
   if (f.opening_soon) {
     if (last.length) last.push("; ");
     last.push(ref(f.opening_soon), ` applied to open in ${f.opening_soon.city}`);

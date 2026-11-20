@@ -13,7 +13,7 @@ describe("todayBrief", () => {
   const OPEN = [
     opening("KOSHARI", 1, { likely_cuisine: "Egyptian" }),
     opening("CRAZY TACO", 2, { category: "food_truck", city: "BUCKLEY" }),
-    opening("RISKY", 3, { latest_red_points: 15 }),
+    opening("RISKY", 3, { latest_red_points: 15, latest_inspection_result: "Unsatisfactory" }),
     opening("OLD", 0, { days_open: 120 }), // best rank, but not this month
   ];
 
@@ -22,7 +22,7 @@ describe("todayBrief", () => {
     expect(briefText(b)).toBe(
       "4 places opened this week and 10 this month. " +
         "KOSHARI brings likely Egyptian food to Seattle, and CRAZY TACO started rolling out of Buckley. " +
-        "1 new place had red points at the latest inspection; 67 PIZZA applied to open in Kirkland.",
+        "1 new place was Unsatisfactory at the latest inspection; 67 PIZZA applied to open in Kirkland.",
     );
     const refs = b.sentences.flat().filter((p) => typeof p !== "string");
     expect(refs).toEqual([
@@ -34,7 +34,7 @@ describe("todayBrief", () => {
 
   it("offers chips about what the sentences raise, at most MAX_CHIPS", () => {
     const b = todayBrief({ openings: OPEN, openingSoon: [soon("67 PIZZA", 1)], metrics });
-    expect(b.chips).toEqual(["What's new near me?", "Which food trucks are new?", "Which had red points?", "What's opening soon?"]);
+    expect(b.chips).toEqual(["What's new near me?", "Which food trucks are new?", "Any to be wary of?", "What's opening soon?"]);
     expect(b.chips.length).toBeLessThanOrEqual(MAX_CHIPS);
   });
 

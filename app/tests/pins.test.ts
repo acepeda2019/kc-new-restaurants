@@ -43,15 +43,18 @@ describe("toPins", () => {
     expect(rank.F).toBeUndefined();
   });
 
-  it("marks the top 3 as top, red points as wary, the rest as new; top wins over wary", () => {
+  it("marks picks as top, an Unsatisfactory latest inspection as wary, the rest as new; top wins", () => {
+    const unsat = { latest_inspection_result: "Unsatisfactory", latest_red_points: 25, latest_inspection_score: 30 };
     const rows = [
       opening("a", SEATTLE),
-      opening("b", SEATTLE, { latest_red_points: 25 }),
-      opening("c", BELLEVUE, { latest_red_points: 10 }),
+      opening("b", SEATTLE, unsat),
+      opening("c", BELLEVUE, unsat),
       opening("d", BELLEVUE),
+      // Red points but a Satisfactory verdict: the county didn't fail it, so neither do we.
+      opening("e", BELLEVUE, { latest_red_points: 5, latest_inspection_score: 5 }),
     ];
     const pins = toPins(rows, { topIds: new Set(["a", "b"]) });
-    expect(kinds(pins)).toEqual({ a: "top", b: "top", c: "wary", d: "new" });
+    expect(kinds(pins)).toEqual({ a: "top", b: "top", c: "wary", d: "new", e: "new" });
   });
 
   it("numbers top pins 1-3 in topIds order (the card order); other pins have no rank", () => {
@@ -68,11 +71,13 @@ describe("toPins", () => {
     expect(labels).toEqual({ a: "Name a", b: undefined, you: undefined });
   });
 
-  it("carries name and why, and puts coordinates in lon, lat order", () => {
+  it("carries name, street and latest inspection, city for hover, and lon, lat order", () => {
     const [pin] = toPins([opening("a", SEATTLE)], { topIds: new Set() }).features;
     expect(pin.type).toBe("Feature");
     expect(pin.geometry).toEqual({ type: "Point", coordinates: [SEATTLE.lon, SEATTLE.lat] });
-    expect(pin.properties).toMatchObject({ name: "Name a", why: "Why a" });
+    expect(pin.properties).toMatchObject({
+      name: "Name a", detail: "1 Main St, Seattle · Satisfactory · 0 pts · Nov 1", where: "Seattle",
+    });
   });
 
   it("leaves out food trucks and rows without coordinates", () => {
@@ -117,12 +122,13 @@ describe("boundsOf", () => {
 });
 
 describe("popupText", () => {
-  it("joins name and why with a middle dot", () => {
-    expect(popupText({ name: "KOSHARI", why: "First inspected Nov 13" })).toBe("KOSHARI · First inspected Nov 13");
+  it("joins name and detail with a middle dot", () => {
+    expect(popupText({ name: "NORI SUSHI", detail: "27317 Maple Valley Black Diamond Rd SE, A104, Maple Valley · Unsatisfactory · 30 pts · Jun 16" }))
+      .toBe("NORI SUSHI · 27317 Maple Valley Black Diamond Rd SE, A104, Maple Valley · Unsatisfactory · 30 pts · Jun 16");
   });
 
-  it("shows just the name when there is no reason", () => {
-    expect(popupText({ name: "You are here", why: "" })).toBe("You are here");
+  it("shows just the name when there is no detail", () => {
+    expect(popupText({ name: "You are here", detail: "" })).toBe("You are here");
   });
 });
 

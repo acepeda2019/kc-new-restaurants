@@ -1051,3 +1051,13 @@ button.link {
 .answer-picks .tried-label {
   display: inline;
 }
+
+/* The county's own record for a place (SAN-60): small and quiet under the blurb. */
+.county-link {
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
+
+.county-link a {
+  color: var(--text-3);
+}

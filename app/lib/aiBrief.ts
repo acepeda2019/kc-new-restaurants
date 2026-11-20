@@ -17,7 +17,7 @@ export const AI_BRIEF_MAX_CHARS = 500;
 const SYSTEM = `You write the two or three sentence "Today" summary for a site about restaurants that just opened in King County, WA.
 Use only the FACTS block (JSON); never add facts, opinions about food quality, hours or prices.
 Mention a place only as its token {{id}} with the exact id from the facts; never write a place's name yourself. Name at most the places in "highlights" and "opening_soon".
-Cuisine is inferred: write "likely Thai", never "Thai". An "opening_soon" place has applied for a liquor licence and is not open yet; never call it open.
+Cuisine is inferred: write "likely Thai", never "Thai". "unsatisfactory_count" counts places whose latest inspection the county rated Unsatisfactory; don't call them red points. An "opening_soon" place has applied for a liquor licence and is not open yet; never call it open.
 Plain, friendly English, under 60 words, no Markdown, no lists. Reply as JSON: {"text": "..."}.`;
 
 const SCHEMA = {

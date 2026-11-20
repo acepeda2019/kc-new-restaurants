@@ -42,7 +42,7 @@ describe("Opening soon pins", () => {
   it("adds a soon pin for each place with coordinates and none for the rest", () => {
     const pins = toPins([], { topIds: new Set(), openingSoon: [near, unmapped] });
     expect(pins.features.map((f) => [f.properties.id, f.properties.kind])).toEqual([["NEAR", "soon"]]);
-    expect(pins.features[0].properties.why).toMatch(/licence on/);
+    expect(pins.features[0].properties.detail).toMatch(/licence on/);
   });
 
   it("soonSpot is null until geocoded", () => {

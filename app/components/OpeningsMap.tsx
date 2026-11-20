@@ -290,7 +290,8 @@ export function OpeningsMap({ pins, focus, onFocus, onUnavailable }: Props) {
             return;
           }
           const [lon, lat] = f.geometry.coordinates;
-          hover.setLngLat([lon, lat]).setText(props.name);
+          // Name and city, so same-name places (two Nori Sushis) are told apart on hover too.
+          hover.setLngLat([lon, lat]).setText(props.where ? `${props.name} · ${props.where}` : props.name);
           if (!hover.isOpen()) hover.addTo(map);
         });
         map.on("mouseleave", SOURCE_ID, () => {

@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AnswerPicks, type PickCard } from "@/components/AnswerPicks";
 import type { AnswerPick } from "@/lib/ask";
-import { openingFacts, openingSoonFacts } from "@/lib/format";
+import { addressLine, openingFacts, openingSoonFacts } from "@/lib/format";
 import { AskBar, type LocationStatus } from "@/components/AskBar";
 import { HiddenTried } from "@/components/HiddenTried";
 import { OpeningsMap } from "@/components/OpeningsMap";
@@ -98,10 +98,13 @@ export function PersonalPicks({ openings, metrics, openingSoon, aiBrief }: Props
   const soon = useMemo(() => rankOpeningSoon(openingSoon, here), [openingSoon, here]);
   const focus = useMemo(() => resolveFocus(focused, openings, openingSoon), [focused, openings, openingSoon]);
   const cardById = useMemo(() => {
-    const m = new Map<string, PickCard>(everyPlace.map((o) => [o.restaurant_id, { place: o, facts: openingFacts(o) }]));
+    const m = new Map<string, PickCard>(
+      everyPlace.map((o) => [o.restaurant_id, { place: o, where: addressLine(o), facts: openingFacts(o) }]),
+    );
     for (const s of soon) {
       const place = { name: s.trade_name, category: "restaurant" as const, latitude: s.latitude, longitude: s.longitude };
-      m.set(s.notice_id, { place, facts: openingSoonFacts(s) });
+      const where = addressLine({ address: s.street_address, city: s.city ?? "King County", category: "restaurant" });
+      m.set(s.notice_id, { place, where, facts: openingSoonFacts(s) });
     }
     return m;
   }, [everyPlace, soon]);
