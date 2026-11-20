@@ -19,15 +19,31 @@ models:
               arguments: {values: [RED, BLUE]}
 
   - name: stg_kc__inspections
-    description: "Grain: one row per inspection (inspection_serial_num) in the latest KC pull."
+    description: "Grain: one row per inspection (inspection_serial_num) in the latest KC pull. Inspection-level columns are grouped on, so a source inconsistency within one inspection fails the unique test."
+    data_tests:
+      # The county's score is red + blue points. 26 of 75,628 inspections don't add up on
+      # 2026-11-20 (mostly a score with no violation rows in the file), a source quirk; warn
+      # only if that grows, so a change in how the county scores shows up without daily noise.
+      - expression_is_true:
+          arguments: {expression: "inspection_score is null or inspection_score = red_points + blue_points"}
+          config:
+            severity: warn
+            warn_if: ">50"
     columns:
       - name: inspection_serial_num
         data_tests: [unique, not_null]
       - name: business_id
         data_tests: [not_null]
       - name: red_points
-        description: Sum of violation_points on RED violations (0 when none).
+        description: Sum of violation_points on RED (critical) violations (0 when none).
         data_tests: [not_null]
+      - name: blue_points
+        description: Sum of violation_points on BLUE (maintenance and sanitation) violations (0 when none). red_points + blue_points is the county's inspection_score.
+        data_tests: [not_null]
+      - name: inspection_score
+        description: The county's score for the inspection, as shown on its site.
+      - name: is_closed_by_inspection
+        description: The inspector closed the business at this visit (source inspection_closed_business = Yes). The latest one excludes a business from candidates.
       - name: inspection_type
         data_tests:
           - accepted_values:
