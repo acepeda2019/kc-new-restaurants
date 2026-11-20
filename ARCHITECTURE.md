@@ -118,6 +118,12 @@ airport-terminal vendors (`seeds/venue_exclusions.csv`, by address).
   `replaces_name` holds the old name ("replaces X").
 - `ownership_transfer`: same place, new owner or re-issued ID. **Not an opening; excluded.**
 
+"At the address" means the same premises: the same address key and not a different unit
+(no unit on either side counts as the same). A differently named business still inspected
+on or after the candidate's first inspection is a neighbour that stayed open, not a
+predecessor, so Claude never sees it; a same-name one (Jaro-Winkler on the name key ≥
+`score_params.prior_same_name_min`, 0.85) is kept as a likely re-issued ID.
+
 **Rules first, Claude for the rest.** Clear cases are deterministic, in seeds and dbt: KC
 `classification` → rule category (`seeds/classification_rules.csv`: "Mobile Food Unit" =
 `food_truck`; grocery, institutional, caterer and seasonal classes `excluded`; General Food

@@ -96,8 +96,9 @@ category: what a diner would call this place.
 convenience store (including in-store bakeries and delis), corporate or institutional \
 cafeteria, school, caterer, commissary, private club, temporary event.
 
-opening_type: compare with prior_businesses_at_address (other businesses at the same address \
-in the 12 months before this one's first inspection).
+opening_type: compare with prior_businesses_at_address (earlier businesses at the same premises, \
+not neighbours in other units, that closed in the 12 months before this one's first inspection, \
+plus any same-name record, which is a re-issued ID).
 - new_opening: none of them looks like a predecessor at this spot.
 - new_concept: a different business replaced one there. Set replaces_name to its name.
 - ownership_transfer: the same place under a new owner or a re-issued ID (same or very \

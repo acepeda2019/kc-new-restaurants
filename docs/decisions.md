@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-20 — A predecessor must be at the same premises and closed
+- **Context:** SAN-63. Pizza Twist was labelled "replaces Apple Teriyaki", a neighbour in another unit of the same building that is still open. Priors were any business at the same address key (street and zip, no unit) last inspected within 12 months, so neighbours in malls and strip centres looked like predecessors.
+- **Decision:** a prior must be in the same unit (no unit on either side counts as the same) and, if differently named, last inspected before the candidate's first inspection. A same-name prior (Jaro-Winkler on the name key ≥ 0.85, new seed column `score_params.prior_same_name_min`) stays even while still inspected: that's the county re-issuing an ID. The name-key expression moved into a macro shared with the WSLCB matching.
+- **Consequences:** on 2026-11-20 data, 112 of 644 candidates lose at least one prior (62 lose all), and 10 of 20 wrong "replaces X" labels lose their predecessor; ownership transfers keep their priors (one, Porter Hospitality, loses it). Those 112 get a new input hash, so the next deploy re-classifies them (Haiku, a few cents). A real predecessor in an unrecorded unit is still kept, and one whose last inspection came after the new place's first (overlap) is now dropped.
+
 ## 2026-11-20 — Claude sees places only through the search
 - **Context:** SAN-62. Testing pizza questions, the owner saw a "last month" answer with a sushi place and a September opening on its cards. Claude had answered from the 100 places in its prompt instead of searching, so the code that limits cards to search results never ran. Instructions to search were not enough; a later run also translated "pizza" into "Italian" and found nothing.
 - **Decision:** the request carries no places. Claude must search to see any, and code shows cards only from search results (no search, no cards). The search's cuisine filter also matches names, a miss returns the known cities or cuisines for one retry, and a "latest inspection Unsatisfactory" filter answers "anything to be wary of?". Fixed meanings for "last week"/"last month"; the summary always states count and period.

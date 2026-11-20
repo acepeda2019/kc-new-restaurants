@@ -24,7 +24,7 @@ seeds:
       - name: business_id
         data_tests: [unique, not_null]
   - name: score_params
-    description: "Grain: one row. Scoring weights, window and Claude confidence threshold (ARCHITECTURE.md §6)."
+    description: "Grain: one row. Scoring weights, window and Claude confidence threshold (ARCHITECTURE.md §6). prior_same_name_min: name score (Jaro-Winkler on name_key) at or above which an earlier business still open at the premises counts as the same business (a re-issued id), so it stays in prior_businesses_at_address."
   - name: lcb_privilege_rules
     description: "Grain: one row per WSLCB privilege text (every value seen in the notice window on 2026-11-19). is_restaurant marks the ones Opening soon counts and label is how the app names the licence; a notice counts if any of its privileges does. Unseen privileges count as not a restaurant and are flagged by the lcb_unmapped_privileges test."
     config:

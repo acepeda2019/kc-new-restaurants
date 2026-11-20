@@ -13,18 +13,16 @@ params as (
     select * from {{ ref('lcb_match_params') }}
 ),
 
--- Upper-case, punctuation to spaces, drop company suffixes and "THE", collapse spaces.
+-- Names compared as name_key (macros/name_key.sql).
 notice_keys as (
     select
         notice_id,
         application_date,
         zip5,
         regexp_extract(street_address, '^(\d+)', 1) as street_number,
-        trim(regexp_replace(regexp_replace(regexp_replace(upper(trade_name), '[^A-Z0-9 ]', ' ', 'g'),
-            '\b(LLC|L L C|INC|CO|CORP|THE)\b', ' ', 'g'), '\s+', ' ', 'g')) as name_key,
+        {{ name_key('trade_name') }} as name_key,
         -- KC often records the company, not the trade name (source card): score both.
-        trim(regexp_replace(regexp_replace(regexp_replace(upper(coalesce(licensee_name, '')), '[^A-Z0-9 ]', ' ', 'g'),
-            '\b(LLC|L L C|INC|CO|CORP|THE)\b', ' ', 'g'), '\s+', ' ', 'g')) as licensee_key
+        {{ name_key("coalesce(licensee_name, '')") }} as licensee_key
     from notices
 ),
 
@@ -35,8 +33,7 @@ business_keys as (
         first_inspection_date,
         zip5,
         regexp_extract(address, '^(\d+)', 1) as street_number,
-        trim(regexp_replace(regexp_replace(regexp_replace(upper(business_name), '[^A-Z0-9 ]', ' ', 'g'),
-            '\b(LLC|L L C|INC|CO|CORP|THE)\b', ' ', 'g'), '\s+', ' ', 'g')) as name_key
+        {{ name_key('business_name') }} as name_key
     from businesses
 ),
 
