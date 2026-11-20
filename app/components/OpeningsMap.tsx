@@ -35,7 +35,7 @@ const reducedMotion = () => media("(prefers-reduced-motion: reduce)");
 // screens, under the header pills otherwise. Read at camera time, so it follows resizes.
 function viewPadding() {
   return media(FLOATING)
-    ? { top: 330, bottom: 72, left: 48, right: 48 } // the bar and brief sit centred at the top
+    ? { top: 96, bottom: 72, left: 520, right: 64 } // the question column sits on the left (SAN-61)
     : { top: 72, bottom: 24, left: 24, right: 24 };
 }
 

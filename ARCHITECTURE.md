@@ -239,7 +239,9 @@ near me). Named places with a pin are buttons that fly the map there.
   everything floats over it in dark panels: header (logo and the "Sample data ·
   not today's list" pill), an ⓘ button beside the logo that opens the About panel
   (`app/components/AboutButton.tsx`, a native `<dialog>`: what the site is, the data sources,
-  how to use it, the daily question cap, a GitHub link and a not-affiliated note), the question bar centred at the top with the brief or answer under it, the legend and data source at the bottom.
+  how to use it, the daily question cap, a GitHub link and a not-affiliated note), the question bar in a left column (about 460px) with the brief or answer under it, a long
+  answer scrolling inside the column, and the map's open area to the right, where the camera
+  frames and flies to places (padding keeps the column clear; SAN-61), the legend and data source at the bottom.
   The brief sits in a gradient-bordered panel (lime to lavender) labelled "✦ Today". Below 1100px (phones, tablets, small
   laptops) the map takes the top of the screen and one scrolling sheet below holds the
   question bar and the brief or answer; there, "Tried it" shows a visible "Tried" label.
