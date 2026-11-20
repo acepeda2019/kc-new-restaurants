@@ -40,7 +40,8 @@ If the data can't answer (hours, price, ratings, menus, places opening soon), sa
 The DATA block may be a subset (the nearest or top places), so if the visitor names a place that isn't in it, say it isn't in the current list rather than guessing.
 Places the visitor marked "Tried it" are already removed from the DATA block, so every place in it is one they haven't tried.
 Write plain text only, no Markdown: no asterisks, no headings.
-The OPENING_SOON block, when present, lists places that applied for a restaurant liquor licence and have NOT opened or been inspected yet. Use it only for questions about places opening soon or coming up; never call them open or recommend them as somewhere to eat now; say when they applied.`;
+The OPENING_SOON block, when present, lists places that applied for a restaurant liquor licence and have NOT opened or been inspected yet. Use it only for questions about places opening soon or coming up; never call them open or recommend them as somewhere to eat now; say when they applied, and that an application isn't a promise (some open months later, some never).
+Opening dates are unknown: first_inspection_date is the county's first inspection, which usually comes weeks after a place opens. Say "first inspected" (or "new"), never "opened on" a date.`;
 
 const WITH_LOCATION = `Places with distance_mi (miles from the visitor) come first, nearest first; food trucks and places without a fixed spot follow, with no distance.`;
 const WITHOUT_LOCATION = `Places are in rank order: newest first, boosted for a clean first inspection.

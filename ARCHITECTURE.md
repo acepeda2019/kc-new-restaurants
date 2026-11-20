@@ -194,7 +194,7 @@ a template in the browser). Once per daily build, Claude words the same facts in
 one Haiku call, `max_tokens` 300, places named only as `{{id}}` tokens checked against the facts;
 anything off falls back to the template and never blocks the deploy). The page labels it
 "✦ AI summary", or "✦ Today" for the template, which also takes over once the visitor is
-located (it knows what's near them). The facts: how many opened this week (or "N within 2 mi of you" once located) and this
+located (it knows what's near them). The facts: how many were first inspected this week (or "N within 2 mi of you" once located) and this
 month; the two best-ranked openings of the last 30 days by name (with "likely <cuisine>");
 how many recent openings were Unsatisfactory at their latest inspection; and the newest Opening
 soon place. Up to four chips ask about what it raised (trucks, things to be wary of, opening soon,
@@ -294,13 +294,19 @@ near me). Named places with a pin are buttons that fly the map there.
   plain text and "N left today", then one card per pick (`app/components/AnswerPicks.tsx`):
   number, name, street and city (`addressLine`, so same-name places are told apart), up to four
   fact bubbles built from our data (`openingFacts` / `openingSoonFacts` in `lib/format.ts`:
-  likely cuisine, opened or applied date, the **latest** inspection as the county shows it,
+  likely cuisine, "first inspected <date>" when a later inspection exists (opening dates aren't
+  in the data) or "licence applied <date>" for Opening soon, the **latest** inspection as the county shows it,
   e.g. "Unsatisfactory · 30 pts · Jun 16" (`latestInspection`: its verdict, its score = red +
   blue points, the date; never the first inspection), distance), Claude's blurb on why it fits,
   and "Tried" for
   open places. Facts never come from Claude; an educational first visit is sent with no red
   points so it can't be called clean. The picks take over the numbered map pins (card order) until the next question;
   tapping a name flies the map there, as in the lists. A cap hit or error shows the server's message instead.
+- **Wording (SAN-59):** the app never states an opening date. "Just opened" means first inspected
+  by the county, which usually comes weeks after opening; Opening soon means a liquor licence
+  application, which isn't a promise (about 55% of 2026's King County restaurant applications
+  had a first inspection by November). The About panel says both; Claude's rules forbid "opened
+  on <date>" and promising that an applicant will open.
 - **Answer style:** a one-sentence summary (under 25 words) plus at most 5 picks, each with a
   one-sentence blurb (under 15 words) on why it fits, not restating the fact bubbles. "Tried"
   sits on the name's line, right-aligned, on every screen size. "Likely <cuisine>" for

@@ -20,9 +20,9 @@ describe("todayBrief", () => {
   it("says what's new in three plain sentences, naming places by reference", () => {
     const b = todayBrief({ openings: OPEN, openingSoon: [soon("67 PIZZA", 1)], metrics });
     expect(briefText(b)).toBe(
-      "4 places opened this week and 10 this month. " +
-        "KOSHARI brings likely Egyptian food to Seattle, and CRAZY TACO started rolling out of Buckley. " +
-        "1 new place was Unsatisfactory at the latest inspection; 67 PIZZA applied to open in Kirkland.",
+      "4 new places were first inspected this week and 10 this month. " +
+        "KOSHARI brings likely Egyptian food to Seattle, and CRAZY TACO is a new food truck based in Buckley. " +
+        "1 new place was Unsatisfactory at the latest inspection; 67 PIZZA applied for a liquor licence in Kirkland.",
     );
     const refs = b.sentences.flat().filter((p) => typeof p !== "string");
     expect(refs).toEqual([
@@ -43,12 +43,12 @@ describe("todayBrief", () => {
       openings: [opening("KOSHARI", 1)], openingSoon: [], metrics,
       here: { lat: 47.6, lon: -122.3 }, near: { count: 2, radiusMi: 2 },
     });
-    expect(briefText(b)).toBe("2 new places within 2 mi of you, 10 across King County this month. KOSHARI opened in Seattle.");
+    expect(briefText(b)).toBe("2 new places within 2 mi of you, 10 across King County this month. KOSHARI is new in Seattle.");
     expect(b.chips).toEqual(["What's newest near me?", "Any new cafés?"]);
   });
 
   it("keeps to one sentence when nothing opened this month", () => {
     const b = todayBrief({ openings: [], openingSoon: [], metrics: { opened_last_7_days: 0, opened_last_30_days: 0 } });
-    expect(briefText(b)).toBe("0 places opened this week and 0 this month.");
+    expect(briefText(b)).toBe("0 new places were first inspected this week and 0 this month.");
   });
 });

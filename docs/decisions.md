@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-20 — Say "first inspected" and "licence applied", never an opening date
+- **Context:** user feedback (SAN-59): is a permit the same as open, and does a filing mean "opening soon"? The data has no opening dates: a place's first King County inspection usually comes weeks after it opens, and a liquor licence application isn't a promise (55% of Jan–Jun 2026 King County restaurant licences had a first inspection by November, median 164 days).
+- **Decision:** wording only. Card bubbles say "first inspected <date>" (shown only when a later inspection exists; with one visit the inspection bubble carries the date) and "licence applied <date>"; the template brief says "first inspected this week", "is new in", "applied for a liquor licence"; the About panel states both caveats; Claude's rules forbid "opened on <date>" and promising an applicant will open. Section and legend names ("Just opened", "Opening soon") stay.
+- **Consequences:** slightly less natural wording in exchange for claims the data supports. No data, scoring or ranking change.
+
 ## 2026-11-20 — Show the county's latest result, score and address; orange means Unsatisfactory
 - **Context:** user feedback (SAN-60). The map showed "Nori Sushi · 25 red points at first inspection (Jun 16)" with no address; the county's site shows that Maple Valley location as Unsatisfactory, 30 pts, while a separate Federal Way Nori Sushi scored 0. Cards fell back to a bad first inspection when a later one was clean (a bug from PR #54), and an educational first visit hid later failures.
 - **Decision:** cards, popups and answers show the **latest** inspection as the county does (verdict, score = red + blue points, date) and the street address. No link out to the county's site (owner: it would send people to the source instead of showing what this app adds). The orange pin means "Unsatisfactory at the latest inspection" (the county's verdict on that visit), not "any red points" and not the county's rating, which we don't copy.

@@ -52,11 +52,13 @@ export function AboutButton({ questionsPerDay }: Props) {
           <ul>
             <li>
               <strong>Just opened:</strong> King County health inspections. A place counts as new at its first
-              inspection. Cuisine is inferred and labelled &ldquo;likely&rdquo;.
+              inspection, which usually comes weeks after it opens, so there are no exact opening dates. Cuisine
+              is inferred and labelled &ldquo;likely&rdquo;.
             </li>
             <li>
               <strong>Opening soon:</strong> Washington liquor licence applications, so places without alcohol
-              won&apos;t show until they open.
+              won&apos;t show until they open. An application isn&apos;t a promise: some applicants open months
+              later, and some never do.
             </li>
             <li>
               <strong>Map:</strong> OpenStreetMap via OpenFreeMap; addresses placed by the US Census geocoder.
