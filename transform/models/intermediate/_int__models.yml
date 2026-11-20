@@ -26,7 +26,7 @@ models:
           - accepted_values:
               arguments: {values: [food_truck, needs_judgment]}
       - name: prior_businesses_at_address
-        description: "JSON list of earlier businesses at the same premises whose last inspection fell within 12 months before (to 30 days after) this one's first inspection. Same premises: same address key and not a different unit (macros/address_unit.sql). A differently named business still inspected on or after this one's first inspection is a neighbour that stayed open, so it's left out; a same-name one (score_params.prior_same_name_min) stays, as a re-issued id. Lets Claude tell new_opening, new_concept and ownership_transfer apart."
+        description: "JSON list of earlier businesses at the same premises whose last inspection fell within 12 months before (to 30 days after) this one's first inspection. Same premises: same address key and not a different unit (macros/address_unit.sql). A differently named business must have been last inspected on or before this one's first inspection (one inspected after is a neighbour that stayed open, so it's left out); the window is score_params.prior_lookback_days / prior_lookahead_days; a same-name one (score_params.prior_same_name_min) stays, as a re-issued id. Lets Claude tell new_opening, new_concept and ownership_transfer apart."
   - name: int_opening_soon_candidates
     description: "Grain: one row per King County WSLCB notice that counts as a restaurant about to open (counted notice type, any restaurant privilege). Not yet matched to inspections (SAN-47)."
     columns:
@@ -69,7 +69,7 @@ models:
               arguments: {expression: "opened_on is null or opened_business_id is not null"}
 
 unit_tests:
-  - name: candidate_priors_skip_other_units_and_open_neighbours_but_keep_reissued_ids
+  - name: candidate_priors_skip_other_units_and_open_neighbours_but_keep_reissued_ids_and_same_day
     model: int_candidates
     given:
       - input: ref('int_establishments')
@@ -79,12 +79,17 @@ unit_tests:
           - {business_id: "O_SAME_UNIT", business_name: "OLD TACOS", address: "100 MAIN ST, #111", geocode_key: "K1", classification: "Seating 0-12", rule_category: "needs_judgment", first_inspection_date: "2022-01-10", latest_inspection_date: "2026-08-01", pulled_on: "2026-11-20", is_venue_excluded: false, is_closed_by_latest_inspection: false}
           - {business_id: "O_STILL_OPEN", business_name: "BURGER SPOT", address: "100 MAIN ST", geocode_key: "K1", classification: "Seating 0-12", rule_category: "needs_judgment", first_inspection_date: "2023-03-01", latest_inspection_date: "2026-11-10", pulled_on: "2026-11-20", is_venue_excluded: false, is_closed_by_latest_inspection: false}
           - {business_id: "O_REISSUED", business_name: "Pizza Twist, LLC", address: "100 MAIN ST", geocode_key: "K1", classification: "Seating 0-12", rule_category: "needs_judgment", first_inspection_date: "2024-05-01", latest_inspection_date: "2026-11-10", pulled_on: "2026-11-20", is_venue_excluded: false, is_closed_by_latest_inspection: false}
+          - {business_id: "O_SAME_DAY", business_name: "SUBWAY", address: "100 MAIN ST", geocode_key: "K1", classification: "Seating 0-12", rule_category: "needs_judgment", first_inspection_date: "2023-06-01", latest_inspection_date: "2026-11-04", pulled_on: "2026-11-20", is_venue_excluded: false, is_closed_by_latest_inspection: false}
+          - {business_id: "O_NAME_OTHER_UNIT", business_name: "PIZZA TWIST", address: "100 MAIN ST, 200", geocode_key: "K1", classification: "Seating 0-12", rule_category: "needs_judgment", first_inspection_date: "2024-02-01", latest_inspection_date: "2026-10-01", pulled_on: "2026-11-20", is_venue_excluded: false, is_closed_by_latest_inspection: false}
+          - {business_id: "NEW_NO_UNIT", business_name: "NOODLE BAR", address: "300 OAK AVE", geocode_key: "K2", classification: "Seating 0-12", rule_category: "needs_judgment", first_inspection_date: "2026-11-04", latest_inspection_date: "2026-11-04", pulled_on: "2026-11-20", is_venue_excluded: false, is_closed_by_latest_inspection: false}
+          - {business_id: "O_K2_UNIT", business_name: "OLD DELI", address: "300 OAK AVE, #5", geocode_key: "K2", classification: "Seating 0-12", rule_category: "needs_judgment", first_inspection_date: "2022-01-01", latest_inspection_date: "2026-07-01", pulled_on: "2026-11-20", is_venue_excluded: false, is_closed_by_latest_inspection: false}
       - input: ref('score_params')
         rows:
-          - {window_days: 180, prior_same_name_min: 0.85}
+          - {window_days: 180, prior_lookback_days: 365, prior_lookahead_days: 30, prior_same_name_min: 0.85}
     expect:
       rows:
-        - {business_id: "NEW", prior_businesses_at_address: '[{"business_id":"O_REISSUED","name":"Pizza Twist, LLC","classification":"Seating 0-12","first_inspection_date":"2024-05-01","latest_inspection_date":"2026-11-10"},{"business_id":"O_SAME_UNIT","name":"OLD TACOS","classification":"Seating 0-12","first_inspection_date":"2022-01-10","latest_inspection_date":"2026-08-01"}]'}
+        - {business_id: "NEW", prior_businesses_at_address: '[{"business_id":"O_REISSUED","name":"Pizza Twist, LLC","classification":"Seating 0-12","first_inspection_date":"2024-05-01","latest_inspection_date":"2026-11-10"},{"business_id":"O_SAME_DAY","name":"SUBWAY","classification":"Seating 0-12","first_inspection_date":"2023-06-01","latest_inspection_date":"2026-11-04"},{"business_id":"O_SAME_UNIT","name":"OLD TACOS","classification":"Seating 0-12","first_inspection_date":"2022-01-10","latest_inspection_date":"2026-08-01"}]'}
+        - {business_id: "NEW_NO_UNIT", prior_businesses_at_address: '[{"business_id":"O_K2_UNIT","name":"OLD DELI","classification":"Seating 0-12","first_inspection_date":"2022-01-01","latest_inspection_date":"2026-07-01"}]'}
 
   - name: lcb_pairs_decide_match_review_previous_and_skip_other_addresses
     model: int_lcb_match_pairs

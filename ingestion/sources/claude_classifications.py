@@ -97,8 +97,8 @@ convenience store (including in-store bakeries and delis), corporate or institut
 cafeteria, school, caterer, commissary, private club, temporary event.
 
 opening_type: compare with prior_businesses_at_address (earlier businesses at the same premises, \
-not neighbours in other units, that closed in the 12 months before this one's first inspection, \
-plus any same-name record, which is a re-issued ID).
+not neighbours in other units, last inspected in the 12 months up to this one's first inspection; \
+a same-name record may still be open, which means a re-issued ID).
 - new_opening: none of them looks like a predecessor at this spot.
 - new_concept: a different business replaced one there. Set replaces_name to its name.
 - ownership_transfer: the same place under a new owner or a re-issued ID (same or very \
