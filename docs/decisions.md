@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-20 — Show the county's latest result, score and address; orange means Unsatisfactory
+- **Context:** user feedback (SAN-60). The map showed "Nori Sushi · 25 red points at first inspection (Jun 16)" with no address; the county's site shows that Maple Valley location as Unsatisfactory, 30 pts, while a separate Federal Way Nori Sushi scored 0. Cards fell back to a bad first inspection when a later one was clean (a bug from PR #54), and an educational first visit hid later failures.
+- **Decision:** cards, popups and answers show the **latest** inspection as the county does (verdict, score = red + blue points, date) and the street address. No link out to the county's site (owner: it would send people to the source instead of showing what this app adds). The orange pin means "Unsatisfactory at the latest inspection" (the county's verdict on that visit), not "any red points" and not the county's rating, which we don't copy.
+- **Consequences:** on 2026-11-20, 48 orange pins instead of 49 (the county marks almost any red points Unsatisfactory). Ranking still boosts a clean *first* inspection (2026-11-17 decision), so a place like Masthi (educational first visit, then three Unsatisfactory) can rank high while its pin is orange; revisit with SAN-58.
+
 ## 2026-11-19 — Claude words the Today brief once per daily build
 - **Context:** the template brief is correct but flat; the owner wanted the brief in plain English, the way Claude would say it.
 - **Decision:** the daily build makes one Haiku call (`WRITE_AI_BRIEF=1`, set only in `daily.yml`) that words the same facts the template uses. Claude names places only as `{{id}}` tokens; the build accepts the text only if every id is a place in the facts, it's under 500 characters and has no HTML, else it uses the template. Labelled "AI summary". Not a request-time call, so the guardrail that `/api/ask` is the only request-time Claude call still holds.

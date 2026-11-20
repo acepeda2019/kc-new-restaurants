@@ -5,8 +5,8 @@ import type { Fact } from "@/lib/format";
 
 /** Where a picked place is, for its name button (food trucks and ungeocoded places get a note instead). */
 export type PickPlace = Pick<Opening, "name" | "category" | "latitude" | "longitude">;
-/** What a card shows besides Claude's blurb, all from our data. */
-export type PickCard = { place: PickPlace; facts: Fact[] };
+/** What a card shows besides Claude's blurb, all from our data: where it is (street and city) and facts. */
+export type PickCard = { place: PickPlace; where: string; facts: Fact[] };
 
 type Props = {
   picks: AnswerPick[];
@@ -55,7 +55,7 @@ export function AnswerPicks({ picks, cards, tried, onToggleTried, onShow, focuse
                   </button>
                 )}
               </div>
-              <p className="where">{p.city ?? "King County"}</p>
+              <p className="where">{card?.where ?? p.city ?? "King County"}</p>
               {card && card.facts.length > 0 && (
                 <ul className="facts" aria-label="Facts">
                   {card.facts.map((f) => (

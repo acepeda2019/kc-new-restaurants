@@ -69,9 +69,9 @@ describe("buildRequest", () => {
   it("sends only the fields the answer needs", () => {
     const [row] = JSON.parse(dataBlock(buildRequest("hi", OPENINGS.slice(0, 1), { tried: [] })));
     expect(Object.keys(row).sort()).toEqual([
-      "category", "city", "days_open", "first_inspection_date", "first_inspection_red_points",
-      "first_inspection_result", "id", "latest_inspection_date", "latest_red_points", "likely_cuisine",
-      "name", "red_violations", "replaces_name", "why",
+      "address", "category", "city", "days_open", "first_inspection_date", "first_inspection_red_points",
+      "first_inspection_result", "id", "latest_inspection_date", "latest_inspection_result", "latest_inspection_score",
+      "latest_red_points", "likely_cuisine", "name", "red_violations", "replaces_name", "why",
     ]);
   });
 

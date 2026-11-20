@@ -60,25 +60,15 @@ export type Fact = { label: string; tone: "good" | "warn" | "soon" | "plain" };
 
 /**
  * The facts on an open place's answer card, at most four, from our data (never from Claude):
- * likely cuisine (or "food truck"), when it opened, the inspection result, and distance.
- * Inspection wording follows mart_new_openings: an educational first visit is not scored; a
- * later inspection with red points outranks a clean first one.
+ * the latest inspection first, then "food truck", likely cuisine, when it opened, and distance.
  */
 export function openingFacts(o: Opening & { distanceMi?: number }): Fact[] {
-  const facts: Fact[] = [];
+  // The inspection leads: it's the fact people scan for, and it's never the one cut at four.
+  const facts: Fact[] = [latestInspection(o)];
   const cuisine = likelyCuisine(o.likely_cuisine);
   if (o.category === "food_truck") facts.push({ label: "food truck", tone: "plain" });
   if (cuisine) facts.push({ label: cuisine, tone: "plain" });
   facts.push({ label: `opened ${shortDate(o.first_inspection_date)}`, tone: "plain" });
-  if (o.latest_red_points > 0 && o.latest_inspection_date !== o.first_inspection_date) {
-    facts.push({ label: `${o.latest_red_points} red points (${shortDate(o.latest_inspection_date)})`, tone: "warn" });
-  } else if (o.first_inspection_type === "Educational Inspection") {
-    facts.push({ label: "first visit: educational", tone: "plain" });
-  } else if (o.first_inspection_red_points === 0) {
-    facts.push({ label: "clean first inspection", tone: "good" });
-  } else {
-    facts.push({ label: `${o.first_inspection_red_points} red points`, tone: "warn" });
-  }
   const distance = formatDistance(o.distanceMi);
   if (distance) facts.push({ label: distance, tone: "plain" });
   return facts.slice(0, 4);
@@ -94,4 +84,51 @@ export function openingSoonFacts(s: OpeningSoon & { distanceMi?: number }): Fact
   const distance = formatDistance(s.distanceMi);
   if (distance) facts.push({ label: distance, tone: "plain" });
   return facts;
+}
+
+/** Street suffixes and directions that stay upper case when an address is title-cased. */
+const KEEP_UPPER = new Set(["N", "S", "E", "W", "NE", "NW", "SE", "SW"]);
+
+/**
+ * "27317 MAPLE VALLEY BLACK DIAMOND RD SE, A104" → "27317 Maple Valley Black Diamond Rd SE, A104";
+ * "1ST AVE S" → "1st Ave S". Directions stay upper case (even before a comma); ordinals go lower;
+ * unit numbers (A104, #G) are left as they are.
+ */
+function titleAddress(s: string): string {
+  return s
+    .split(" ")
+    .map((w) => {
+      const core = w.replace(/[^A-Za-z0-9]/g, "");
+      if (KEEP_UPPER.has(core)) return w;
+      if (/^\d+(ST|ND|RD|TH)$/.test(core)) return w.toLowerCase();
+      if (/\d/.test(w) || w.startsWith("#")) return w; // unit numbers: A104, #G
+      return w.charAt(0) + w.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+/**
+ * Where a place is, to tell apart same-name locations (two Nori Sushis): street and city, or
+ * "based in <city>" for a food truck, whose address is only its base. City alone without a street.
+ */
+export function addressLine(o: Pick<Opening, "address" | "city" | "category">): string {
+  const city = titleAddress(o.city);
+  if (o.category === "food_truck") return `based in ${city}`;
+  return o.address ? `${titleAddress(o.address)}, ${city}` : city;
+}
+
+/**
+ * The latest inspection the way the county shows it: its verdict, its score (red + blue points)
+ * and the date, e.g. "Unsatisfactory · 30 pts · Jun 16". Always the latest visit, never the
+ * first, so a place that improved shows it. An educational visit isn't scored.
+ */
+export function latestInspection(
+  o: Pick<Opening, "latest_inspection_result" | "latest_inspection_score" | "latest_inspection_date">,
+): Fact {
+  const date = shortDate(o.latest_inspection_date);
+  if (o.latest_inspection_result === "Complete") return { label: `educational visit (not scored) · ${date}`, tone: "plain" };
+  const score = o.latest_inspection_score === null ? "" : ` · ${o.latest_inspection_score} pts`;
+  const label = `${o.latest_inspection_result ?? "inspected"}${score} · ${date}`;
+  if (o.latest_inspection_result === "Unsatisfactory") return { label, tone: "warn" };
+  return { label, tone: o.latest_inspection_score === 0 ? "good" : "plain" };
 }

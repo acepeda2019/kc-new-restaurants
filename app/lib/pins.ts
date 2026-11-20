@@ -3,6 +3,7 @@
  * openings into a GeoJSON FeatureCollection for MapLibre; the component only draws it.
  */
 import type { Opening, OpeningSoon } from "@/lib/data";
+import { addressLine, latestInspection } from "@/lib/format";
 import type { LatLon } from "@/lib/rank";
 
 /**
@@ -14,7 +15,11 @@ export type PinKind = "top" | "wary" | "new" | "soon" | "you";
  * Top pins only: `rank` (1-5) is the place's position in the answer's picks or the personal top 3,
  * the number on its card, and `label` is its name for the map's text layer.
  */
-export type PinProps = { id: string; kind: PinKind; name: string; why: string; rank?: number; label?: string };
+/**
+ * `detail` is the popup line after the name (open places: street, city and latest inspection;
+ * Opening soon: the licence line). `where` names the place's city for the hover label.
+ */
+export type PinProps = { id: string; kind: PinKind; name: string; detail: string; where: string; rank?: number; label?: string };
 export type PinFeature = {
   type: "Feature";
   geometry: { type: "Point"; coordinates: [lon: number, lat: number] };
@@ -30,11 +35,11 @@ export const KING_COUNTY_BOUNDS: Bounds = [
   [-121.06, 47.78],
 ];
 
-function pin(id: string, kind: PinKind, at: LatLon, name: string, why: string, rank?: number): PinFeature {
+function pin(id: string, kind: PinKind, at: LatLon, name: string, detail: string, where: string, rank?: number): PinFeature {
   return {
     type: "Feature",
     geometry: { type: "Point", coordinates: [at.lon, at.lat] },
-    properties: rank ? { id, kind, name, why, rank, label: name } : { id, kind, name, why },
+    properties: rank ? { id, kind, name, detail, where, rank, label: name } : { id, kind, name, detail, where },
   };
 }
 
@@ -49,7 +54,8 @@ function fixedSpot(o: Placeable): LatLon | null {
 /**
  * One pin per opening with a fixed spot (not a food truck, coordinates known), tried or not,
  * so visitors can pan around and see what is near them. Kind:
- * "top" if in `topIds`, else "wary" if the latest inspection had red points, else "new".
+ * "top" if in `topIds`, else "wary" if the latest inspection was Unsatisfactory (the county's
+ * verdict on that visit), else "new".
  * Top pins get `rank` from `topIds`' insertion order, so pass the top 3 in card order.
  * With `here`, adds one "you" pin.
  */
@@ -63,14 +69,16 @@ export function toPins(
     const at = fixedSpot(o);
     if (!at) continue;
     const rank = topOrder.indexOf(o.restaurant_id) + 1; // 0 when not in the top 3
-    const kind: PinKind = rank ? "top" : o.latest_red_points > 0 ? "wary" : "new";
-    features.push(pin(o.restaurant_id, kind, at, o.name, o.why, rank));
+    const kind: PinKind = rank ? "top" : o.latest_inspection_result === "Unsatisfactory" ? "wary" : "new";
+    // The popup says where (same-name places differ by street) and the latest inspection.
+    const detail = `${addressLine(o)} · ${latestInspection(o).label}`;
+    features.push(pin(o.restaurant_id, kind, at, o.name, detail, addressLine({ ...o, address: null }), rank));
   }
   for (const s of opts.openingSoon ?? []) {
     const at = soonSpot(s);
-    if (at) features.push(pin(s.notice_id, "soon", at, s.trade_name, s.why));
+    if (at) features.push(pin(s.notice_id, "soon", at, s.trade_name, s.why, addressLine({ address: null, city: s.city ?? "King County", category: "restaurant" })));
   }
-  if (opts.here) features.push(pin("you", "you", opts.here, "You are here", ""));
+  if (opts.here) features.push(pin("you", "you", opts.here, "You are here", "", ""));
   return { type: "FeatureCollection", features };
 }
 
@@ -85,9 +93,9 @@ export function boundsOf(features: PinFeature[]): Bounds {
   ];
 }
 
-/** Popup text: "name · why", or just the name when there is no reason. */
-export function popupText(p: Pick<PinProps, "name" | "why">): string {
-  return p.why ? `${p.name} · ${p.why}` : p.name;
+/** Popup text: "name · detail", or just the name when there is no detail. */
+export function popupText(p: Pick<PinProps, "name" | "detail">): string {
+  return p.detail ? `${p.name} · ${p.detail}` : p.name;
 }
 
 /** Zoom for centring on the visitor: a few neighbourhoods across. */
