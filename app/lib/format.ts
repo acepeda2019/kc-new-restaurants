@@ -86,9 +86,6 @@ export function openingSoonFacts(s: OpeningSoon & { distanceMi?: number }): Fact
   return facts;
 }
 
-/** King County's own inspection lookup (an ArcGIS map; search there by name or address). */
-export const COUNTY_LOOKUP_URL = "https://experience.arcgis.com/experience/d7adc44a99e8406fbf86bdaf0a856136";
-
 /** Street suffixes and directions that stay upper case when an address is title-cased. */
 const KEEP_UPPER = new Set(["N", "S", "E", "W", "NE", "NW", "SE", "SW"]);
 

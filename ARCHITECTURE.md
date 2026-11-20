@@ -297,8 +297,7 @@ near me). Named places with a pin are buttons that fly the map there.
   likely cuisine, opened or applied date, the **latest** inspection as the county shows it,
   e.g. "Unsatisfactory · 30 pts · Jun 16" (`latestInspection`: its verdict, its score = red +
   blue points, the date; never the first inspection), distance), Claude's blurb on why it fits,
-  a "County inspection record ↗" link (the county's lookup map; no per-restaurant link format is
-  public), and "Tried" for
+  and "Tried" for
   open places. Facts never come from Claude; an educational first visit is sent with no red
   points so it can't be called clean. The picks take over the numbered map pins (card order) until the next question;
   tapping a name flies the map there, as in the lists. A cap hit or error shows the server's message instead.

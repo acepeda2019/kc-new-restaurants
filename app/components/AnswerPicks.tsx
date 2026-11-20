@@ -1,7 +1,7 @@
 import { PlaceName } from "@/components/PlaceName";
 import type { AnswerPick } from "@/lib/ask";
 import type { Opening } from "@/lib/data";
-import { COUNTY_LOOKUP_URL, type Fact } from "@/lib/format";
+import type { Fact } from "@/lib/format";
 
 /** Where a picked place is, for its name button (food trucks and ungeocoded places get a note instead). */
 export type PickPlace = Pick<Opening, "name" | "category" | "latitude" | "longitude">;
@@ -64,13 +64,6 @@ export function AnswerPicks({ picks, cards, tried, onToggleTried, onShow, focuse
                 </ul>
               )}
               <p className="why">{p.blurb}</p>
-              {p.kind === "open" && (
-                <p className="county-link">
-                  <a href={COUNTY_LOOKUP_URL} target="_blank" rel="noopener noreferrer">
-                    County inspection record ↗
-                  </a>
-                </p>
-              )}
             </div>
           </li>
         );
