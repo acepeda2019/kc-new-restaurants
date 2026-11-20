@@ -423,6 +423,20 @@ dialog.about::backdrop {
   font-weight: 600;
 }
 
+/* × to clear the question: a small round target, shown only when there's text. */
+.ask-clear {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-2);
+}
+
 .ask-locate {
   flex: none;
   display: flex;

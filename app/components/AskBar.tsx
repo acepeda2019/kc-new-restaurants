@@ -94,6 +94,23 @@ export function AskBar({ onAsk, intro, introLabel, chips, location, onPicks, chi
           autoComplete="off"
           enterKeyHint="send"
         />
+        {question && (
+          // Clears the box for a new question and puts the cursor back; the last answer stays.
+          <button
+            type="button"
+            className="ask-clear"
+            onClick={() => {
+              setQuestion("");
+              input.current?.focus();
+            }}
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.2" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+            <span className="sr-only">Clear question</span>
+          </button>
+        )}
         {left !== null && <span className="ask-left">{left} left today</span>}
         <button
           type="button"
