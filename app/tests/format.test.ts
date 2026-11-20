@@ -84,11 +84,11 @@ describe("answer-card facts", () => {
   } as Opening;
   const labels = (o: Partial<Opening> & { distanceMi?: number }) => openingFacts({ ...base, ...o }).map((f) => f.label);
 
-  it("shows cuisine, opened date, the latest inspection the county's way, and distance", () => {
+  it("leads with the latest inspection the county's way, then cuisine, opened date and distance", () => {
     expect(openingFacts({ ...base, distanceMi: 3.94 })).toEqual([
+      { label: "Satisfactory · 0 pts · Nov 13", tone: "good" },
       { label: "likely Egyptian", tone: "plain" },
       { label: "opened Nov 13", tone: "plain" },
-      { label: "Satisfactory · 0 pts · Nov 13", tone: "good" },
       { label: "3.9 mi", tone: "plain" },
     ]);
   });
@@ -118,9 +118,10 @@ describe("answer-card facts", () => {
       .toBe("plain");
   });
 
-  it("labels food trucks and keeps at most four bubbles", () => {
+  it("labels food trucks and keeps at most four bubbles, never dropping the inspection", () => {
     const truck = labels({ category: "food_truck", distanceMi: 1 });
-    expect(truck[0]).toBe("food truck");
+    expect(truck[0]).toBe("Satisfactory · 0 pts · Nov 13");
+    expect(truck[1]).toBe("food truck");
     expect(truck).toHaveLength(4);
   });
 

@@ -60,15 +60,15 @@ export type Fact = { label: string; tone: "good" | "warn" | "soon" | "plain" };
 
 /**
  * The facts on an open place's answer card, at most four, from our data (never from Claude):
- * likely cuisine (or "food truck"), when it opened, the latest inspection, and distance.
+ * the latest inspection first, then "food truck", likely cuisine, when it opened, and distance.
  */
 export function openingFacts(o: Opening & { distanceMi?: number }): Fact[] {
-  const facts: Fact[] = [];
+  // The inspection leads: it's the fact people scan for, and it's never the one cut at four.
+  const facts: Fact[] = [latestInspection(o)];
   const cuisine = likelyCuisine(o.likely_cuisine);
   if (o.category === "food_truck") facts.push({ label: "food truck", tone: "plain" });
   if (cuisine) facts.push({ label: cuisine, tone: "plain" });
   facts.push({ label: `opened ${shortDate(o.first_inspection_date)}`, tone: "plain" });
-  facts.push(latestInspection(o));
   const distance = formatDistance(o.distanceMi);
   if (distance) facts.push({ label: distance, tone: "plain" });
   return facts.slice(0, 4);
