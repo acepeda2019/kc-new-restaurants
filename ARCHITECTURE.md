@@ -215,8 +215,9 @@ near me). Named places with a pin are buttons that fly the map there.
   `s3://$RAW_BUCKET/exports/dt=…/<run_id>/` (never overwritten); the guard compares with
   the newest one. Visitors never
   touch S3 or the pipeline. Per restaurant, the JSON carries the first and latest
-  inspection result, red points and short red-violation descriptions, so answers can cite
-  records.
+  inspection result, the county's score for each (red + blue points, as shown on the county's
+  site; `*_inspection_score`), red points (red only) and short red-violation descriptions, so
+  answers can cite records.
 - **Build checks (`app/lib/data.ts`):** the build fails on a partial export, an unknown
   `schema_version`, a missing or null key column, or a row count that disagrees with the
   manifest. With no export at all it uses the labelled sample in `app/data/sample/`, except

@@ -40,8 +40,13 @@ export type Opening = {
   days_open: number;
   first_inspection_type: string | null;
   first_inspection_result: string | null;
-  first_inspection_red_points: number;
+  first_inspection_red_points: number; // red (critical) violation points only
+  /** The county's score as shown on its site: red + blue violation points. */
+  first_inspection_score: number | null;
   latest_inspection_date: string;
+  /** The county's verdict on the latest visit: Satisfactory, Unsatisfactory, or Complete (educational). */
+  latest_inspection_result: string | null;
+  latest_inspection_score: number | null;
   latest_red_points: number;
   red_violations: RedViolation[]; // up to 5, newest first
   freshness: number;
@@ -112,7 +117,8 @@ const OPENING_KEYS: (keyof Opening)[] = [
   "restaurant_id", "name", "address", "city", "zip5", "latitude", "longitude",
   "geocode_match_status", "category", "opening_type", "replaces_name", "likely_cuisine",
   "first_inspection_date", "days_open", "first_inspection_type", "first_inspection_result",
-  "first_inspection_red_points", "latest_inspection_date", "latest_red_points",
+  "first_inspection_red_points", "first_inspection_score", "latest_inspection_date",
+  "latest_inspection_result", "latest_inspection_score", "latest_red_points",
   "red_violations", "freshness", "safety", "score", "rank", "why", "source", "confidence",
   "classification_reason",
 ];
