@@ -900,7 +900,8 @@ button.link {
 
   .panels {
     display: grid;
-    /* The question bar is the page: one centred column over the map. */
+    /* The question bar and its answer in one column on the left; the map's open area is to the
+       right, where it frames and flies to places (SAN-61). */
     grid-template-columns: 1fr;
     grid-template-areas: "ask";
     align-items: start;
@@ -927,9 +928,17 @@ button.link {
 
   .ask {
     grid-area: ask;
-    justify-self: center;
-    width: min(100%, 640px);
+    justify-self: start;
+    width: min(100%, 460px);
     pointer-events: auto;
+  }
+
+  /* A long answer scrolls inside the column instead of running down past the legend. */
+  .ask-answer-wrap {
+    max-height: calc(100svh - 340px); /* leaves room for the chips above the legend */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 18px;
   }
 
   .ask-form {
@@ -938,10 +947,6 @@ button.link {
 
   .ask-form textarea {
     font-size: 1.125rem;
-  }
-
-  .ask-chips {
-    justify-content: center;
   }
 
   .ask-brief {

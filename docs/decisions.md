@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-20 — Desktop: the question column moves to the left
+- **Context:** user feedback (SAN-61): on desktop the answer sat in the middle of the map, so when the map flew to a place it landed behind the answer.
+- **Decision:** on screens 1100px and wider, the bar, brief, answer and chips sit in a left column (about 460px); a long answer scrolls inside it; the map camera pads 520px on the left so framing and fly-to land in the open area. Phones are unchanged. This reverses the 2026-11-19 "bar centred at the top" layout for desktop.
+- **Consequences:** the map is always visible beside the answer; the bar is no longer centred, but it stays the first thing on the page.
+
 ## 2026-11-20 — Code counts, Claude talks: a search over every place for filtered questions
 - **Context:** user feedback (SAN-58): "How many new restaurants opened in Kirkland this month?" asked five ways gave different, sometimes self-contradicting answers. Claude counted by reading a list of at most 100 of ~230 places (chosen by rank or distance), without knowing today's date; a named place outside that list (Nori Sushi, Maple Valley, rank 224) couldn't be found from Seattle.
 - **Decision:** a deterministic search (`findOpenings`) over every place, with filters for name, city, cuisine, kind and first-inspected date (plus Opening soon). Claude requests it inside its structured reply rather than as a tool (Haiku 5.5 answered in JSON instead of calling tools when a strict answer format was set); code runs it and Claude answers from the result, stating the filter. Today's date and fixed meanings for "this week/month/recently" are in the prompt. Considered: precomputed counts (cheaper, rigid) and a semantic layer such as Cube (overkill for one metric over ~230 rows).
