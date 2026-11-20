@@ -15,7 +15,7 @@ vi.mock("@anthropic-ai/sdk", async (importOriginal) => ({
   },
 }));
 vi.mock("@upstash/redis", () => ({ Redis: class {} }));
-vi.mock("@/lib/caps", () => ({ checkAndCount: fakes.checkAndCount }));
+vi.mock("@/lib/caps", () => ({ checkAndCount: fakes.checkAndCount, pacificDate: () => "2026-11-20" }));
 
 import { POST } from "@/app/api/ask/route";
 import { SAMPLE_NOTE } from "@/lib/ask";
