@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-25 — The question-bar cost bound counts three calls, not one
+- **Context:** SAN-65. ARCHITECTURE.md §8 still described the pre-SAN-58 design (100 places in one call, 400 output tokens, "at most one billed call", about $0.35/day), while §7 and the code allow up to three calls per question.
+- **Decision:** docs only, the caps are unchanged. §8 now bounds a question at 3 calls × 600 output tokens and about 18k input tokens (two full searches of 20 + 20 rows, a 500-character question), estimated from request characters at 3 per token: about $0.0027 per question and $0.55/day at the 200/day cap.
+- **Consequences:** the worst case is about 1.6× the old figure and still small. The token figures are estimates, not `count_tokens` results; SAN-68 (per-request usage) will replace them with measured numbers.
+
 ## 2026-11-20 — A predecessor must be at the same premises and closed
 - **Context:** SAN-63. Pizza Twist was labelled "replaces Apple Teriyaki", a neighbour in another unit of the same building that is still open. Priors were any business at the same address key (street and zip, no unit) last inspected within 12 months, so neighbours in malls and strip centres looked like predecessors.
 - **Decision:** a prior must be in the same unit (no unit on either side counts as the same) and, if differently named, last inspected on or before the candidate's first inspection (same day kept after QA found real handovers there, e.g. Stone Korean replacing Subway in STE 114). The 365/30-day window moved into `score_params` too. A same-name prior (Jaro-Winkler on the name key ≥ 0.85, new seed column `score_params.prior_same_name_min`) stays even while still inspected: that's the county re-issuing an ID. The name-key expression moved into a macro shared with the WSLCB matching.

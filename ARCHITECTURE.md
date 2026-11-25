@@ -346,12 +346,26 @@ near me). Named places with a pin are buttons that fly the map there.
   `ANTHROPIC_API_KEY` (a dedicated key for this app), `APP_PASSCODE`, `SESSION_SECRET`,
   `KV_REST_API_URL`, `KV_REST_API_TOKEN` (set by Vercel's Upstash integration), `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
   `VERCEL_PROJECT_ID`. AWS is reached via the OIDC role (`AWS_ROLE_ARN` repo variable).
-- **Cost:** each question sends at most 100 places (about 15k input tokens) and gets at most
-  400 output tokens. At Haiku 5.5's rates ($0.10 / $0.50 per million input / output tokens,
-  for prompts up to 100k tokens) that is about $0.0017 per question. With no SDK retries,
-  one counted question is at most one billed call, so the 200/day global cap bounds the
-  worst case at about $0.35/day. Classification is a few cents per day after the first run. Everything
-  else is on free tiers.
+- **Cost:** with no SDK retries, one counted question is at most `MAX_TOOL_ROUNDS` + 1 = 3
+  billed calls (two searches, then the answer), each with `max_tokens` 600. Each call resends
+  the conversation so far, and a search adds at most 20 places plus 20 opening soon
+  (`MAX_TOOL_PLACES`). Worst case, measured in characters on the request code with a
+  500-character question and full searches (2026-11-25):
+
+  | Call | Input | Output (cap) |
+  |---|---|---|
+  | 1: question only | ~6.6k chars, ~2.2k tokens | 600 |
+  | 2: + first search | ~18.7k chars, ~6.2k tokens | 600 |
+  | 3: + second search | ~29.5k chars, ~9.8k tokens | 600 |
+  | **Question** | **~18k tokens** | **1,800** |
+
+  Tokens are estimated at 3 characters per token (JSON runs denser than prose), not counted
+  with `count_tokens`. Every call is far under 100k tokens, so Haiku 5.5's base rates apply
+  ($0.10 / $0.50 per million input / output tokens): about $0.0018 + $0.0009 ≈ **$0.0027 per
+  question**, and the 200/day global cap bounds the worst case at about **$0.55/day**. Typical
+  questions cost less: on 8 real questions after SAN-62, about 6,700 input tokens each.
+  Classification is a few cents per day after the first run; the AI brief is one call per
+  build. Everything else is on free tiers.
 
 ## 9. Open questions
 
