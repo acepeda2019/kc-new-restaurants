@@ -47,7 +47,7 @@ GitHub Actions, daily cron + manual run                        .github/workflows
               → s3 raw/lcb_local_authority/dt=…/<run_id>.jsonl.gz, then its new King County
               addresses → Census geocoder (same key rule and cache as KC)
   3. dbt build up to int_candidates (DuckDB, reads raw from S3)    → candidates
-  4. classify  candidates never seen before → Claude Haiku → s3 raw/claude_classifications/…
+  4. classify  candidates new, changed or under a changed prompt → Claude Haiku → s3 raw/claude_classifications/…
   5. dbt build everything + tests              → mart_new_openings, mart_metrics
   6. publish   export JSON (incl. opening_soon.json, may be empty) → guard on Just opened (refuse 0 rows or <50% of last run) → s3 exports/dt=…/<run_id>/
                → vercel build (REQUIRE_EXPORT=1) → check /api/ask ships the real export
@@ -141,8 +141,11 @@ not `excluded`, not at an excluded venue, and not closed by its latest inspectio
 
 **Claude classification** (`claude-haiku-5-5`, structured output):
 - Input: only *candidates*, meaning businesses first inspected in the last 180 days that the
-  rules didn't exclude and that were never classified before. That's hundreds on the first
-  run, a handful a day after.
+  rules didn't exclude, and of those only the ones not yet classified with the same inputs
+  and the same prompt. Each record carries `input_hash` (the candidate's facts) and
+  `prompt_hash` (model, effort, system prompt and output schema); a place is re-sent when
+  either differs from its latest record. That's hundreds on the first run and after any
+  prompt change, a handful a day otherwise.
 - Output: `category`, `opening_type`, `replaces_name`, `likely_cuisine` (nullable),
   `confidence` 0–1, one-line `reason`.
 - Confidence ≥ `min_confidence` (seed, 0.8) → used. Below → held out of the app and listed

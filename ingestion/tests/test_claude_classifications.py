@@ -92,7 +92,7 @@ def api_error() -> anthropic.APIStatusError:
 
 def test_only_unseen_inputs_are_sent() -> None:
     client = FakeClient({})
-    prior = {PANINO["business_id"]: cc.input_hash(PANINO)}
+    prior = {PANINO["business_id"]: (cc.input_hash(PANINO), cc.PROMPT_HASH)}
     records, failed = cc.classify_candidates([PANINO], prior, client)
     assert (records, failed) == ([], 0)
     assert client.requests == []
@@ -100,11 +100,33 @@ def test_only_unseen_inputs_are_sent() -> None:
 
 def test_changed_inputs_are_resent() -> None:
     client = FakeClient({})
-    prior = {PANINO["business_id"]: cc.input_hash({**PANINO, "business_name": "Panino Old"})}
+    old = cc.input_hash({**PANINO, "business_name": "Panino Old"})
+    prior = {PANINO["business_id"]: (old, cc.PROMPT_HASH)}
     records, failed = cc.classify_candidates([PANINO], prior, client)
     assert failed == 0
     assert [r["business_id"] for r in records] == [PANINO["business_id"]]
     assert len(client.requests) == 1
+
+
+@pytest.mark.parametrize("prompt_hash", ["0123456789abcdef", None], ids=["changed", "pre-SAN-70"])
+def test_a_prompt_change_resends_unchanged_inputs(prompt_hash: str | None) -> None:
+    client = FakeClient({})
+    prior = {PANINO["business_id"]: (cc.input_hash(PANINO), prompt_hash)}
+    records, failed = cc.classify_candidates([PANINO], prior, client)
+    assert failed == 0
+    assert [r["prompt_hash"] for r in records] == [cc.PROMPT_HASH]
+
+
+def test_prompt_hash_changes_with_the_prompt_schema_model_or_effort() -> None:
+    base = (cc.MODEL, cc.EFFORT, cc.SYSTEM_PROMPT, cc.OUTPUT_SCHEMA)
+    assert cc.prompt_hash(*base) == cc.PROMPT_HASH
+    variants = [
+        ("claude-haiku-9-9", *base[1:]),
+        (base[0], "high", *base[2:]),
+        (*base[:2], cc.SYSTEM_PROMPT + " ", base[3]),
+        (*base[:3], {**cc.OUTPUT_SCHEMA, "required": []}),
+    ]
+    assert len({cc.prompt_hash(*v) for v in variants} | {cc.PROMPT_HASH}) == 5
 
 
 def test_hash_ignores_the_pull_date() -> None:
@@ -150,6 +172,7 @@ def test_record_fields_and_enums() -> None:
         assert set(r) == {
             "business_id",
             "input_hash",
+            "prompt_hash",
             "model",
             "classified_at",
             "category",
@@ -228,6 +251,19 @@ def test_lands_one_write_once_file(s3) -> None:
     )
     assert client2.requests == []
     assert again["status"] == "nothing_new" and again["s3_keys"] == []
+
+
+def test_records_landed_before_prompt_hash_are_resent(s3) -> None:
+    old = {"business_id": PANINO["business_id"], "input_hash": cc.input_hash(PANINO)}
+    body = json.dumps({**old, "classified_at": "2026-11-19T20:00:00+00:00"}).encode()
+    key = f"raw/claude_classifications/dt=2026-11-19/{RUN_ID}.jsonl.gz"
+    s3.put_object(Bucket=BUCKET, Key=key, Body=gzip.compress(body), IfNoneMatch="*")
+    assert cc.load_prior(s3, BUCKET) == {PANINO["business_id"]: (old["input_hash"], None)}
+    client = FakeClient({})
+    cc.extract(
+        bucket=BUCKET, run_date=RUN_DATE, run_id=RUN_ID, candidates=[PANINO], s3=s3, client=client
+    )
+    assert len(client.requests) == 1
 
 
 @pytest.fixture
