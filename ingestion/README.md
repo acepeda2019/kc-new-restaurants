@@ -75,3 +75,15 @@ uv run pytest            # no network: HTTP is mocked with recorded fixtures, AW
 ```
 
 Fixtures in `tests/fixtures/` are cut from real responses; see `tests/fixtures/README.md`.
+
+## Classification eval (SAN-66)
+
+`evals/` measures how often Claude's classifications are right. It never runs in CI.
+
+```bash
+uv run python -m evals.sample_labels --db ../transform/kcne.duckdb   # free
+```
+
+draws 50 places weighted toward the 0.8 threshold and writes `evals/classification_labels.csv`
+(answers blank, for the owner) and `evals/labelling_sheet.md` (what Claude saw, not its answer).
+The sheet stays out of git (regenerate it); the CSV is committed once labelled.
