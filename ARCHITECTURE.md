@@ -148,8 +148,9 @@ not `excluded`, not at an excluded venue, and not closed by its latest inspectio
   prompt change, a handful a day otherwise.
 - Output: `category`, `opening_type`, `replaces_name`, `likely_cuisine` (nullable),
   `confidence` 0–1, one-line `reason`.
-- Confidence ≥ `min_confidence` (seed, 0.8) → used. Below → held out of the app and listed
-  in `analyses/pending_review.sql`.
+- Confidence ≥ `min_confidence` (seed, 0 since 2026-11-25) → used, so every answer is used:
+  Claude's `excluded` and `ownership_transfer` still keep a place out at any confidence. Raising
+  the seed holds less sure answers out of the app and lists them in `analyses/pending_review.sql`.
 - `seeds/classification_overrides.csv` always wins. The owner reviews pending rows by asking
   Claude Code "what's pending?".
 - API errors, refusals or malformed output leave a candidate unclassified (out of the app).
@@ -179,8 +180,8 @@ splits) waits for "Opening soon".
 `classification_overrides.csv` (empty until the owner decides a case), `score_params.csv`
 (weights, window, `min_confidence`).
 
-**"What's pending?"** `analyses/pending_review.sql` lists candidates with no answer or
-confidence below 0.8. An educational first visit (no score) counts as 0 red points, and its
+**"What's pending?"** `analyses/pending_review.sql` lists candidates with no answer yet (or,
+if `min_confidence` is raised, confidence below it). An educational first visit (no score) counts as 0 red points, and its
 "why" line says it was not scored.
 
 **Tests that enforce the rules:** `unique` + `not_null` on every key, with the grain stated in
