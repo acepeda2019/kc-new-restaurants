@@ -94,3 +94,10 @@ uv run python -m evals.score_stored --db ../transform/kcne.duckdb   # free
 
 scores Claude's stored answers against the labels: accuracy per field, per confidence band, and
 the estimated wrong answers in the app at each threshold.
+
+```bash
+uv run python -m evals.thinking_compare --limit 1   # spends money: ask the owner first
+```
+
+re-runs the production prompt over the labels with thinking at its default and off (about 1¢
+per arm for 50 places), and saves each arm's answers in `evals/runs/`.
