@@ -1,2 +1,2 @@
 w_freshness,w_safety,safety_floor_points,half_life_days,window_days,min_confidence,prior_lookback_days,prior_lookahead_days,prior_same_name_min
-0.6,0.4,50,30,180,0.8,365,30,0.85
+0.6,0.4,50,30,180,0,365,30,0.85

@@ -17,7 +17,9 @@ How it works: [`ARCHITECTURE.md`](ARCHITECTURE.md). Why: [`docs/decisions.md`](d
 - **Every PR** runs `ci.yml` (ingestion, dbt on sample data, app) and, for `infra/`,
   `terraform.yml`.
 - **What's pending review:** `transform/analyses/pending_review.sql` lists candidates Claude
-  wasn't sure about; `pending_review_count` in `metrics.json` counts them (not shown on the page).
+  hasn't answered yet; `pending_review_count` in `metrics.json` counts them (not shown on the
+  page). Every answer is used, however sure (`min_confidence` is 0); fix a wrong one with a row
+  in `transform/seeds/classification_overrides.csv`.
 - **Costs are capped:** questions are limited to 20 per visitor and 200 in total per day,
   checked before any Claude call (about $0.35/day at most). Classification is about a cent a
   day after the first run. Details: `ARCHITECTURE.md` §8.
