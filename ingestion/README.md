@@ -87,3 +87,17 @@ uv run python -m evals.sample_labels --db ../transform/kcne.duckdb   # free
 draws 50 places weighted toward the 0.8 threshold and writes `evals/classification_labels.csv`
 (answers blank, for the owner) and `evals/labelling_sheet.md` (what Claude saw, not its answer).
 The sheet stays out of git (regenerate it); the CSV is committed once labelled.
+
+```bash
+uv run python -m evals.score_stored --db ../transform/kcne.duckdb   # free
+```
+
+scores Claude's stored answers against the labels: accuracy per field, per confidence band, and
+the estimated wrong answers in the app at each threshold.
+
+```bash
+uv run python -m evals.thinking_compare --limit 1   # spends money: ask the owner first
+```
+
+re-runs the production prompt over the labels with thinking at its default and off (about 1¢
+per arm for 50 places), and saves each arm's answers in `evals/runs/`.

@@ -4,6 +4,12 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-25 — Classification: 0.8 stays, thinking stays at its default
+- **Context:** SAN-66. Nobody had measured how often Claude's classifications are right or whether the 0.8 `min_confidence` is calibrated. The owner labelled 50 places, sampled 10/15/15/10 across the confidence bands with floors for the hard cases (labels drafted by an AI tool, every row checked by the owner). Classification never sets `thinking`, so Haiku 5.5 thinks when it judges it useful.
+- **Decision:** keep `min_confidence` at 0.8 and leave `thinking` unset. No code or setting changes.
+- **Evidence:** stored answers (local build of 2026-11-20): 70% fully right, and accuracy rises with confidence (50%, 53%, 80% and 100% per band), so an estimated 16% of shown places are wrong at 0.8, against 31% at 0.6. Re-running today's prompt over the same 50 gives 82% with the default and 76% with thinking off (4 places better with the default, 1 worse, 45 the same); the default costs about 25% more output tokens, about $0.0104 against $0.0097 for 50 places.
+- **Consequences:** today's prompt beats the stored answers (6 places better, none worse) because most stored answers predate the SAN-63 prompt change, and the input hash only re-sends a place when its inputs change. Under today's prompt the 0.6–0.8 band scored 11 of 13, so a lower threshold may become right once answers are refreshed; with bands of about 10 to 15 places (roughly ±13 points), that needs re-measuring before changing the threshold. Cuisine isn't scored: Claude names it at a finer grain than the labels ("Sushi" vs "Japanese"), and there is no fixed list.
+
 ## 2026-11-25 — The question-bar cost bound counts three calls, not one
 - **Context:** SAN-65. ARCHITECTURE.md §8 still described the pre-SAN-58 design (100 places in one call, 400 output tokens, "at most one billed call", about $0.35/day), while §7 and the code allow up to three calls per question.
 - **Decision:** docs only, the caps are unchanged. §8 now bounds a question at 3 calls × 600 output tokens and about 18k input tokens (two full searches of 20 + 20 rows, a 500-character question), estimated from request characters at 3 per token: about $0.0027 per question and $0.55/day at the 200/day cap.
