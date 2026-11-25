@@ -8,10 +8,11 @@ and a one-line ``reason``.
 Landing: ``s3://$RAW_BUCKET/raw/claude_classifications/dt=YYYY-MM-DD/<run_id>.jsonl.gz``,
 one JSON object per business, write-once like every raw file.
 
-Skip rule: a candidate is sent only when no earlier record for that business has the same
-``input_hash`` (sha256 of its classification inputs), so a business costs one call unless
-its inputs change. A failed call (API error, refusal, invalid output) is counted, logged and
-retried on the next run; the run itself still succeeds.
+Skip rule: a candidate is sent only when its latest record has a different ``input_hash``
+(sha256 of its classification inputs) or ``prompt_hash`` (sha256 of the model, effort, prompt
+and output schema), so a business costs one call unless its inputs or the prompt change. A
+prompt change re-sends every candidate once (SAN-70). A failed call (API error, refusal,
+invalid output) is counted, logged and retried on the next run; the run itself still succeeds.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from sources.common import (
 SOURCE = "claude_classifications"
 MODEL = "claude-haiku-5-5"
 MAX_TOKENS = 2000
+EFFORT = "low"
 REASON_MAX_CHARS = 120
 PRICE_PER_MTOK = {"input": 0.10, "output": 0.50}  # USD, claude-api skill pricing table
 STATUS_NOTHING_NEW = "nothing_new"
@@ -114,6 +116,21 @@ when the data leaves real doubt.
 reason: one plain sentence, at most 120 characters, citing the facts you used."""
 
 
+def prompt_hash(model: str, effort: str, system: str, schema: dict[str, Any]) -> str:
+    """Short sha256 of the request settings that shape every answer."""
+    payload = {"model": model, "effort": effort, "system": system, "schema": schema}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
+
+
+#: Fingerprint of everything sent besides the candidate that shapes the answer. Changing any
+#: of these re-classifies every candidate on the next run.
+PROMPT_HASH = prompt_hash(MODEL, EFFORT, SYSTEM_PROMPT, OUTPUT_SCHEMA)
+
+#: (input_hash, prompt_hash) of a business's latest record; prompt_hash is None on records
+#: landed before SAN-70.
+Fingerprint = tuple[str, str | None]
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -179,7 +196,7 @@ def classify_one(
             max_tokens=MAX_TOKENS,
             system=SYSTEM_PROMPT,
             output_config={
-                "effort": "low",
+                "effort": EFFORT,
                 "format": {"type": "json_schema", "schema": OUTPUT_SCHEMA},
             },
             messages=[
@@ -215,6 +232,7 @@ def classify_one(
     return {
         "business_id": business_id,
         "input_hash": input_hash(candidate),
+        "prompt_hash": PROMPT_HASH,
         "model": MODEL,
         "classified_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         **{key: answer[key] for key in OUTPUT_SCHEMA["required"]},
@@ -222,18 +240,18 @@ def classify_one(
 
 
 def classify_candidates(
-    candidates: list[dict[str, Any]], prior: dict[str, str], client: Any
+    candidates: list[dict[str, Any]], prior: dict[str, Fingerprint], client: Any
 ) -> tuple[list[dict[str, Any]], int]:
-    """Classify every candidate whose inputs changed since its last record.
+    """Classify every candidate whose inputs or prompt changed since its last record.
 
-    ``prior`` maps business_id to the input_hash of its latest classification. Returns
+    ``prior`` maps business_id to the fingerprint of its latest classification. Returns
     (records, failed count). Never raises for a single candidate's failure.
     """
     usage = {"input": 0, "output": 0}
     records: list[dict[str, Any]] = []
     failed = 0
     for candidate in candidates:
-        if prior.get(candidate["business_id"]) == input_hash(candidate):
+        if prior.get(candidate["business_id"]) == (input_hash(candidate), PROMPT_HASH):
             continue
         record = classify_one(candidate, client, usage)
         if record is None:
@@ -254,9 +272,9 @@ def classify_candidates(
     return records, failed
 
 
-def load_prior(s3: Any, bucket: str) -> dict[str, str]:
-    """business_id -> input_hash of its most recent classification across all landed files."""
-    latest: dict[str, tuple[str, str]] = {}
+def load_prior(s3: Any, bucket: str) -> dict[str, Fingerprint]:
+    """business_id -> fingerprint of its most recent classification across all landed files."""
+    latest: dict[str, tuple[str, Fingerprint]] = {}
     paginator = s3.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=bucket, Prefix=f"raw/{SOURCE}/"):
         for obj in page.get("Contents", []):
@@ -265,7 +283,10 @@ def load_prior(s3: Any, bucket: str) -> dict[str, str]:
                 record = json.loads(line)
                 seen = latest.get(record["business_id"])
                 if seen is None or record["classified_at"] >= seen[0]:
-                    latest[record["business_id"]] = (record["classified_at"], record["input_hash"])
+                    latest[record["business_id"]] = (
+                        record["classified_at"],
+                        (record["input_hash"], record.get("prompt_hash")),
+                    )
     return {business_id: value[1] for business_id, value in latest.items()}
 
 

@@ -4,6 +4,11 @@ Newest first. One entry per decision: context, decision, consequences.
 This is the *why*. The current system is described in `ARCHITECTURE.md`; an entry marked
 *(superseded)* is kept as history only.
 
+## 2026-11-25 — A prompt change re-classifies every place
+- **Context:** SAN-70. A place was re-sent to Claude only when its inputs changed (`input_hash`), so a prompt change never refreshed earlier answers. SAN-66 measured the cost: on the owner's 50 labels the stored answers (mostly from before the SAN-63 prompt) were fully right 70% of the time, today's prompt 82%.
+- **Decision:** every new classification record carries a `prompt_hash`: a short sha256 of the model, effort, system prompt and output schema. A place is re-sent when its `input_hash` or its `prompt_hash` differs from its latest record; records landed before this change have none, so the next run re-sends every candidate once. A separate field rather than folding the prompt into `input_hash`, so `input_hash` keeps meaning "the place's facts" and the record shows why a place was re-sent. Considered: folding (three lines, but one hash with two meanings).
+- **Consequences:** the first daily run after merge re-classifies about 644 places, about 13¢ at Haiku 5.5 rates, and so does every later prompt, schema, model or effort change; a whitespace edit to the prompt counts too. The answers shown in the app change for the places the new prompt judges differently. Raw records gain one field; the S3 layout and the dbt models are unchanged. Re-measuring the 0.8 threshold on the refreshed answers is the follow-up.
+
 ## 2026-11-25 — Classification: 0.8 stays, thinking stays at its default
 - **Context:** SAN-66. Nobody had measured how often Claude's classifications are right or whether the 0.8 `min_confidence` is calibrated. The owner labelled 50 places, sampled 10/15/15/10 across the confidence bands with floors for the hard cases (labels drafted by an AI tool, every row checked by the owner). Classification never sets `thinking`, so Haiku 5.5 thinks when it judges it useful.
 - **Decision:** keep `min_confidence` at 0.8 and leave `thinking` unset. No code or setting changes.
