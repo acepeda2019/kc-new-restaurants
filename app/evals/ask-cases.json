@@ -1,0 +1,17 @@
+[
+  {
+    "id": "kirkland-month",
+    "question": "How many new restaurants opened in Kirkland this month?",
+    "expect": { "filters": { "city": "Kirkland", "first_inspected_since": "2026-11-01" } }
+  },
+  {
+    "id": "hours",
+    "question": "What are their hours?",
+    "expect": { "search": false, "count": false, "mentions": ["can'?t|cannot|don'?t (have|know)|no (hours|information)|not (in|part of)"], "never": ["\\b\\d{1,2}(:\\d\\d)? ?(am|pm)\\b"] }
+  },
+  {
+    "id": "help",
+    "question": "What can you do?",
+    "expect": { "search": false }
+  }
+]
