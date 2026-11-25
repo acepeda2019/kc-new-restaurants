@@ -12,8 +12,8 @@ export type EvalCase = {
   /** Where the visitor is, for "near me" questions. */
   here?: { lat: number; lon: number };
   expect: {
-    /** False for questions that need no places ("what can you do?"). Default true. */
-    search?: boolean;
+    /** False for questions that need no places ("what can you do?"); null when either is fine. Default true. */
+    search?: boolean | null;
     /** Filter values the final search must use; fields left out may be anything. */
     filters?: Partial<FindInput>;
     /** Whether the summary must state the search's count and a period. Default: when a search is expected. */
@@ -69,15 +69,15 @@ const matches = (patterns: string[], text: string) => patterns.some((p) => new R
 
 /** Grades one run of `c`. */
 export function grade(c: EvalCase, t: Trace): Grades {
-  const wantSearch = c.expect.search ?? true;
+  const wantSearch = c.expect.search === undefined ? true : c.expect.search;
   const last = t.searches.at(-1);
   const blurbs = t.rawPicks.map((p) => p.blurb);
   const allText = [t.summary, ...blurbs].join("\n");
-  const wantCount = (c.expect.count ?? wantSearch) && last !== undefined;
+  const wantCount = (c.expect.count ?? wantSearch !== false) && last !== undefined;
   const searched = new Set(t.searches.flatMap((s) => s.ids));
 
   return {
-    searched: wantSearch ? t.searches.length > 0 : t.searches.length === 0,
+    searched: wantSearch === null ? null : wantSearch ? t.searches.length > 0 : t.searches.length === 0,
     filters:
       c.expect.filters && last
         ? Object.entries(c.expect.filters).every(([k, v]) => norm(last.filters[k as keyof FindInput]) === norm(v))

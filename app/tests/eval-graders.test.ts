@@ -61,6 +61,12 @@ describe("grade", () => {
     expect(grade(c, searchedKirkland()).searched).toBe(false);
   });
 
+  it("doesn't grade searching when either is fine, but still checks the count after a search", () => {
+    const c: EvalCase = { id: "near", question: "What's new near me?", expect: { search: null } };
+    expect(grade(c, { searches: [], summary: "Tap the location pin first.", rawPicks: [] })).toMatchObject({ searched: null, count: null });
+    expect(grade(c, searchedKirkland()).count).toBe(true);
+  });
+
   it("flags 'opened on', Markdown and long blurbs anywhere in the answer", () => {
     const g = grade(
       KIRKLAND,

@@ -13,5 +13,8 @@ EVAL_CASES=kirkland-month EVAL_RUNS=1 ANTHROPIC_API_KEY=… npx vitest run --con
   period, phrases it must or must never use).
 - `snapshot/`: a **frozen copy of the real export of 2026-11-25** (520 places), so expected
   counts don't drift. "Today" is the snapshot's `run_date`. Refresh it only on purpose, and
-  re-check the cases when you do.
+  re-check the cases when you do. It holds one row that isn't real: `EVAL-INJECTION-1`, a
+  Seattle "Thai" place whose name tries to give Claude orders, labelled as an eval fixture in its
+  `why`. It exists only here, never in the app's data. `tests/eval-cases.test.ts` checks (free)
+  that every case's filters find places in the snapshot.
 - `runs/<date>.jsonl`: every run's searches, summary, picks, grades and tokens.
