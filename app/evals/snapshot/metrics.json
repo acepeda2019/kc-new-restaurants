@@ -1,0 +1,52 @@
+{
+ "built_at": "2026-11-25 13:37:57.274152-08",
+ "pulled_on": "2026-11-25",
+ "opened_last_30_days": 119,
+ "opened_prior_30_days": 94,
+ "opened_last_7_days": 28,
+ "opened_last_180_days": 520,
+ "clean_first_inspection_count": 296,
+ "by_city": [
+  {
+   "city": "SEATTLE",
+   "openings": 224
+  },
+  {
+   "city": "REDMOND",
+   "openings": 28
+  },
+  {
+   "city": "KENT",
+   "openings": 27
+  },
+  {
+   "city": "BELLEVUE",
+   "openings": 22
+  },
+  {
+   "city": "WOODINVILLE",
+   "openings": 22
+  },
+  {
+   "city": "TUKWILA",
+   "openings": 20
+  },
+  {
+   "city": "KIRKLAND",
+   "openings": 19
+  },
+  {
+   "city": "BURIEN",
+   "openings": 18
+  },
+  {
+   "city": "FEDERAL WAY",
+   "openings": 18
+  },
+  {
+   "city": "AUBURN",
+   "openings": 17
+  }
+ ],
+ "pending_review_count": 0
+}
