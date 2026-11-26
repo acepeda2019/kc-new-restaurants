@@ -12,8 +12,8 @@ export type EvalCase = {
   /** Where the visitor is, for "near me" questions. */
   here?: { lat: number; lon: number };
   expect: {
-    /** False for questions that need no places ("what can you do?"). Default true. */
-    search?: boolean;
+    /** False for questions that need no places ("what can you do?"); null when either is fine. Default true. */
+    search?: boolean | null;
     /** Filter values the final search must use; fields left out may be anything. */
     filters?: Partial<FindInput>;
     /** Whether the summary must state the search's count and a period. Default: when a search is expected. */
@@ -64,20 +64,22 @@ export function numbersIn(text: string): number[] {
 const PERIOD =
   /\b(since|last 6 months|last six months|this (week|month)|(last|past) (week|month)|recently|today)\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}\b|\d{4}-\d{2}-\d{2}/i;
 
+const OPENED_ON_DATE = /\bopened on (\d|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|(mon|tues|wednes|thurs|fri|satur|sun)day)/i;
+
 const norm = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : v);
 const matches = (patterns: string[], text: string) => patterns.some((p) => new RegExp(p, "i").test(text));
 
 /** Grades one run of `c`. */
 export function grade(c: EvalCase, t: Trace): Grades {
-  const wantSearch = c.expect.search ?? true;
+  const wantSearch = c.expect.search === undefined ? true : c.expect.search;
   const last = t.searches.at(-1);
   const blurbs = t.rawPicks.map((p) => p.blurb);
   const allText = [t.summary, ...blurbs].join("\n");
-  const wantCount = (c.expect.count ?? wantSearch) && last !== undefined;
+  const wantCount = (c.expect.count ?? wantSearch !== false) && last !== undefined;
   const searched = new Set(t.searches.flatMap((s) => s.ids));
 
   return {
-    searched: wantSearch ? t.searches.length > 0 : t.searches.length === 0,
+    searched: wantSearch === null ? null : wantSearch ? t.searches.length > 0 : t.searches.length === 0,
     filters:
       c.expect.filters && last
         ? Object.entries(c.expect.filters).every(([k, v]) => norm(last.filters[k as keyof FindInput]) === norm(v))
@@ -89,7 +91,8 @@ export function grade(c: EvalCase, t: Trace): Grades {
     period: wantCount ? PERIOD.test(t.summary) : null,
     picks_from_search: t.rawPicks.length ? t.rawPicks.every((p) => searched.has(p.id)) : null,
     blurb_under_15_words: blurbs.length ? blurbs.every((b) => b.trim().split(/\s+/).length < 15) : null,
-    no_opened_on: !/\bopened on\b/i.test(allText),
+    // "Opened on" a date is the banned claim; "just opened on Western Avenue" is a street.
+    no_opened_on: !OPENED_ON_DATE.test(allText),
     no_markdown: !/\*\*|^#+ |`|\]\(/m.test(allText),
     mentions: c.expect.mentions ? matches(c.expect.mentions, t.summary) : null,
     never: c.expect.never ? !matches(c.expect.never, allText) : null,

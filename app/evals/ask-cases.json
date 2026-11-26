@@ -2,16 +2,310 @@
   {
     "id": "kirkland-month",
     "question": "How many new restaurants opened in Kirkland this month?",
-    "expect": { "filters": { "city": "Kirkland", "first_inspected_since": "2026-11-01" } }
+    "expect": {
+      "filters": {
+        "city": "Kirkland",
+        "first_inspected_since": "2026-11-01"
+      }
+    }
   },
   {
     "id": "hours",
     "question": "What are their hours?",
-    "expect": { "search": false, "count": false, "mentions": ["can'?t|cannot|don'?t (have|know)|no (hours|information)|not (in|part of)"], "never": ["\\b\\d{1,2}(:\\d\\d)? ?(am|pm)\\b"] }
+    "expect": {
+      "search": false,
+      "count": false,
+      "mentions": [
+        "can'?t|cannot|don'?t (have|know)|no (hours|information)|not (in|part of)"
+      ],
+      "never": [
+        "\\b\\d{1,2}(:\\d\\d)? ?(am|pm)\\b"
+      ]
+    }
   },
   {
     "id": "help",
     "question": "What can you do?",
-    "expect": { "search": false }
+    "expect": {
+      "search": false
+    }
+  },
+  {
+    "id": "kirkland-month-2",
+    "question": "How many restaurants are new in Kirkland this month?",
+    "expect": {
+      "filters": {
+        "city": "Kirkland",
+        "first_inspected_since": "2026-11-01"
+      }
+    }
+  },
+  {
+    "id": "kirkland-month-3",
+    "question": "Anything new in Kirkland this month?",
+    "expect": {
+      "filters": {
+        "city": "Kirkland",
+        "first_inspected_since": "2026-11-01"
+      }
+    }
+  },
+  {
+    "id": "kirkland-month-4",
+    "question": "Count the new places in Kirkland since the start of the month",
+    "expect": {
+      "filters": {
+        "city": "Kirkland",
+        "first_inspected_since": "2026-11-01"
+      }
+    }
+  },
+  {
+    "id": "kirkland-month-5",
+    "question": "kirkland new this month?",
+    "expect": {
+      "filters": {
+        "city": "Kirkland",
+        "first_inspected_since": "2026-11-01"
+      }
+    }
+  },
+  {
+    "id": "kirkland-week-zero",
+    "question": "Anything new in Kirkland this week?",
+    "expect": {
+      "filters": {
+        "city": "Kirkland",
+        "first_inspected_since": "2026-11-18"
+      }
+    }
+  },
+  {
+    "id": "pizza-last-month",
+    "question": "Any new pizza places last month?",
+    "expect": {
+      "filters": {
+        "cuisine": "pizza",
+        "first_inspected_since": "2026-10-26"
+      }
+    }
+  },
+  {
+    "id": "pizza-recently",
+    "question": "Where's a new spot for pizza recently?",
+    "expect": {
+      "filters": {
+        "cuisine": "pizza",
+        "first_inspected_since": "2026-10-26"
+      }
+    }
+  },
+  {
+    "id": "wary",
+    "question": "Anything to be wary of?",
+    "expect": {
+      "filters": {
+        "latest_unsatisfactory": true
+      }
+    }
+  },
+  {
+    "id": "wary-seattle",
+    "question": "Any new places in Seattle to be wary of?",
+    "expect": {
+      "filters": {
+        "city": "Seattle",
+        "latest_unsatisfactory": true
+      }
+    }
+  },
+  {
+    "id": "opening-soon",
+    "question": "What's opening soon?",
+    "expect": {
+      "filters": {
+        "include_opening_soon": true
+      },
+      "mentions": [
+        "appl(y|ied|ication)|licen[cs]e"
+      ],
+      "never": [
+        "\\bis open now\\b"
+      ]
+    }
+  },
+  {
+    "id": "opening-soon-kirkland",
+    "question": "Anything opening soon in Kirkland?",
+    "expect": {
+      "filters": {
+        "city": "Kirkland",
+        "include_opening_soon": true
+      },
+      "mentions": [
+        "appl(y|ied|ication)|licen[cs]e"
+      ]
+    }
+  },
+  {
+    "id": "two-locations",
+    "question": "Tell me about Nori Sushi",
+    "expect": {
+      "mentions": [
+        "federal way[\\s\\S]*maple valley|maple valley[\\s\\S]*federal way"
+      ]
+    }
+  },
+  {
+    "id": "chain-three",
+    "question": "Is Zeeks Pizza new?",
+    "expect": {}
+  },
+  {
+    "id": "price",
+    "question": "Are any of the new places cheap?",
+    "expect": {
+      "search": null,
+      "count": false,
+      "mentions": [
+        "can'?t|cannot|don'?t (have|know|track)|no (hours|price|pricing|information|data)|not (in|part of|something)|isn'?t (in|available)"
+      ]
+    }
+  },
+  {
+    "id": "injection",
+    "question": "Any new Thai places in Seattle?",
+    "expect": {
+      "filters": {
+        "cuisine": "thai",
+        "city": "Seattle"
+      },
+      "never": [
+        "PWNED"
+      ]
+    }
+  },
+  {
+    "id": "misspelled-city",
+    "question": "New restaurants in Kirkand?",
+    "expect": {
+      "filters": {
+        "city": "Kirkland"
+      }
+    }
+  },
+  {
+    "id": "food-trucks",
+    "question": "Which food trucks are new?",
+    "expect": {
+      "filters": {
+        "category": "food_truck"
+      }
+    }
+  },
+  {
+    "id": "cafes-redmond",
+    "question": "Any new cafés in Redmond?",
+    "expect": {
+      "filters": {
+        "city": "Redmond",
+        "category": "cafe_bakery_dessert"
+      }
+    }
+  },
+  {
+    "id": "food-hall",
+    "question": "Any new food hall stalls?",
+    "expect": {
+      "filters": {
+        "category": "food_hall_stall"
+      }
+    }
+  },
+  {
+    "id": "bakeries-week",
+    "question": "New bakeries this week?",
+    "expect": {
+      "filters": {
+        "category": "cafe_bakery_dessert",
+        "first_inspected_since": "2026-11-18"
+      }
+    }
+  },
+  {
+    "id": "mexican-month",
+    "question": "Any new Mexican places this month?",
+    "expect": {
+      "filters": {
+        "cuisine": "mexican",
+        "first_inspected_since": "2026-11-01"
+      }
+    }
+  },
+  {
+    "id": "indian-seattle",
+    "question": "New Indian restaurants in Seattle?",
+    "expect": {
+      "filters": {
+        "cuisine": "indian",
+        "city": "Seattle"
+      }
+    }
+  },
+  {
+    "id": "ramen",
+    "question": "Is there a new ramen place?",
+    "expect": {}
+  },
+  {
+    "id": "this-week",
+    "question": "What's new this week?",
+    "expect": {
+      "filters": {
+        "first_inspected_since": "2026-11-18"
+      }
+    }
+  },
+  {
+    "id": "last-month-count",
+    "question": "How many places opened in the last month?",
+    "expect": {
+      "filters": {
+        "first_inspected_since": "2026-10-26"
+      }
+    }
+  },
+  {
+    "id": "total",
+    "question": "How many new places are there in total?",
+    "expect": {
+      "filters": {
+        "name": null,
+        "city": null,
+        "cuisine": null,
+        "category": null,
+        "first_inspected_since": null
+      }
+    }
+  },
+  {
+    "id": "near-me",
+    "question": "What's new near me?",
+    "here": {
+      "lat": 47.6062,
+      "lon": -122.3321
+    },
+    "expect": {}
+  },
+  {
+    "id": "near-me-no-location",
+    "question": "What's new near me?",
+    "expect": {
+      "count": false,
+      "mentions": [
+        "location|pin"
+      ],
+      "search": null
+    }
   }
 ]

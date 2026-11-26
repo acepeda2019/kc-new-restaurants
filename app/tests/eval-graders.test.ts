@@ -61,6 +61,12 @@ describe("grade", () => {
     expect(grade(c, searchedKirkland()).searched).toBe(false);
   });
 
+  it("doesn't grade searching when either is fine, but still checks the count after a search", () => {
+    const c: EvalCase = { id: "near", question: "What's new near me?", expect: { search: null } };
+    expect(grade(c, { searches: [], summary: "Tap the location pin first.", rawPicks: [] })).toMatchObject({ searched: null, count: null });
+    expect(grade(c, searchedKirkland()).count).toBe(true);
+  });
+
   it("flags 'opened on', Markdown and long blurbs anywhere in the answer", () => {
     const g = grade(
       KIRKLAND,
@@ -70,6 +76,13 @@ describe("grade", () => {
       }),
     );
     expect(g).toMatchObject({ no_opened_on: false, no_markdown: false, blurb_under_15_words: false });
+  });
+
+  it("allows 'opened on' a street, not on a date", () => {
+    const blurb = (b: string) => grade(KIRKLAND, searchedKirkland({ rawPicks: [{ id: "A", blurb: b }] })).no_opened_on;
+    expect(blurb("Fresh bagel spot that just opened on Western Avenue.")).toBe(true);
+    expect(blurb("It opened on November 3.")).toBe(false);
+    expect(blurb("It opened on 11/3.")).toBe(false);
   });
 
   it("applies a case's own mentions and never patterns", () => {
