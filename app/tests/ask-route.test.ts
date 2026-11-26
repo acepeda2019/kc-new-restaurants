@@ -4,7 +4,11 @@ import { RateLimitError } from "@anthropic-ai/sdk";
 import { signSession } from "@/lib/auth";
 
 // No real Claude or Redis call can happen: both clients are fakes.
-const fakes = vi.hoisted(() => ({ create: vi.fn(), checkAndCount: vi.fn(), clientOptions: [] as unknown[] }));
+const fakes = vi.hoisted(() => ({
+  create: vi.fn(), checkAndCount: vi.fn(), clientOptions: [] as unknown[],
+  // The question log's writes (SAN-68); set rpushFails to make Redis throw.
+  pushed: [] as string[], rpushFails: false,
+}));
 vi.mock("@anthropic-ai/sdk", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@anthropic-ai/sdk")>()),
   default: class {
@@ -14,7 +18,16 @@ vi.mock("@anthropic-ai/sdk", async (importOriginal) => ({
     }
   },
 }));
-vi.mock("@upstash/redis", () => ({ Redis: class {} }));
+vi.mock("@upstash/redis", () => ({
+  Redis: class {
+    async rpush(_key: string, value: string) {
+      if (fakes.rpushFails) throw new Error("redis down");
+      fakes.pushed.push(value);
+    }
+    async expire() {}
+    async hincrby() {}
+  },
+}));
 vi.mock("@/lib/caps", () => ({ checkAndCount: fakes.checkAndCount, pacificDate: () => "2026-11-20" }));
 
 import { POST } from "@/app/api/ask/route";
@@ -53,6 +66,8 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.clearAllMocks();
   fakes.clientOptions.length = 0;
+  fakes.pushed.length = 0;
+  fakes.rpushFails = false;
 });
 
 describe("POST /api/ask", () => {
@@ -74,6 +89,32 @@ describe("POST /api/ask", () => {
     expect(label).toBe("ask answered");
     expect(line).toMatchObject({ calls: 1, picks_shown: 0, picks_not_searched: 1 });
     expect(JSON.stringify(line)).not.toMatch(/secret|pizza|47\.6|122\.3/i);
+  });
+
+  it("keeps the question, visitor and a rounded location in the log (SAN-68)", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    await ask({ question: "Any new pho?", here: { lat: 47.61234, lon: -122.34567 } });
+    expect(fakes.pushed).toHaveLength(1);
+    expect(JSON.parse(fakes.pushed[0])).toMatchObject({
+      visitor: "visitor-1", question: "Any new pho?", near: { lat: 47.61, lon: -122.35 },
+      outcome: "answered", summary: "Try KOSHARI.", calls: 1,
+    });
+  });
+
+  it("still answers when the log can't be written", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    fakes.rpushFails = true;
+    const res = await ask({ question: "hi" });
+    expect(res.status).toBe(200);
+    expect(error).toHaveBeenCalledWith("ask log failed", { error: "Error" });
+  });
+
+  it("logs a failed question too, with no answer", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    fakes.create.mockRejectedValueOnce(new Error("boom"));
+    expect((await ask({ question: "hi" })).status).toBe(503);
+    expect(JSON.parse(fakes.pushed[0])).toMatchObject({ question: "hi", outcome: "failed", summary: null, calls: 0, near: null });
   });
 
   it("returns 401 without a valid session", async () => {

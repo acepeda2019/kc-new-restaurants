@@ -68,10 +68,14 @@ export function AboutButton({ questionsPerDay }: Props) {
 
           <h3>How to use it</h3>
           <ul>
-            <li>Tap the pin in the question bar to see what&apos;s near you. Your location stays on your device.</li>
+            <li>Tap the pin in the question bar to see what&apos;s near you.</li>
             <li>Tap a name or a pin to show it on the map; the corner button resets the view.</li>
             <li>Mark places &ldquo;Tried&rdquo; to skip them in answers. That&apos;s stored in your browser only.</li>
             <li>You get {questionsPerDay} questions a day.</li>
+            <li>
+              Questions you ask are saved for 90 days, with your approximate location (about 1 km) if
+              you shared it, so the app can be improved. Nothing else you do here is saved.
+            </li>
           </ul>
 
           <p>
