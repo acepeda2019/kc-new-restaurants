@@ -315,7 +315,9 @@ near me). Named places with a pin are buttons that fly the map there.
   - order in `app/app/api/ask/route.ts`: session → body (question ≤ 500 chars) → visitor
     cookie → API key present → caps (visitor counter, then global; refused questions count)
     → Claude (no SDK retries; one question is one to three calls). A missing API key returns 503 without counting; Redis
-    missing or down returns 429. Questions and locations are never logged.
+    missing or down returns 429. Questions and locations are never logged. Each answer logs one
+    line (`ask answered`): calls, tokens, latency, cost, stop reason, each search's filter names
+    and result count, and picks shown or dropped (SAN-68).
 - **Question bar** (`app/components/AskBar.tsx`, `app/lib/askClient.ts`): a text box (500
   characters max) that grows with the question up to six lines, so it stays readable on a
   phone (Enter sends; a × appears with text and clears it, keeping the last answer), and up to four chips from the Today brief. The browser sends the question with the visitor's

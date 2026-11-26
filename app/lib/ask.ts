@@ -158,6 +158,54 @@ export const ANSWER_WITH_SEARCH_SCHEMA = {
 
 export type RawAnswer = { summary: string; picks: { id: string; blurb: string }[] };
 
+/** What answering one question took (SAN-68): counts only, never the question or places. */
+export type AnswerStats = {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  latencyMs: number[];
+  stopReason: string | null;
+  /** Each search Claude asked for: its filters and how many open and Opening soon places matched. */
+  searches: { filters: unknown; count: number; openingSoonCount: number }[];
+  /** Picks Claude wrote whose id no search returned (dropped before any card is built). */
+  picksNotSearched: number;
+};
+
+/** The parsed answer plus what it took to get. */
+export type Answered = RawAnswer & { stats: AnswerStats };
+
+/** USD per million tokens for MODEL (claude-api skill pricing table). */
+export const PRICE_PER_MTOK = { input: 0.1, output: 0.5 };
+
+/** Names of the filters a search actually set ("city", "first_inspected_since"), never their values. */
+export function filtersUsed(filters: unknown): string[] {
+  if (!filters || typeof filters !== "object") return [];
+  return Object.entries(filters).filter(([, v]) => v !== null && v !== false && v !== "").map(([k]) => k);
+}
+
+/**
+ * The one log line for an answered question (SAN-68): counts, timings and cost only. It never
+ * holds the question, the location, the visitor or any filter value.
+ */
+export function statsLine(stats: AnswerStats, picks: { written: number; shown: number }) {
+  const cost = (stats.inputTokens * PRICE_PER_MTOK.input + stats.outputTokens * PRICE_PER_MTOK.output) / 1e6;
+  return {
+    calls: stats.calls,
+    input_tokens: stats.inputTokens,
+    output_tokens: stats.outputTokens,
+    cache_read_tokens: stats.cacheReadTokens,
+    latency_ms: stats.latencyMs,
+    total_ms: stats.latencyMs.reduce((a, b) => a + b, 0),
+    stop_reason: stats.stopReason,
+    searches: stats.searches.map((s) => ({ filters: filtersUsed(s.filters), count: s.count, opening_soon_count: s.openingSoonCount })),
+    picks_shown: picks.shown,
+    picks_not_searched: stats.picksNotSearched,
+    picks_not_ours: picks.written - picks.shown,
+    cost_usd: Math.round(cost * 1e6) / 1e6,
+  };
+}
+
 /** One answer card: a real place from our data, never from Claude's text. */
 export type AnswerPick = {
   id: string;
@@ -167,13 +215,17 @@ export type AnswerPick = {
   blurb: string;
 };
 
-/** The place ids in a search result's JSON (places and Opening soon); none if it isn't readable. */
-function searchedIds(resultJson: string): string[] {
+/** A search result's place ids (places and Opening soon) and counts; empty if it isn't readable. */
+function readResult(resultJson: string): { ids: string[]; count: number; openingSoonCount: number } {
   try {
-    const r = JSON.parse(resultJson) as { places?: { id?: unknown }[]; opening_soon?: { id?: unknown }[] };
-    return [...(r.places ?? []), ...(r.opening_soon ?? [])].map((p) => p.id).filter((id): id is string => typeof id === "string");
+    const r = JSON.parse(resultJson) as {
+      places?: { id?: unknown }[]; opening_soon?: { id?: unknown }[]; count?: unknown; opening_soon_count?: unknown;
+    };
+    const ids = [...(r.places ?? []), ...(r.opening_soon ?? [])].map((p) => p.id).filter((id): id is string => typeof id === "string");
+    const num = (v: unknown) => (typeof v === "number" ? v : 0);
+    return { ids, count: num(r.count), openingSoonCount: num(r.opening_soon_count) };
   } catch {
-    return [];
+    return { ids: [], count: 0, openingSoonCount: 0 };
   }
 }
 
@@ -195,31 +247,44 @@ export async function answer(
   client: AskClient,
   params: Anthropic.MessageCreateParamsNonStreaming,
   runSearch: (filters: unknown) => string = () => JSON.stringify({ error: "search unavailable" }),
-): Promise<RawAnswer> {
+): Promise<Answered> {
+  const stats: AnswerStats = {
+    calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, latencyMs: [], stopReason: null, searches: [], picksNotSearched: 0,
+  };
+  const done = (raw: RawAnswer): Answered => ({ ...raw, stats });
   let messages = [...params.messages];
   // Ids the searches returned; once a search has run, cards may only come from these (SAN-62).
   let searched: Set<string> | null = null;
   for (let round = 0; ; round++) {
     const last = round >= MAX_TOOL_ROUNDS;
     const schema = last ? ANSWER_SCHEMA : ANSWER_WITH_SEARCH_SCHEMA;
+    const started = Date.now();
     const response = await client.messages.create({
       ...params,
       messages,
       output_config: { effort: "low", format: { type: "json_schema", schema } },
     });
-    if (response.stop_reason === "refusal") return { summary: REFUSAL_ANSWER, picks: [] };
-    if (response.stop_reason === "max_tokens") return { summary: UNREADABLE_ANSWER, picks: [] };
+    stats.calls += 1;
+    stats.latencyMs.push(Date.now() - started);
+    stats.inputTokens += response.usage?.input_tokens ?? 0;
+    stats.outputTokens += response.usage?.output_tokens ?? 0;
+    stats.cacheReadTokens += response.usage?.cache_read_input_tokens ?? 0;
+    stats.stopReason = response.stop_reason;
+    if (response.stop_reason === "refusal") return done({ summary: REFUSAL_ANSWER, picks: [] });
+    if (response.stop_reason === "max_tokens") return done({ summary: UNREADABLE_ANSWER, picks: [] });
     const text = response.content.map((block) => (block.type === "text" ? block.text : "")).join("");
     let parsed: Partial<RawAnswer> & { search?: unknown };
     try {
       parsed = JSON.parse(text);
     } catch {
-      return { summary: UNREADABLE_ANSWER, picks: [] };
+      return done({ summary: UNREADABLE_ANSWER, picks: [] });
     }
     if (parsed.search && !last) {
       // Escaping "<" keeps a place's name from closing the block early.
       const raw = runSearch(parsed.search);
-      searched = new Set([...(searched ?? []), ...searchedIds(raw)]);
+      const found = readResult(raw);
+      stats.searches.push({ filters: parsed.search, count: found.count, openingSoonCount: found.openingSoonCount });
+      searched = new Set([...(searched ?? []), ...found.ids]);
       const results = raw.replace(/</g, "\\u003c");
       messages = [
         ...messages,
@@ -238,7 +303,8 @@ export async function answer(
     // Enforced here, not left to the prompt (SAN-62): a card can only show a place a search
     // returned, so no search means no cards (e.g. never a sushi place on a pizza answer).
     const allowed = searched === null ? [] : picks.filter((p) => searched!.has(p.id));
-    return { summary: summary || (allowed.length ? "" : REFUSAL_ANSWER), picks: allowed };
+    stats.picksNotSearched = picks.length - allowed.length;
+    return done({ summary: summary || (allowed.length ? "" : REFUSAL_ANSWER), picks: allowed });
   }
 }
 

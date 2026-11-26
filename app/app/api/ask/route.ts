@@ -1,10 +1,11 @@
 // The question bar (ARCHITECTURE.md §7): the only Claude call at request time. Order matters
 // (CLAUDE.md guardrail 1): session → input checks → caps (fail closed) → Claude. Logs carry
-// status and error class only, never the question or location.
+// counts, timings and cost (an answer) or status and error class (a failure), never the
+// question or location.
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic, { APIError, AuthenticationError, BadRequestError, RateLimitError } from "@anthropic-ai/sdk";
 import { Redis } from "@upstash/redis";
-import { answer, buildRequest, resolvePicks, runFindOpenings, SAMPLE_NOTE } from "@/lib/ask";
+import { answer, buildRequest, resolvePicks, runFindOpenings, SAMPLE_NOTE, statsLine } from "@/lib/ask";
 import { SESSION_COOKIE, VISITOR_COOKIE, verifySession } from "@/lib/auth";
 import { checkAndCount, pacificDate } from "@/lib/caps";
 import { getOpeningSoon, getOpenings, isSampleData } from "@/lib/data";
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
     const search = { openings: getOpenings(), openingSoon: getOpeningSoon(), here: body.here, tried: body.tried };
     const raw = await answer(client, params, (input) => runFindOpenings(input, search));
     const picks = resolvePicks(raw.picks, getOpenings(), getOpeningSoon());
+    console.info("ask answered", statsLine(raw.stats, { written: raw.picks.length, shown: picks.length }));
     // Guardrail 5: an answer built from the labelled sample says so.
     const summary = isSampleData() ? `${raw.summary}\n\n${SAMPLE_NOTE}`.trim() : raw.summary;
     return NextResponse.json({ answer: summary, picks, left });
