@@ -49,6 +49,18 @@ export function answerForReview(c: EvalCase, trace: Trace, data: Pick<AppData, "
   return { case: c.id, question: c.question, summary: trace.summary, picks };
 }
 
+/** One answer as markdown: the question, the summary and each pick's card with its blurb. */
+export function renderAnswer(a: AnswerForReview): string {
+  const out = [`**Question:** ${a.question}`, "", `**Summary:** ${a.summary}`, ""];
+  if (a.picks.length === 0) out.push("_No picks._");
+  a.picks.forEach((p, n) => {
+    const where = p.where ? `, ${p.where}` : "";
+    const facts = p.facts.length ? ` · ${p.facts.map((f) => `[${f}]`).join(" ")}` : "";
+    out.push(`${n + 1}. **${p.name}**${where}${facts}`, `   > ${p.blurb}`);
+  });
+  return out.join("\n");
+}
+
 /** The markdown sheet: one section per answer, a box per rubric item that applies. */
 export function scoreSheet(answers: AnswerForReview[], source: string): string {
   const out = [
@@ -60,14 +72,7 @@ export function scoreSheet(answers: AnswerForReview[], source: string): string {
     "",
   ];
   answers.forEach((a, i) => {
-    out.push(`## ${i + 1}. ${a.case}`, "", `**Question:** ${a.question}`, "", `**Summary:** ${a.summary}`, "");
-    if (a.picks.length === 0) out.push("_No picks._", "");
-    a.picks.forEach((p, n) => {
-      const where = p.where ? `, ${p.where}` : "";
-      const facts = p.facts.length ? ` · ${p.facts.map((f) => `[${f}]`).join(" ")}` : "";
-      out.push(`${n + 1}. **${p.name}**${where}${facts}`, `   > ${p.blurb}`);
-    });
-    if (a.picks.length) out.push("");
+    out.push(`## ${i + 1}. ${a.case}`, "", renderAnswer(a), "");
     for (const r of RUBRIC) if (a.picks.length || r.key === "answers") out.push(`- [ ] ${r.key}: ${r.question}`);
     out.push("", "Note:", "");
   });

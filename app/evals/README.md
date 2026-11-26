@@ -25,3 +25,8 @@ EVAL_CASES=kirkland-month EVAL_RUNS=1 ANTHROPIC_API_KEY=… npx vitest run --con
   three yes/no boxes per answer (`RUBRIC` in `judge/sheet.ts`). Writing a new sheet is free
   and never overwrites one that exists:
   `SCORE_SHEET=evals/runs/<file>.jsonl npx vitest run --config evals/vitest.config.ts sheet`.
+  The judge (`judge/judge.ts`, Haiku 5.5) sees each answer exactly as the sheet shows it. It is
+  trusted only while it agrees with the owner on at least 80% of answers for every item; if
+  not, fix the rubric, never the scores. **Spends money** (about half a cent):
+  `JUDGE=1 ANTHROPIC_API_KEY=… npx vitest run --config evals/vitest.config.ts judge` prints
+  agreement and each disagreement, and writes `judge/runs/<date>.jsonl`.
