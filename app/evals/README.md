@@ -20,3 +20,8 @@ EVAL_CASES=kirkland-month EVAL_RUNS=1 ANTHROPIC_API_KEY=… npx vitest run --con
   only here, never in the app's data. `tests/eval-cases.test.ts` checks (free)
   that every case's filters find places in the snapshot.
 - `runs/<date>.jsonl`: every run's searches, summary, picks, grades and tokens.
+- `judge/` (SAN-69): the owner's hand scores, which a model judge must agree with before it
+  is trusted. `judge/score-sheet.md` shows run 0 of a run file the way the cards look, with
+  three yes/no boxes per answer (`RUBRIC` in `judge/sheet.ts`). Writing a new sheet is free
+  and never overwrites one that exists:
+  `SCORE_SHEET=evals/runs/<file>.jsonl npx vitest run --config evals/vitest.config.ts sheet`.
