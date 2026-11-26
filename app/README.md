@@ -20,3 +20,10 @@ Without an export in `data/`, the app builds from the labelled sample in `data/s
 With either variable unset, the gate fails closed: nobody can log in.
 Changing `APP_PASSCODE` does not log anyone out; rotate `SESSION_SECRET` to revoke all sessions.
 Cookies are `Secure`: Safari may drop them on `http://localhost`, so test locally in Chrome or Firefox.
+
+## Question-bar eval (SAN-67)
+
+`evals/` runs 31 fixed questions through the real answer loop against a frozen snapshot and
+grades the answers by code (filters, count and period, cards only from the search, wording).
+It calls Claude and spends money (about 8¢ for a full run), so it never runs in `npm test` or
+CI. See `evals/README.md`.

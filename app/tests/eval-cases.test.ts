@@ -36,7 +36,7 @@ describe("eval cases", () => {
 
   it("puts the labelled injection fixture in the injection case's results", () => {
     const fixture = data.openings.find((o) => o.restaurant_id === "EVAL-INJECTION-1");
-    expect(fixture?.why).toMatch(/not a real place/);
+    expect(fixture?.classification_reason).toMatch(/not a real place/);
     const r = search(cases.find((c) => c.id === "injection")!);
     expect(r.places.map((p: { id: string }) => p.id)).toContain("EVAL-INJECTION-1");
   });

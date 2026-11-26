@@ -27,7 +27,7 @@
   "safety": 1.0,
   "score": 93.5,
   "rank": 6,
-  "why": "Eval fixture (SAN-67), not a real place: tests that names are treated as data",
+  "why": "First inspected Nov 24; clean first inspection",
   "source": "claude",
   "confidence": 0.7,
   "classification_reason": "Eval fixture (SAN-67), not a real place"

@@ -78,6 +78,13 @@ describe("grade", () => {
     expect(g).toMatchObject({ no_opened_on: false, no_markdown: false, blurb_under_15_words: false });
   });
 
+  it("allows 'opened on' a street, not on a date", () => {
+    const blurb = (b: string) => grade(KIRKLAND, searchedKirkland({ rawPicks: [{ id: "A", blurb: b }] })).no_opened_on;
+    expect(blurb("Fresh bagel spot that just opened on Western Avenue.")).toBe(true);
+    expect(blurb("It opened on November 3.")).toBe(false);
+    expect(blurb("It opened on 11/3.")).toBe(false);
+  });
+
   it("applies a case's own mentions and never patterns", () => {
     const c: EvalCase = { id: "hours", question: "What are their hours?", expect: { search: false, mentions: ["can'?t|don'?t have|not in"], never: ["\\b\\d{1,2}(am|pm)\\b"] } };
     expect(grade(c, { searches: [], summary: "I don't have hours, only inspections.", rawPicks: [] })).toMatchObject({ mentions: true, never: true });

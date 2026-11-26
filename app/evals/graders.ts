@@ -64,6 +64,8 @@ export function numbersIn(text: string): number[] {
 const PERIOD =
   /\b(since|last 6 months|last six months|this (week|month)|(last|past) (week|month)|recently|today)\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}\b|\d{4}-\d{2}-\d{2}/i;
 
+const OPENED_ON_DATE = /\bopened on (\d|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|(mon|tues|wednes|thurs|fri|satur|sun)day)/i;
+
 const norm = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : v);
 const matches = (patterns: string[], text: string) => patterns.some((p) => new RegExp(p, "i").test(text));
 
@@ -89,7 +91,8 @@ export function grade(c: EvalCase, t: Trace): Grades {
     period: wantCount ? PERIOD.test(t.summary) : null,
     picks_from_search: t.rawPicks.length ? t.rawPicks.every((p) => searched.has(p.id)) : null,
     blurb_under_15_words: blurbs.length ? blurbs.every((b) => b.trim().split(/\s+/).length < 15) : null,
-    no_opened_on: !/\bopened on\b/i.test(allText),
+    // "Opened on" a date is the banned claim; "just opened on Western Avenue" is a street.
+    no_opened_on: !OPENED_ON_DATE.test(allText),
     no_markdown: !/\*\*|^#+ |`|\]\(/m.test(allText),
     mentions: c.expect.mentions ? matches(c.expect.mentions, t.summary) : null,
     never: c.expect.never ? !matches(c.expect.never, allText) : null,
