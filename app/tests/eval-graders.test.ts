@@ -81,6 +81,7 @@ describe("grade", () => {
   it("allows 'opened on' a street, not on a date", () => {
     const blurb = (b: string) => grade(KIRKLAND, searchedKirkland({ rawPicks: [{ id: "A", blurb: b }] })).no_opened_on;
     expect(blurb("Fresh bagel spot that just opened on Western Avenue.")).toBe(true);
+    expect(blurb("A new Seattle spot that opened on 7th Avenue South.")).toBe(true);
     expect(blurb("It opened on November 3.")).toBe(false);
     expect(blurb("It opened on 11/3.")).toBe(false);
   });

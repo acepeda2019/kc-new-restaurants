@@ -259,6 +259,7 @@ describe("the search loop (SAN-58)", () => {
     expect(system).toContain('"last month", "the past month" and "recently" mean since 2026-10-21');
     expect(system).toContain('"last week"');
     expect(system).toContain("always give the count and the period");
+    expect(system).toContain("This holds for every search, including a named place");
   });
 
   it("answers in one call when no search is needed", async () => {

@@ -64,7 +64,9 @@ export function numbersIn(text: string): number[] {
 const PERIOD =
   /\b(since|last 6 months|last six months|this (week|month)|(last|past) (week|month)|recently|today)\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}\b|\d{4}-\d{2}-\d{2}/i;
 
-const OPENED_ON_DATE = /\bopened on (\d|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|(mon|tues|wednes|thurs|fri|satur|sun)day)/i;
+// A month, a weekday or 11/3; not a street ("opened on 7th Avenue South").
+const OPENED_ON_DATE =
+  /\bopened on ((jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|(mon|tues|wednes|thurs|fri|satur|sun)day|\d{1,2}\/\d{1,2}\b)/i;
 
 const norm = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : v);
 const matches = (patterns: string[], text: string) => patterns.some((p) => new RegExp(p, "i").test(text));
