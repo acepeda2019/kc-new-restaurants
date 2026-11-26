@@ -66,6 +66,16 @@ describe("POST /api/ask", () => {
     expect(fakes.checkAndCount).toHaveBeenCalledWith(expect.anything(), "visitor-1", expect.any(Date));
   });
 
+  it("logs one stats line per answer, without the question or location (SAN-68)", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    await ask({ question: "Secret pizza question", here: { lat: 47.6123, lon: -122.3456 } });
+    expect(info).toHaveBeenCalledOnce();
+    const [label, line] = info.mock.calls[0];
+    expect(label).toBe("ask answered");
+    expect(line).toMatchObject({ calls: 1, picks_shown: 0, picks_not_searched: 1 });
+    expect(JSON.stringify(line)).not.toMatch(/secret|pizza|47\.6|122\.3/i);
+  });
+
   it("returns 401 without a valid session", async () => {
     const res = await ask({ question: "hi" }, { session: false });
     expect(res.status).toBe(401);

@@ -3,7 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Opening, OpeningSoon } from "@/lib/data";
 import {
   ANSWER_SCHEMA, ANSWER_WITH_SEARCH_SCHEMA, answer, buildRequest, MAX_PICKS, MAX_TOOL_ROUNDS, REFUSAL_ANSWER,
-  resolvePicks, runFindOpenings, UNREADABLE_ANSWER, type AskClient,
+  resolvePicks, runFindOpenings, statsLine, UNREADABLE_ANSWER, type AskClient,
 } from "@/lib/ask";
 
 const SEATTLE = { lat: 47.6062, lon: -122.3321 };
@@ -115,20 +115,20 @@ describe("answer", () => {
 
   it("parses the structured reply; without a search it shows no cards", async () => {
     const client = json({ summary: "I answer questions about new places.", picks: [{ id: "C1", blurb: "x" }], search: null });
-    expect(await answer(client, params)).toEqual({ summary: "I answer questions about new places.", picks: [] });
+    expect(await answer(client, params)).toMatchObject({ summary: "I answer questions about new places.", picks: [] });
     expect(client.create).toHaveBeenCalledWith(params);
   });
 
   it("gives a friendly line on a refusal", async () => {
     const client = fakeClient({ stop_reason: "refusal", content: [] });
-    expect(await answer(client, params)).toEqual({ summary: REFUSAL_ANSWER, picks: [] });
+    expect(await answer(client, params)).toMatchObject({ summary: REFUSAL_ANSWER, picks: [] });
   });
 
   it("falls back when the reply is cut off or isn't the expected JSON", async () => {
     const cut = fakeClient({ stop_reason: "max_tokens", content: [{ type: "text", text: '{"summary":"Try', citations: null }] });
-    expect(await answer(cut, params)).toEqual({ summary: UNREADABLE_ANSWER, picks: [] });
+    expect(await answer(cut, params)).toMatchObject({ summary: UNREADABLE_ANSWER, picks: [] });
     const prose = fakeClient({ content: [{ type: "text", text: "Try Pho Real.", citations: null }] });
-    expect(await answer(prose, params)).toEqual({ summary: UNREADABLE_ANSWER, picks: [] });
+    expect(await answer(prose, params)).toMatchObject({ summary: UNREADABLE_ANSWER, picks: [] });
   });
 
   it("drops malformed picks", async () => {
@@ -140,6 +140,56 @@ describe("answer", () => {
       });
     const runSearch = () => JSON.stringify({ places: [{ id: "C1" }, { id: "C2" }] });
     expect((await answer({ messages: { create } }, params, runSearch)).picks).toEqual([{ id: "C2", blurb: "ok" }]);
+  });
+});
+
+describe("answer stats (SAN-68)", () => {
+  const params = buildRequest("hi", {});
+  const reply = (body: object, usage: object) => ({
+    stop_reason: "end_turn", usage, content: [{ type: "text", text: JSON.stringify(body), citations: null }],
+  });
+
+  it("sums tokens over every call and records each search and the picks it had to drop", async () => {
+    const create = vi.fn()
+      .mockResolvedValueOnce(reply({ summary: "", picks: [], search: { ...ANY, city: "Kirkland" } }, { input_tokens: 1000, output_tokens: 40 }))
+      .mockResolvedValueOnce(reply(
+        { summary: "2 in Kirkland in the last 6 months.", picks: [{ id: "C1", blurb: "a" }, { id: "ZZ", blurb: "b" }] },
+        { input_tokens: 3000, output_tokens: 90, cache_read_input_tokens: 500 },
+      ));
+    const runSearch = () => JSON.stringify({ count: 2, opening_soon_count: 0, places: [{ id: "C1" }, { id: "C2" }], opening_soon: [] });
+    const { stats } = await answer({ messages: { create } }, params, runSearch);
+    expect(stats).toMatchObject({
+      calls: 2, inputTokens: 4000, outputTokens: 130, cacheReadTokens: 500, stopReason: "end_turn",
+      searches: [{ filters: { ...ANY, city: "Kirkland" }, count: 2, openingSoonCount: 0 }],
+      picksNotSearched: 1,
+    });
+    expect(stats.latencyMs).toHaveLength(2);
+  });
+
+  it("still reports the call when Claude refuses, and tolerates a reply without usage", async () => {
+    const { stats } = await answer(fakeClient({ stop_reason: "refusal", content: [] }), params);
+    expect(stats).toMatchObject({ calls: 1, inputTokens: 0, stopReason: "refusal", searches: [] });
+  });
+});
+
+describe("statsLine (SAN-68)", () => {
+  const stats = {
+    calls: 2, inputTokens: 6000, outputTokens: 200, cacheReadTokens: 0, latencyMs: [800, 1200], stopReason: "end_turn",
+    searches: [{ filters: { ...ANY, name: "nori sushi", city: "Kirkland" }, count: 2, openingSoonCount: 0 }],
+    picksNotSearched: 1,
+  };
+
+  it("logs counts, timings and cost", () => {
+    expect(statsLine(stats, { written: 3, shown: 1 })).toEqual({
+      calls: 2, input_tokens: 6000, output_tokens: 200, cache_read_tokens: 0, latency_ms: [800, 1200], total_ms: 2000,
+      stop_reason: "end_turn", searches: [{ filters: ["name", "city"], count: 2, opening_soon_count: 0 }],
+      picks_shown: 1, picks_not_searched: 1, picks_not_ours: 2, cost_usd: 0.0007,
+    });
+  });
+
+  it("never carries a filter value", () => {
+    const line = JSON.stringify(statsLine(stats, { written: 0, shown: 0 }));
+    expect(line).not.toMatch(/nori|kirkland/i);
   });
 });
 

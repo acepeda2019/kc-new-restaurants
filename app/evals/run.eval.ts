@@ -13,12 +13,11 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { it } from "vitest";
-import { answer, buildRequest, MODEL, runFindOpenings, type AskClient } from "@/lib/ask";
+import { answer, buildRequest, MODEL, PRICE_PER_MTOK, runFindOpenings, type AskClient } from "@/lib/ask";
 import { loadData } from "@/lib/data";
 import { CHECKS, grade, passRates, type EvalCase, type Grades, type Trace } from "@/evals/graders";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
-const PRICE_PER_MTOK = { input: 0.1, output: 0.5 }; // USD, claude-api skill pricing table
 
 type Run = { case: string; run: number; trace: Trace; grades: Grades; calls: number; input: number; output: number };
 
