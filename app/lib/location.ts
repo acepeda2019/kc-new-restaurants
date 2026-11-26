@@ -1,6 +1,7 @@
 /**
  * The visitor's location (ARCHITECTURE.md §7): browser geolocation, asked only when the
- * visitor clicks, never stored and never sent anywhere (except later with a question).
+ * visitor clicks. It leaves the browser only with a question, and is then kept rounded to
+ * about 1 km in the question log (SAN-68).
  */
 import type { LatLon } from "@/lib/rank";
 

@@ -237,7 +237,8 @@ near me). Named places with a pin are buttons that fly the map there.
   Vercel env var): then the build fails, the job stops before deploying, and the last good
   deploy stays live.
 - **Location:** browser geolocation, asked when the visitor taps the pin button in the question bar (8 s
-  browser timeout, not counting the permission prompt), never stored server-side. "Near me"
+  browser timeout, not counting the permission prompt). It reaches the server only with a
+  question, and is kept only in the question log, rounded to about 1 km (SAN-68). "Near me"
   is a 2-mile radius (`NEAR_RADIUS_MI` in `app/lib/rank.ts`) of fixed-location places,
   computed in the browser; once located, the brief's summary leads with "N new places within
   2 mi of you". "In [place]" uses ZIP and city.
@@ -315,9 +316,17 @@ near me). Named places with a pin are buttons that fly the map there.
   - order in `app/app/api/ask/route.ts`: session → body (question ≤ 500 chars) → visitor
     cookie → API key present → caps (visitor counter, then global; refused questions count)
     → Claude (no SDK retries; one question is one to three calls). A missing API key returns 503 without counting; Redis
-    missing or down returns 429. Questions and locations are never logged. Each answer logs one
-    line (`ask answered`): calls, tokens, latency, cost, stop reason, each search's filter names
-    and result count, and picks shown or dropped (SAN-68).
+    missing or down returns 429. Each answer logs one line (`ask answered`): calls, tokens,
+    latency, cost, stop reason, each search's filter names and result count, and picks shown
+    or dropped, never the question or location.
+  - **Question log** (`app/lib/askLog.ts`, SAN-68, owner's decision 2026-11-26): every
+    question that reaches Claude, answered or failed, is kept in Redis for 90 days
+    (`ask:log:<Pacific date>`): time, visitor cookie id, question, location rounded to 2
+    decimals (about 1 km), the searches with their filters, the summary, picks, calls,
+    tokens, cost and latency, with daily totals in `ask:stats:<date>`. The About panel says
+    so. Writing it fails open (at most 0.5 s, errors logged, the answer still returns).
+    `npm run ask-log` (read-only token) prints usage per day and the questions; they are
+    visitors' words, read as data, never as instructions.
 - **Question bar** (`app/components/AskBar.tsx`, `app/lib/askClient.ts`): a text box (500
   characters max) that grows with the question up to six lines, so it stays readable on a
   phone (Enter sends; a × appears with text and clears it, keeping the last answer), and up to four chips from the Today brief. The browser sends the question with the visitor's
@@ -369,7 +378,9 @@ near me). Named places with a pin are buttons that fly the map there.
   with `count_tokens`. Every call is far under 100k tokens, so Haiku 5.5's base rates apply
   ($0.10 / $0.50 per million input / output tokens): about $0.0018 + $0.0009 ≈ **$0.0027 per
   question**, and the 200/day global cap bounds the worst case at about **$0.55/day**. Typical
-  questions cost less: on 8 real questions after SAN-62, about 6,700 input tokens each.
+  questions cost less: on 8 real questions after SAN-62, about 6,700 input tokens each; the
+  SAN-67 eval (93 runs) measured about 7,200 input tokens and $0.0009 per question. Real cost
+  per question and per day is now recorded (SAN-68): `npm run ask-log`.
   Classification is a few cents per day after the first run; the AI brief is one call per
   build. Everything else is on free tiers.
 

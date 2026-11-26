@@ -9,6 +9,7 @@ import { answer, buildRequest, resolvePicks, runFindOpenings, SAMPLE_NOTE, stats
 import { SESSION_COOKIE, VISITOR_COOKIE, verifySession } from "@/lib/auth";
 import { checkAndCount, pacificDate } from "@/lib/caps";
 import { getOpeningSoon, getOpenings, isSampleData } from "@/lib/data";
+import { askRecord, recordAsk, type AskRecord, type LogRedis } from "@/lib/askLog";
 import type { LatLon } from "@/lib/rank";
 
 export const runtime = "nodejs";
@@ -47,6 +48,15 @@ function logFailure(err: unknown): void {
   console.error("ask failed", { status: err instanceof APIError ? err.status : undefined, error: errorClass(err) });
 }
 
+/** Keeps the question in the log (SAN-68). Fails open: at most half a second, never throws. */
+async function keep(redis: LogRedis, record: AskRecord): Promise<void> {
+  try {
+    await Promise.race([recordAsk(redis, record), new Promise((resolve) => setTimeout(resolve, 500))]);
+  } catch (err) {
+    console.error("ask log failed", { error: errorClass(err) });
+  }
+}
+
 export async function POST(request: NextRequest) {
   // 1. Session: checked here too, not only in proxy.ts.
   const session = request.cookies.get(SESSION_COOKIE)?.value;
@@ -72,8 +82,9 @@ export async function POST(request: NextRequest) {
   const token = process.env.KV_REST_API_TOKEN;
   if (!url || !token) return reply(429, OUT_OF_QUESTIONS);
   let left: number;
+  let redis: Redis;
   try {
-    const redis = new Redis({ url, token, retry: { retries: 1 } });
+    redis = new Redis({ url, token, retry: { retries: 1 } });
     const caps = await checkAndCount(redis, visitor, new Date());
     if (!caps.ok) return reply(429, OUT_OF_QUESTIONS);
     left = caps.left;
@@ -91,11 +102,18 @@ export async function POST(request: NextRequest) {
     const raw = await answer(client, params, (input) => runFindOpenings(input, search));
     const picks = resolvePicks(raw.picks, getOpenings(), getOpeningSoon());
     console.info("ask answered", statsLine(raw.stats, { written: raw.picks.length, shown: picks.length }));
+    await keep(redis, askRecord({
+      now: new Date(), visitor, question: body.question, here: body.here, stats: raw.stats,
+      summary: raw.summary, picks: picks.map((p) => p.name),
+    }));
     // Guardrail 5: an answer built from the labelled sample says so.
     const summary = isSampleData() ? `${raw.summary}\n\n${SAMPLE_NOTE}`.trim() : raw.summary;
     return NextResponse.json({ answer: summary, picks, left });
   } catch (err) {
     logFailure(err);
+    await keep(redis, askRecord({
+      now: new Date(), visitor, question: body.question, here: body.here, stats: null, summary: null, picks: [],
+    }));
     return reply(503, UNAVAILABLE);
   }
 }
