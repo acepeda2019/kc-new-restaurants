@@ -2,4 +2,8 @@
 import { defineConfig } from "vitest/config";
 import base from "../vitest.config";
 
-export default defineConfig({ ...base, test: { ...base.test, include: ["ops/**/*.run.ts"] } });
+export default defineConfig({
+  ...base,
+  // The default reporter drops console output; the report is console output.
+  test: { ...base.test, include: ["ops/**/*.run.ts"], reporters: ["verbose"] },
+});
